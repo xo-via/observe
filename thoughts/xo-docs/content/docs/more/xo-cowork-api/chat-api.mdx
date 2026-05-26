@@ -1,0 +1,389 @@
+---
+title: Chat API
+icon: Workflow
+description: Prompt, stream, and abort. The full SSE wire format and reconnect semantics.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+The chat surface is a two-step, stream-oriented flow. Every chat turn is exactly one `POST /api/chat/prompt` followed by one `GET /api/chat/stream/{stream_id}` (Server-Sent Events).
+
+<Callout type="info">
+Use `/api/chat/*` for everything new. The legacy `/ask_question` and `/ask_question_streaming` endpoints are documented at the bottom of this page for backward compatibility but use a different event vocabulary and bypass the project-tied sessions tree.
+</Callout>
+
+## Endpoint summary
+
+| Verb | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/chat/prompt` | Start a new turn or resume an existing session. Returns `{stream_id, session_id}`. |
+| `GET` | `/api/chat/stream/{stream_id}` | Open the SSE stream. Yields `session-created` then `text-delta*` then `done`. |
+| `POST` | `/api/chat/abort` | Drop an in-flight stream by id. |
+| `POST` | `/api/chat/respond` | No-op stub. Reserved for future use. |
+
+## 1. POST /api/chat/prompt
+
+### Request body
+
+```jsonc
+{
+  // REQUIRED
+  "text": "Refactor the auth flow to use the new Clerk SDK",   // string, trimmed; empty triggers 400
+
+  // OPTIONAL: to resume an existing session
+  "session_id": "f3b1c2d4-...",                                // omit for a new session
+
+  // OPTIONAL: to override backend selection
+  "agent_name": "claude_code",                                 // "openclaw" | "claude_code"
+
+  // OPTIONAL: scope a new session to a project / Claude Code agent
+  "agent_id": "blackhole",                                     // matches a folder under
+                                                               // ~/xo-projects/<agent_id>/
+
+  // OPTIONAL: workspace path hint (alternative to agent_id)
+  "workspace": "/Users/me/xo-projects/blackhole",              // absolute path
+
+  // OPTIONAL: skill / persona prefix
+  "agent_type": "research",                                    // claude_code maps this to a /skill-name
+                                                               // codex maps it to $skill-name
+
+  // OpenClaw-only: defaults to "main"
+  "model": "openclaw/research"
+}
+```
+
+### Backend selection logic
+
+The server resolves which adapter handles this turn in this exact order:
+
+1. `body.agent_name` (explicit override always wins).
+2. `body.session_id` (if provided): scans `~/xo-projects/<pid>/.xo/sessions/sessionslist.json` and `~/.openclaw/agents/<a>/sessions/sessions.json` to find the backend.
+3. `AGENT_NAME` env var (defaults to `"openclaw"`).
+
+If you are resuming an existing session, you can omit `agent_name` entirely and the backend is auto-detected.
+
+### `agent_id` resolution
+
+If `agent_id` is missing, it's a new session, and `workspace` is provided:
+
+```
+ws_path = Path(workspace).expanduser().resolve()
+if   ws_path startswith ~/xo-projects/{X}/...   →  agent_id = X
+elif ws_path startswith ~/claude-cowork/{X}/... →  agent_id = X
+else                                             →  agent_id = None
+```
+
+For OpenClaw, `agent_id` is the `xo_agent_id` for the project transcript tee. For Claude Code, the subprocess is spawned with `cwd = ~/xo-projects/<agent_id>/`.
+
+### Response (200 OK)
+
+```jsonc
+{
+  "stream_id":  "8f3a2b1c-...",     // UUID. Use for /api/chat/stream/{id} and /api/chat/abort.
+  "session_id": "9d4e5f6a-..."      // UUID. The logical session id.
+                                    //   New OpenClaw: may be null (see note below).
+                                    //   New non-OpenClaw: always populated.
+                                    //   Resumed: equals the session_id you sent.
+}
+```
+
+<Callout type="warn">
+For **new OpenClaw sessions only**, `prompt` polls the gateway for up to 20 seconds waiting for the session file to appear. If the gateway is slow, `session_id` may come back `null`. Do not navigate to `/c/{session_id}` until you have a non-null id, but open the SSE stream anyway: the first `event: session-created` will carry the real id.
+</Callout>
+
+### Errors
+
+| Code | Body | Cause |
+|---|---|---|
+| 400 | `{ "detail": "Empty message" }` | `text` missing or whitespace-only after trim |
+| 404 | `{ "detail": "Session not found" }` | OpenClaw resume with unknown `session_id` |
+
+### Lifecycle of `stream_id`
+
+The `stream_id` returned by `prompt` lives in an in-memory dict (`active_streams`) until either:
+
+1. `GET /api/chat/stream/{stream_id}` consumes it (most common), or
+2. `POST /api/chat/abort` drops it explicitly, or
+3. The server process restarts (in-memory only, no persistence).
+
+There is **no TTL** on unconsumed entries. A frontend that calls `prompt` and never opens the stream leaks an entry. Cleanup happens implicitly on consumption.
+
+## 2. GET /api/chat/stream/&#123;stream_id&#125;
+
+### Response headers
+
+```
+HTTP/1.1 200 OK
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+X-Accel-Buffering: no
+```
+
+`X-Accel-Buffering: no` disables Nginx-level buffering, required for real-time delivery if a proxy is in front.
+
+### Event vocabulary
+
+```
+event: session-created
+data:  {"session_id":"<uuid>"}
+
+event: text-delta
+data:  {"text":"<partial text>","session_id":"<uuid>"}        // OpenClaw includes session_id
+data:  {"text":"<partial text>"}                               // non-OpenClaw omits session_id
+
+event: heartbeat
+data:  {}                                                       // every 15 to 20s of silence
+
+event: agent-error
+data:  {"error_message":"<human readable>"}
+
+event: done
+data:  {"finish_reason":"stop","session_id":"<uuid>"}
+
+event: error
+data:  {"error_message":"Stream not found"}                    // only on bad/expired stream_id
+```
+
+Every line uses standard SSE framing: `id: <int>\nevent: <name>\ndata: <json>\n\n`.
+
+### Event order
+
+```
+─── normal new-session turn ─────────────
+[session-created]    once at start, before any text-delta
+[text-delta]         many; accumulate to form the assistant message
+[heartbeat]*         interleaved during silent gaps
+[done]               once at the end; server closes the stream
+
+─── normal resume turn ──────────────────
+[text-delta]+
+[heartbeat]*
+[done]
+
+─── error path ──────────────────────────
+(maybe a few text-delta first)
+[agent-error]        terminal; server closes after this; no [done] follows
+```
+
+### Concrete example trace
+
+```
+id: 1
+event: session-created
+data: {"session_id":"9d4e5f6a-1234-4567-89ab-cdef01234567"}
+
+id: 2
+event: text-delta
+data: {"session_id":"9d4e5f6a-...","text":"Sure"}
+
+id: 3
+event: text-delta
+data: {"session_id":"9d4e5f6a-...","text":", I can"}
+
+id: 4
+event: text-delta
+data: {"session_id":"9d4e5f6a-...","text":" do that."}
+
+event: heartbeat
+data: {}
+
+id: 5
+event: done
+data: {"finish_reason":"stop","session_id":"9d4e5f6a-..."}
+```
+
+### Heartbeat semantics
+
+| Backend | Interval | When it fires |
+|---|---|---|
+| OpenClaw direct | 15s | No `data:` line received from gateway |
+| OpenClaw new-session prefetch | 15s | Bootstrap task still running |
+| Non-OpenClaw via dispatcher | 20s | No event from adapter generator |
+
+Treat `heartbeat` as a no-op keepalive and reset your dead-stream timer on receipt. Recommended client-side dead-stream timeout: at least 45s (3x the longest interval).
+
+### React Strict Mode and double-mount safety
+
+If the client opens the stream, navigates away, and re-opens it within 600 seconds, the second `GET /api/chat/stream/{stream_id}` does NOT start a new turn. Instead the server enters reconnect mode:
+
+```
+1. The first GET pops `stream_info` from active_streams and starts a producer task.
+2. A bookkeeping entry lands in `_recently_started[stream_id]` with a `done_event`.
+3. A second GET on the same stream_id finds active_streams empty but
+   _recently_started populated.
+4. It waits (up to 300s) on done_event.
+5. Once the original turn finishes, it emits:
+     event: session-created  data: {"session_id":...}
+     event: done             data: {"session_id":...}
+6. The frontend should refetch messages from /api/messages/{session_id}.
+   No text-delta events are replayed.
+```
+
+A second GET on the same stream_id is non-destructive. Use this for React Strict Mode double-mounts without worrying about duplicate tokens.
+
+After 600 seconds (`_RECENTLY_STARTED_TTL`), the bookkeeping entry is purged; subsequent GETs return:
+
+```
+event: error
+data: {"error_message":"Stream not found"}
+```
+
+### Recommended client handling
+
+```typescript
+const es = new EventSource(`${BASE}/api/chat/stream/${streamId}`);
+
+es.addEventListener("session-created", (e) => {
+  const { session_id } = JSON.parse(e.data);
+  if (!currentSessionId) router.push(`/c/${session_id}`);
+});
+
+es.addEventListener("text-delta", (e) => {
+  const { text } = JSON.parse(e.data);
+  appendToAssistantMessage(text);
+});
+
+es.addEventListener("heartbeat", () => {
+  resetDeadStreamTimer();
+});
+
+es.addEventListener("agent-error", (e) => {
+  const { error_message } = JSON.parse(e.data);
+  showErrorBanner(error_message);
+  es.close();
+});
+
+es.addEventListener("error", (e) => {
+  // Either: native EventSource error (network), OR
+  //         our custom event:error (stream_id unknown).
+  // Distinguish by checking if e.data exists.
+  if ((e as MessageEvent).data) {
+    const { error_message } = JSON.parse((e as MessageEvent).data);
+    if (error_message === "Stream not found") {
+      // Stream expired: refetch from /api/messages/{id}
+    }
+  }
+  es.close();
+});
+
+es.addEventListener("done", (e) => {
+  const { session_id } = JSON.parse(e.data);
+  finalizeAssistantMessage();
+  es.close();
+});
+```
+
+`EventSource` automatically reconnects on network drops; that reconnect hits the recently-started path above and emits a graceful `done`.
+
+## 3. POST /api/chat/abort
+
+### Request
+
+```jsonc
+{ "stream_id": "8f3a2b1c-..." }
+```
+
+### Response
+
+```json
+{ "ok": true }
+```
+
+Always 200, even if the `stream_id` is unknown. Best-effort drop.
+
+### What abort actually does
+
+- **Removes** the entry from `active_streams`. A subsequent `GET /api/chat/stream/{id}` with the same id returns `event: error data: {"error_message":"Stream not found"}` (unless reconnect-mode applies).
+- **Does NOT** kill an in-flight runtime subprocess or HTTP call. The underlying generator continues running until the runtime completes; the frontend's `EventSource.close()` is what stops bytes from being delivered to the client.
+- **Does NOT** cancel the OpenClaw bootstrap task for new sessions. It continues and writes its session metadata to disk regardless.
+
+`abort` is best understood as "client-side intent to forget about this stream." Safe to call from `useEffect` cleanup, navigation handlers, or after errors.
+
+## 4. POST /api/chat/respond
+
+```jsonc
+// request: any JSON body
+// response:
+{ "ok": true }
+```
+
+Stub. Currently a no-op. Don't depend on it. It exists to reserve the route for a future "agent response back to user" endpoint.
+
+## 5. Legacy /ask_question endpoints
+
+These predate `/api/chat/*` and use a different event format, a `project_name` (not `session_id`) keyed session model, and bypass the project-tied sessions tree. **Don't use these for new code.**
+
+### `POST /ask_question` (non-streaming)
+
+```jsonc
+// request
+{
+  "project_name": "my-project",        // string, this is the session key, NOT a path
+  "question":     "Hello",             // string
+  "user_id":      "user_2bX9...",      // optional, default "default_user"
+  "message_type": "@xo",               // optional, default "@xo"
+  "agent_type":   "debug-tool"         // optional, becomes /{agent_type} skill prefix for Claude
+}
+
+// response (200)
+{
+  "id":              null,
+  "message":         "Hello! How can I help...",
+  "project_id":      "my-project",
+  "user_id":         "user_2bX9...",
+  "session_id":      "9d4e5f6a-...",
+  "is_new_session":  true,
+  "timestamp":       "2026-05-10T12:34:56.789012"
+}
+```
+
+### `POST /ask_question_streaming` (SSE)
+
+Same request body. Returns SSE with these unkeyed events:
+
+```
+data: {"type":"token","token":"<partial text>"}
+
+data: {"type":"error","error":"<message>"}
+
+data: {"done":true}
+
+data: {"error":"<exception message>"}
+```
+
+Differences from `/api/chat/stream/*`:
+
+- **No `event:` prefix.** Frontends using `EventSource` need to listen on `onmessage`, not specific named events.
+- The "done" payload is `{"done":true}`, not `{"finish_reason":"stop","session_id":...}`.
+- The "error" payload uses `error` key, not `error_message`.
+- No `heartbeat` events at all.
+- No `session-created` event; the session id is not surfaced through SSE.
+
+## Pitfalls and FAQ
+
+**My `text-delta` event has no `session_id` field.**
+Only OpenClaw includes `session_id` inside `text-delta` data. Non-OpenClaw adapters omit it because the same `session_id` is announced once via `event: session-created` and via the `done` payload. Track it client-side.
+
+**I get duplicate text after navigating away and back.**
+You're probably not closing the previous `EventSource`. The reconnect mode only avoids duplicates if both opens are against the same `stream_id`. If the frontend issues a fresh `POST /api/chat/prompt` on remount, that's a new turn: abort the old `stream_id` first.
+
+**Can I call `/api/chat/prompt` twice on the same `session_id` concurrently?**
+Don't. Each adapter assumes serial turns per session. Behavior is undefined.
+
+**How do I cancel a turn that's mid-flight?**
+Close the EventSource client-side (stops byte delivery) and POST `/api/chat/abort` with the stream_id. The runtime subprocess or HTTP call cannot currently be killed mid-turn.
+
+**How do I get message history for a session?**
+Use `GET /api/messages/{session_id}`. See the [Sessions API](/more/xo-cowork-api/sessions-api).
+
+## Quick reference
+
+| SSE event | Payload | Meaning |
+|---|---|---|
+| `session-created` | `{"session_id":"..."}` | Once per new turn, before any text |
+| `text-delta` | `{"text":"...","session_id"?}` | Partial assistant text: accumulate |
+| `heartbeat` | `{}` | Keepalive: ignore content, reset timeout |
+| `agent-error` | `{"error_message":"..."}` | Terminal error mid-turn |
+| `done` | `{"finish_reason":"stop","session_id":"..."}` | Turn complete |
+| `error` | `{"error_message":"Stream not found"}` | Bad or expired `stream_id` |

@@ -1,0 +1,43 @@
+import { BlogLayout } from "@/components/blog-layout";
+import Thumbnail from "./thumbnail.jpeg";
+
+export const blog = {
+  author: { name: "XO Team", src: "/xo-logo.svg" },
+  date: "2025-8-19",
+  title: "XO × Google Cloud — Choice, Speed, and AI-Native Scale",
+  description:
+    "We're thrilled to join the Google Cloud (GCP) startup ecosystem. Multi-cloud by design with AI-first stack for XO's agentic workflows.",
+  image:
+    "https://images.unsplash.com/photo-1573804633927-bfcbcd909acd?q=80&w=3000&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+  category: "News",
+};
+
+export const metadata = {
+  title: blog.title,
+  description: blog.description,
+  openGraph: {
+    images: [blog.image],
+  },
+};
+
+export default (props) => <BlogLayout blog={blog} {...props} />;
+
+We're also thrilled to join the Google Cloud (GCP) startup ecosystem.
+
+## Why this is critical for XO
+
+* **Multi-cloud by design:** Customer choice, data residency options, and resilience across providers.
+* **AI-first stack:** Vertex AI, BigQuery, Cloud Run/GKE, and Pub/Sub map perfectly to XO's agentic workflows and analytics.
+* **Global performance & security:** Proven networking, identity, and observability to support serious production use.
+
+## Why this validates XO
+
+* Another major cloud validating our direction shows XO isn't a point tool—it's infrastructure for how teams will work with AI.
+* Technical guidance and credits from GCP accelerate our roadmap and reinforce best-practice architecture.
+
+## What this unlocks
+
+* Native connectors into BigQuery for workspace insights, Vertex AI for model orchestration, and event-driven automations with Pub/Sub.
+* Smoother paths for customers already standardized on Google Cloud.
+
+*Together with AWS, GCP support is a strong signal: XO is built to scale, interoperable by default, and trusted by the platforms that power the modern internet.* 

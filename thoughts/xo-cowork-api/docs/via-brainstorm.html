@@ -1,0 +1,3148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Via: brainstorm</title>
+<style>
+  :root {
+    --bg:        #0b0d0a;
+    --bg-soft:   #14181a;
+    --bg-card:   #1a1f1c;
+    --bg-card2:  #1d2421;
+    --border:    #2a3329;
+    --text:      #e8efe6;
+    --muted:     #8a948a;
+    --brand:     #83d63a;
+    --brand-dim: #557d28;
+    --warn:      #f0a040;
+    --err:       #f06060;
+    --good:      #6ad682;
+    --xyra:      #ff8aa2;
+    --ora:       #6ac4d6;
+    --via:       #83d63a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  a { color: var(--brand); text-decoration: none; }
+  code, pre, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+  code { background: var(--bg-soft); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); }
+  pre { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 16px; overflow-x: auto; }
+  h1, h2, h3, h4 { margin: 0 0 12px; line-height: 1.25; }
+  h1 { font-size: 28px; letter-spacing: -0.01em; }
+  h2 { font-size: 22px; color: var(--brand); margin-top: 28px; }
+  h3 { font-size: 17px; margin-top: 20px; }
+  h4 { font-size: 13px; margin-top: 16px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.05em; }
+  .container { max-width: 1180px; margin: 0 auto; padding: 32px 24px 80px; }
+  header.hero { padding: 18px 0 12px; border-bottom: 1px solid var(--border); }
+  header.hero .eyebrow { color: var(--brand); font-weight: 600; font-size: 12px;
+    letter-spacing: 0.1em; text-transform: uppercase; }
+  header.hero h1 { margin-top: 6px; }
+  header.hero p { color: var(--muted); max-width: 760px; margin: 8px 0 0; }
+  nav.tabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 16px 0 24px;
+    border-bottom: 1px solid var(--border); }
+  nav.tabs button {
+    background: transparent; border: 0; color: var(--muted);
+    padding: 10px 14px; font-size: 14px; cursor: pointer;
+    border-bottom: 2px solid transparent; font-family: inherit;
+  }
+  nav.tabs button:hover { color: var(--text); }
+  nav.tabs button.active { color: var(--brand); border-color: var(--brand); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .card { background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px 20px; margin: 12px 0; }
+  .grid { display: grid; gap: 14px; }
+  .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+    background: var(--bg-soft); border: 1px solid var(--border); color: var(--muted);
+    text-transform: uppercase; }
+  .pill.xyra { color: var(--xyra); border-color: rgba(255,138,162,0.4); }
+  .pill.ora  { color: var(--ora);  border-color: rgba(106,196,214,0.4); }
+  .pill.via  { color: var(--via);  border-color: rgba(131,214,58,0.4); }
+  .callout { border-left: 3px solid var(--brand); background: rgba(131,214,58,0.06);
+    padding: 12px 16px; margin: 12px 0; border-radius: 0 6px 6px 0; }
+  .callout.warn { border-color: var(--warn); background: rgba(240,160,64,0.06); }
+
+  /* Persona cards */
+  .persona-card { background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 0; overflow: hidden; }
+  .persona-card .head { padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: baseline; }
+  .persona-card.xyra .head { background: linear-gradient(180deg, rgba(255,138,162,0.10), transparent); }
+  .persona-card.ora  .head { background: linear-gradient(180deg, rgba(106,196,214,0.10), transparent); }
+  .persona-card.via  .head { background: linear-gradient(180deg, rgba(131,214,58,0.10), transparent); }
+  .persona-card .name { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+  .persona-card.xyra .name { color: var(--xyra); }
+  .persona-card.ora  .name { color: var(--ora); }
+  .persona-card.via  .name { color: var(--via); }
+  .persona-card .body { padding: 16px 20px; }
+  .persona-card label { display: block; font-size: 12px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.05em; margin: 12px 0 4px; }
+  .persona-card textarea, .editable {
+    width: 100%; background: var(--bg-soft); border: 1px solid var(--border);
+    color: var(--text); border-radius: 6px; padding: 8px 10px;
+    font: inherit; font-size: 14px; resize: vertical; min-height: 60px;
+  }
+  .persona-card input[type=text] {
+    width: 100%; background: var(--bg-soft); border: 1px solid var(--border);
+    color: var(--text); border-radius: 6px; padding: 8px 10px; font: inherit; font-size: 14px;
+  }
+
+  /* Tree */
+  .tree { font-family: ui-monospace, Menlo, monospace; font-size: 13px;
+    background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 20px; overflow-x: auto;
+    white-space: pre; line-height: 1.4; }
+  .tree .name { color: var(--brand); }
+  .tree .comment { color: var(--muted); }
+  .tree .xyra { color: var(--xyra); }
+  .tree .ora  { color: var(--ora); }
+
+  /* Flow diagram */
+  .flow { background: var(--bg-soft); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px; }
+  .flow-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+  .flow-cell { background: var(--bg-card); border: 1px solid var(--border);
+    padding: 12px 14px; border-radius: 8px; }
+  .flow-cell.xyra { border-left: 3px solid var(--xyra); }
+  .flow-cell.ora  { border-left: 3px solid var(--ora); }
+  .flow-cell.via  { border-left: 3px solid var(--via); }
+  .flow-cell .label { font-size: 11px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.05em; margin-bottom: 6px; }
+
+  /* Decisions */
+  .decision { background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 18px; margin: 12px 0; }
+  .decision h3 { margin-top: 0; color: var(--brand); }
+  .options { display: grid; gap: 8px; margin-top: 10px; }
+  .options label {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: var(--bg-soft); border: 1px solid var(--border);
+    padding: 10px 12px; border-radius: 8px; cursor: pointer;
+    transition: border 0.1s;
+  }
+  .options label:hover { border-color: var(--brand-dim); }
+  .options label.chosen { border-color: var(--brand); background: rgba(131,214,58,0.05); }
+  .options input[type=radio] { margin-top: 3px; accent-color: var(--brand); }
+  .opt-label { font-weight: 600; }
+  .opt-desc { color: var(--muted); font-size: 13px; }
+
+  /* Scratchpad */
+  .scratch { width: 100%; min-height: 360px;
+    background: var(--bg-soft); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 14px 16px;
+    font: inherit; font-size: 15px; line-height: 1.6; resize: vertical; }
+
+  /* Summary */
+  .summary { background: var(--bg-card); border: 2px solid var(--brand);
+    border-radius: 12px; padding: 18px 22px; margin: 20px 0; }
+  .summary h3 { color: var(--brand); margin-top: 0; }
+  .summary dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+  .summary dt { color: var(--muted); font-size: 12px; text-transform: uppercase;
+    letter-spacing: 0.05em; align-self: center; }
+  .summary dd { margin: 0; font-weight: 600; }
+
+  .save-status { color: var(--muted); font-size: 11px; padding: 4px 8px; }
+  .save-status.saved { color: var(--good); }
+  .btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 14px; border-radius: 6px; cursor: pointer; font: inherit; font-size: 13px; }
+  .btn:hover { border-color: var(--brand); color: var(--brand); }
+  .btn.danger:hover { border-color: var(--err); color: var(--err); }
+  .row { display: flex; gap: 10px; align-items: center; margin: 12px 0; }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
+  ul.clean { list-style: none; padding: 0; margin: 8px 0; }
+  ul.clean li { padding: 4px 0; padding-left: 16px; position: relative; }
+  ul.clean li::before { content: "▸"; color: var(--brand-dim); position: absolute; left: 0; }
+  .small { font-size: 12px; color: var(--muted); }
+
+  /* Glossary (Components tab) */
+  .glossary-toolbar { display: flex; gap: 12px; flex-wrap: wrap;
+    margin: 12px 0 14px; padding: 12px 14px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; align-items: center; }
+  .glossary-search { flex: 1; min-width: 220px;
+    padding: 8px 12px; background: var(--bg-soft);
+    border: 1px solid var(--border); color: var(--text);
+    border-radius: 6px; font: inherit; font-size: 14px; }
+  .glossary-search::placeholder { color: var(--muted); }
+  .glossary-search:focus { outline: none; border-color: var(--brand); }
+  .glossary-counter { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .category-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 14px; }
+  .category-chip { padding: 4px 11px; border-radius: 999px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    color: var(--muted); font-size: 11px; cursor: pointer;
+    text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600;
+    font-family: inherit; transition: all 0.1s; }
+  .category-chip:hover { color: var(--text); border-color: var(--brand-dim); }
+  .category-chip.active { background: var(--brand); color: var(--bg); border-color: var(--brand); }
+  .glossary-grid { display: grid; gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .term-card { background: var(--bg-card); border: 1px solid var(--border);
+    border-left-width: 3px; border-radius: 8px; padding: 12px 14px;
+    transition: all 0.15s; position: relative; }
+  .term-card:hover { background: var(--bg-card2);
+    transform: translateY(-1px); box-shadow: 0 2px 12px rgba(131,214,58,0.08); }
+  .term-card .term { font-family: ui-monospace, Menlo, monospace;
+    font-weight: 600; color: var(--text); font-size: 13px;
+    margin: 0 60px 4px 0; word-break: break-word; }
+  .term-card .def { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0; }
+  .term-card .cat-badge { position: absolute; top: 10px; right: 10px;
+    font-size: 9px; padding: 2px 7px; border-radius: 999px;
+    background: var(--bg-soft); color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    font-weight: 600; font-family: inherit; }
+  .term-card.hidden { display: none; }
+
+  .term-card.cat-persona    { border-left-color: var(--via); }
+  .term-card.cat-life       { border-left-color: var(--ora); }
+  .term-card.cat-action     { border-left-color: #f0a040; }
+  .term-card.cat-cognition  { border-left-color: var(--xyra); }
+  .term-card.cat-memory     { border-left-color: #b09bd6; }
+  .term-card.cat-feelings   { border-left-color: #d8869d; }
+  .term-card.cat-objectives { border-left-color: #e8c54a; }
+  .term-card.cat-governance { border-left-color: #6ad682; }
+  .term-card.cat-runtimes   { border-left-color: #6a9ad6; }
+  .term-card.cat-structure  { border-left-color: #6ad6c4; }
+  .term-card.cat-logs       { border-left-color: #d6b06a; }
+  .term-card.cat-external   { border-left-color: #8a948a; }
+
+  .term-card.cat-persona    .cat-badge { color: var(--via); }
+  .term-card.cat-life       .cat-badge { color: var(--ora); }
+  .term-card.cat-action     .cat-badge { color: #f0a040; }
+  .term-card.cat-cognition  .cat-badge { color: var(--xyra); }
+  .term-card.cat-memory     .cat-badge { color: #b09bd6; }
+  .term-card.cat-feelings   .cat-badge { color: #d8869d; }
+  .term-card.cat-objectives .cat-badge { color: #e8c54a; }
+  .term-card.cat-governance .cat-badge { color: #6ad682; }
+  .term-card.cat-runtimes   .cat-badge { color: #6a9ad6; }
+  .term-card.cat-structure  .cat-badge { color: #6ad6c4; }
+  .term-card.cat-logs       .cat-badge { color: #d6b06a; }
+  .term-card.cat-external   .cat-badge { color: #8a948a; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header class="hero">
+  <div class="eyebrow">Via, Xyra, Ora · brainstorm</div>
+  <h1>Designing Via's brain</h1>
+  <p>A working canvas for the multi-persona agent. Edits to identity drafts, decisions, and the scratchpad are saved to your browser's localStorage. Refresh-safe; not shared with anyone.</p>
+  <div class="row">
+    <span class="save-status" id="save-status">Autosave on</span>
+    <button class="btn" id="export-json">Export as JSON</button>
+    <button class="btn danger" id="reset-all">Reset all</button>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button class="active" data-tab="brain">The brain</button>
+  <button data-tab="components">Components</button>
+  <button data-tab="template">Persona template</button>
+  <button data-tab="anatomy">Anatomy</button>
+  <button data-tab="life">Life</button>
+  <button data-tab="cognition">Cognition</button>
+  <button data-tab="feelings">Feelings</button>
+  <button data-tab="objectives">Objectives</button>
+  <button data-tab="runtimes">Runtimes</button>
+  <button data-tab="diagrams">Diagrams</button>
+  <button data-tab="lifespan">Lifespan</button>
+  <button data-tab="actionloop">Action loop</button>
+  <button data-tab="personas">Xyra and Ora</button>
+  <button data-tab="flow">Thought flow</button>
+  <button data-tab="decisions">Open decisions</button>
+  <button data-tab="summary">Current model</button>
+  <button data-tab="plans">Plans &amp; updates</button>
+  <button data-tab="scratch">Scratchpad</button>
+</nav>
+
+<!-- =========================================================================
+     BRAIN
+========================================================================= -->
+<section class="panel active" id="brain">
+  <h2>Folder layout</h2>
+  <p>Every persona has the same shape. Via has children; Xyra and Ora have a parent. Same template either way. Open the <strong>Components</strong> tab for one-line definitions.</p>
+
+  <div class="tree">
+<span class="name">~/xo-projects/via/</span>                       <span class="comment">a persona (top-level)</span>
+│
+├── meta.json              <span class="comment">{id, kind:"persona", parent:null, children:["xyra","ora"]}</span>
+├── runtime.json
+├── AGENTS.md · IDENTITY.md · SOUL.md · ROLE.md · USER.md · OBJECTIVES.md · CLAUDE.md
+│
+├── <span class="name">life/</span>               <span class="comment">stream, sources, subscriptions, digest</span>
+├── <span class="name">affect/</span>             <span class="comment">mood, mood-history, feelings/</span>
+├── <span class="name">objectives/</span>         <span class="comment">active, completed, abandoned, progress.jsonl</span>
+├── <span class="name">knowledge/</span>
+├── <span class="name">skills/</span>
+├── <span class="name">memory/</span>             <span class="comment">semantic, episodic, procedural, working</span>
+├── <span class="name">cognition/</span>          <span class="comment">thoughts, views, opinions</span>
+├── <span class="name">log/positions.jsonl</span>
+├── <span class="name">parent-image/</span>      <span class="comment">empty here (no parent at the top level)</span>
+│
+├── <span class="name">consensus/</span>          <span class="comment">where sub-personas negotiate to update me</span>
+│   ├── proposals/ · decisions/ · debates/
+│
+├── <span class="name">personas/</span>          <span class="comment">recursive: each sub-persona is a full persona</span>
+│   │
+│   ├── <span class="xyra">xyra/</span>          <span class="comment">a persona (child of via)</span>
+│   │   ├── meta.json                <span class="comment">{parent:"via", children:[]}</span>
+│   │   ├── runtime.json             <span class="comment">{kind:"openclaw", ...}</span>
+│   │   ├── (full persona shape: life, affect, objectives, knowledge, skills,
+│   │   │    memory, cognition, log, consensus, personas, parent-image, .xo)
+│   │   └── <span class="name">parent-image/</span>      <span class="comment">Xyra's working model of Via</span>
+│   │       ├── IDENTITY.md
+│   │       ├── SOUL.md
+│   │       ├── OBJECTIVES.md
+│   │       └── diff-from-canonical.md
+│   │
+│   └── <span class="ora">ora/</span>            <span class="comment">a persona (child of via)</span>
+│       ├── meta.json                <span class="comment">{parent:"via", children:[]}</span>
+│       ├── runtime.json             <span class="comment">{kind:"claude_code", ...}</span>
+│       └── (same full persona shape, including her own parent-image/)
+│
+└── <span class="name">.xo/</span>                <span class="comment">cowork-api side-state (watcher owns this)</span>
+    ├── project.json
+    └── sessions/sessionslist.json
+  </div>
+
+  <div class="callout">
+    <strong>The collapsed view.</strong> The tree above shows the unified shape with sub-personas folded. Every <code>personas/&lt;name&gt;/</code> folder is a full persona with the same template. See the <strong>Persona template</strong> tab for the canonical layout used at every nesting level.
+  </div>
+</section>
+
+  <h2>Three things to notice</h2>
+  <div class="grid cols-3">
+    <div class="card">
+      <h4>Identity lives at root</h4>
+      <p>Not under <code>.xo/</code>. Via must be able to mutate her own self; the watcher must own its side-state. Splitting the two ownerships resolves the conflict.</p>
+    </div>
+    <div class="card">
+      <h4>Personas are mini xo-projects</h4>
+      <p>Same shape as Via. Recursion is structural. Tomorrow Xyra can grow her own <code>personas/</code> if she gets a sub-voice (a "Demo Runner").</p>
+    </div>
+    <div class="card">
+      <h4>Consensus is the audit trail</h4>
+      <p>Every change to Via's permanent self has a proposal, a debate, a vote, and a decision. "Why does Via think X?" is always answerable.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================================
+     COMPONENTS (glossary)
+========================================================================= -->
+<section class="panel" id="components">
+  <h2>Components</h2>
+  <p class="small">First a one-paragraph summary, then seven pillars explained plainly, then the full glossary as a searchable reference.</p>
+
+  <div class="callout">
+    <strong>What this system is, in one paragraph.</strong>
+    A way to give an AI agent a structured, persistent, evolving life. The agent (we call her <strong>Via</strong>) has identity, opinions, memory, feelings, and direction. She lives on a continuous stream of events. She's composed of multiple sub-personas (Xyra, Ora) that run in the background and shape her through pull-request review. Customers only talk to Via; the sub-personas never speak directly. Every change to who Via is has a paper trail.
+  </div>
+
+  <h3>The seven pillars (read in this order)</h3>
+
+  <div class="grid cols-2">
+
+    <div class="card" style="border-left: 3px solid var(--via);">
+      <h4 style="color: var(--via); margin-top: 0;">1. Persona: the unit</h4>
+      <p>An "agent" on this system is a <strong>persona</strong>. Every persona has the same folder shape (the <strong>template</strong>). Via is a persona with sub-personas (Xyra, Ora). Each sub-persona is a full persona too, just nested. Same shape at every level. Think of it as DNA: one structure, many specialized instances.</p>
+      <p class="small"><strong>Key files:</strong> <code>IDENTITY.md</code> (who I am), <code>SOUL.md</code> (how I speak), <code>ROLE.md</code> (my scope), <code>OBJECTIVES.md</code> (my direction), <code>meta.json</code> (parent + children).</p>
+    </div>
+
+    <div class="card" style="border-left: 3px solid var(--ora);">
+      <h4 style="color: var(--ora); margin-top: 0;">2. Life: the stream of events</h4>
+      <p>An append-only log of everything that happens. User messages, ticks of the clock (so time exists between turns), observations, calendar events, emails. Each becomes one row on <code>life/stream.jsonl</code>. This is what every persona perceives. It's the substrate that makes the system feel alive.</p>
+      <p class="small"><strong>Key components:</strong> <code>stream.jsonl</code>, <code>ticker</code> (heartbeat), <code>source</code> (where event came from), <code>subscription</code> (what a persona listens to).</p>
+    </div>
+
+    <div class="card" style="border-left: 3px solid #f0a040;">
+      <h4 style="color: #f0a040; margin-top: 0;">3. The action loop: observe, think, act</h4>
+      <p>Every event triggers a three-step cycle in each persona. <strong>Observe</strong> the event (subscribed? affect tag?). <strong>Think</strong> (form a thought, check against objectives). <strong>Act</strong> (pick one of six action kinds). Actions emit new events; the other persona perceives them. The loop closes.</p>
+      <p class="small"><strong>Action kinds:</strong> <code>tool.call</code>, <code>memory.write</code>, <code>view.update</code>, <code>opinion.update</code>, <code>pr.open</code>, <code>noop</code>. Each carries <code>impact</code> + <code>objective</code> as properties.</p>
+    </div>
+
+    <div class="card" style="border-left: 3px solid var(--xyra);">
+      <h4 style="color: var(--xyra); margin-top: 0;">4. Cognition: thoughts grow into identity</h4>
+      <p>A four-layer stack from ephemeral to durable. <strong>Thoughts</strong> are momentary reactions. Cluster enough thoughts on a theme and you get a <strong>view</strong>. Cluster enough views and you get an <strong>opinion</strong>. Hold an opinion long enough and it shapes <strong>identity</strong>. Each layer is harder to change than the one below.</p>
+      <p class="small"><strong>Promotion:</strong> persona promotes thought→view alone; consensus promotes view→opinion; unanimous consensus promotes opinion→identity.</p>
+    </div>
+
+    <div class="card" style="border-left: 3px solid #d8869d;">
+      <h4 style="color: #d8869d; margin-top: 0;">5. Feelings: mood and affect</h4>
+      <p>Three layers. <strong>Mood</strong> is persistent and low-dimensional (valence + arousal), recomputed each tick. <strong>Affect tags</strong> color every thought (this thought felt anxious, this one felt excited). <strong>Feelings</strong> are standing relationships toward specific things (this customer feels warm, this project feels stuck). Feelings modulate voice and what gets noticed.</p>
+      <p class="small"><strong>Effect:</strong> per-persona biases mean Xyra finds customer events exciting; Ora finds system events anxiety-inducing. Same event, different weights.</p>
+    </div>
+
+    <div class="card" style="border-left: 3px solid #e8c54a;">
+      <h4 style="color: #e8c54a; margin-top: 0;">6. Objectives: direction without free-roaming</h4>
+      <p>Named goals with definitions of done, milestones, owners, deadlines. Every thought is checked against active objectives. If it matches, it counts. If not, it's tagged "drift" and gets low priority. This is the <strong>no-drift gate</strong>: it keeps the persona's evolution pointed in a direction the user named.</p>
+      <p class="small"><strong>Velocity:</strong> each action declares its impact on an objective. A tracker job accumulates impact per objective so you can see what's moving and what's stalled.</p>
+    </div>
+
+    <div class="card" style="border-left: 3px solid #6ad682; grid-column: 1 / -1;">
+      <h4 style="color: #6ad682; margin-top: 0;">7. Governance: PR review for identity</h4>
+      <p>The only way Via's canonical identity changes. Each sub-persona maintains her own working model of Via (<code>parent-image/</code>, like a git branch). When her version drifts far enough from canonical, she opens a <strong>PR</strong> with diff, rationale, evidence, and target objective. The other sub-persona reviews (approve / request-changes / reject). A consensus job in cowork-api commits or archives. No persona can change Via unilaterally.</p>
+      <p class="small"><strong>Two cadences:</strong> small actions (memory, views) happen constantly and don't need PRs. Identity changes are rare and always reviewed.</p>
+    </div>
+
+  </div>
+
+  <h3>How the pillars connect</h3>
+  <p>One sentence: <strong>Life feeds the action loop, which moves cognition and feelings, which drive PRs through governance, which update identity, which shapes the next response.</strong> Read the <strong>Diagrams</strong> tab for the visual version.</p>
+
+  <hr>
+
+  <h2 style="margin-top: 32px;">Glossary: full reference</h2>
+  <p class="small">Every term in the system. Use search or click a category. Helpful when a tab uses a word you've forgotten.</p>
+
+  <div class="glossary-toolbar">
+    <input class="glossary-search" id="glossary-search" type="search" placeholder="Filter components by name or definition...">
+    <span class="glossary-counter" id="glossary-counter"></span>
+  </div>
+
+  <div class="category-chips" id="category-chips">
+    <button class="category-chip active" data-cat="all">All</button>
+    <button class="category-chip" data-cat="persona">Persona</button>
+    <button class="category-chip" data-cat="life">Life</button>
+    <button class="category-chip" data-cat="action">Action loop</button>
+    <button class="category-chip" data-cat="cognition">Cognition</button>
+    <button class="category-chip" data-cat="memory">Memory</button>
+    <button class="category-chip" data-cat="feelings">Feelings</button>
+    <button class="category-chip" data-cat="objectives">Objectives</button>
+    <button class="category-chip" data-cat="governance">Governance</button>
+    <button class="category-chip" data-cat="runtimes">Runtimes</button>
+    <button class="category-chip" data-cat="structure">Structure</button>
+    <button class="category-chip" data-cat="logs">Logs</button>
+    <button class="category-chip" data-cat="external">External</button>
+  </div>
+
+  <div class="glossary-grid" id="glossary-grid">
+
+    <!-- Persona -->
+    <div class="term-card cat-persona" data-cat="persona"><span class="cat-badge">Persona</span><div class="term">persona</div><p class="def">A unit with a complete template. Has all dirs. May be top-level or nested.</p></div>
+    <div class="term-card cat-persona" data-cat="persona"><span class="cat-badge">Persona</span><div class="term">template</div><p class="def">The canonical folder shape every persona has. The "DNA". Invariant.</p></div>
+    <div class="term-card cat-persona" data-cat="persona"><span class="cat-badge">Persona</span><div class="term">sub-persona</div><p class="def">A persona nested inside another's <code>personas/</code>.</p></div>
+    <div class="term-card cat-persona" data-cat="persona"><span class="cat-badge">Persona</span><div class="term">top-level persona</div><p class="def">A persona with no parent. The outward voice.</p></div>
+    <div class="term-card cat-persona" data-cat="persona"><span class="cat-badge">Persona</span><div class="term">meta.json</div><p class="def">Per-persona registry: id, parent, children, lineage.</p></div>
+    <div class="term-card cat-persona" data-cat="persona"><span class="cat-badge">Persona</span><div class="term">AGENTS.md</div><p class="def">The persona's operating contract. What she does and never does.</p></div>
+    <div class="term-card cat-persona" data-cat="persona"><span class="cat-badge">Persona</span><div class="term">IDENTITY.md</div><p class="def">Who she is. Stable. Changes only through PR + consensus.</p></div>
+    <div class="term-card cat-persona" data-cat="persona"><span class="cat-badge">Persona</span><div class="term">SOUL.md</div><p class="def">How she speaks. Voice. Modulated by current mood.</p></div>
+    <div class="term-card cat-persona" data-cat="persona"><span class="cat-badge">Persona</span><div class="term">ROLE.md</div><p class="def">Her scope. What domain she works on.</p></div>
+    <div class="term-card cat-persona" data-cat="persona"><span class="cat-badge">Persona</span><div class="term">USER.md</div><p class="def">Who she serves (the human if top-level, the parent if nested).</p></div>
+    <div class="term-card cat-persona" data-cat="persona"><span class="cat-badge">Persona</span><div class="term">OBJECTIVES.md</div><p class="def">Her high-level direction. North stars.</p></div>
+
+    <!-- Life -->
+    <div class="term-card cat-life" data-cat="life"><span class="cat-badge">Life</span><div class="term">life/stream.jsonl</div><p class="def">Append-only event log. Everything that happens to her.</p></div>
+    <div class="term-card cat-life" data-cat="life"><span class="cat-badge">Life</span><div class="term">event</div><p class="def">One row on the stream. Has source, kind, payload.</p></div>
+    <div class="term-card cat-life" data-cat="life"><span class="cat-badge">Life</span><div class="term">source</div><p class="def">Where an event came from: chat, ticker, observation, calendar, system, action.</p></div>
+    <div class="term-card cat-life" data-cat="life"><span class="cat-badge">Life</span><div class="term">ticker</div><p class="def">Periodic heartbeat events that make time exist between user turns.</p></div>
+    <div class="term-card cat-life" data-cat="life"><span class="cat-badge">Life</span><div class="term">subscription</div><p class="def">What kinds of events a persona listens to. Per-persona filter.</p></div>
+    <div class="term-card cat-life" data-cat="life"><span class="cat-badge">Life</span><div class="term">digest</div><p class="def">"What changed since the human last spoke." Pre-computed at <code>life/digest/</code>.</p></div>
+
+    <!-- Action loop -->
+    <div class="term-card cat-action" data-cat="action"><span class="cat-badge">Action</span><div class="term">observe</div><p class="def">Step 1: read the event, parse through ROLE, tag affect.</p></div>
+    <div class="term-card cat-action" data-cat="action"><span class="cat-badge">Action</span><div class="term">think</div><p class="def">Step 2: form one thought, alignment-gate, pick one action.</p></div>
+    <div class="term-card cat-action" data-cat="action"><span class="cat-badge">Action</span><div class="term">act</div><p class="def">Step 3: execute one of five action kinds.</p></div>
+    <div class="term-card cat-action" data-cat="action"><span class="cat-badge">Action</span><div class="term">action</div><p class="def">One concrete move. Carries <code>impact</code> and <code>objective</code> as properties.</p></div>
+    <div class="term-card cat-action" data-cat="action"><span class="cat-badge">Action</span><div class="term">tool.call</div><p class="def">Action kind: invoke an external capability (email, calendar, code edit).</p></div>
+    <div class="term-card cat-action" data-cat="action"><span class="cat-badge">Action</span><div class="term">memory.write</div><p class="def">Action kind: record a fact, episode, or procedure.</p></div>
+    <div class="term-card cat-action" data-cat="action"><span class="cat-badge">Action</span><div class="term">view.update</div><p class="def">Action kind: strengthen or weaken a clustered take.</p></div>
+    <div class="term-card cat-action" data-cat="action"><span class="cat-badge">Action</span><div class="term">opinion.update</div><p class="def">Action kind: locally update her own settled stance.</p></div>
+    <div class="term-card cat-action" data-cat="action"><span class="cat-badge">Action</span><div class="term">pr.open</div><p class="def">Action kind: open a proposal against canonical Via.</p></div>
+    <div class="term-card cat-action" data-cat="action"><span class="cat-badge">Action</span><div class="term">noop</div><p class="def">Action kind: observed, chose not to act. Still logged.</p></div>
+    <div class="term-card cat-action" data-cat="action"><span class="cat-badge">Action</span><div class="term">impact</div><p class="def">Action property: estimated effect on the target objective.</p></div>
+    <div class="term-card cat-action" data-cat="action"><span class="cat-badge">Action</span><div class="term">objective velocity</div><p class="def">Accumulated impact per objective. How fast it's moving.</p></div>
+
+    <!-- Cognition -->
+    <div class="term-card cat-cognition" data-cat="cognition"><span class="cat-badge">Cognition</span><div class="term">thought</div><p class="def">One ephemeral reaction during a session. Cheap.</p></div>
+    <div class="term-card cat-cognition" data-cat="cognition"><span class="cat-badge">Cognition</span><div class="term">view</div><p class="def">Cluster of thoughts on a theme. Mid-durable.</p></div>
+    <div class="term-card cat-cognition" data-cat="cognition"><span class="cat-badge">Cognition</span><div class="term">opinion</div><p class="def">Cluster of views that settled. Durable. Influences behavior.</p></div>
+    <div class="term-card cat-cognition" data-cat="cognition"><span class="cat-badge">Cognition</span><div class="term">promotion</div><p class="def">Moving up the stack (thought → view → opinion → identity). Gated.</p></div>
+    <div class="term-card cat-cognition" data-cat="cognition"><span class="cat-badge">Cognition</span><div class="term">alignment gate</div><p class="def">Check at each level: does this match an active objective?</p></div>
+
+    <!-- Memory -->
+    <div class="term-card cat-memory" data-cat="memory"><span class="cat-badge">Memory</span><div class="term">semantic memory</div><p class="def">Facts she knows.</p></div>
+    <div class="term-card cat-memory" data-cat="memory"><span class="cat-badge">Memory</span><div class="term">episodic memory</div><p class="def">Events that happened, with timestamps.</p></div>
+    <div class="term-card cat-memory" data-cat="memory"><span class="cat-badge">Memory</span><div class="term">procedural memory</div><p class="def">How she does things. Playbooks.</p></div>
+    <div class="term-card cat-memory" data-cat="memory"><span class="cat-badge">Memory</span><div class="term">working memory</div><p class="def">This-turn scratchpad.</p></div>
+    <div class="term-card cat-memory" data-cat="memory"><span class="cat-badge">Memory</span><div class="term">knowledge</div><p class="def">World model. Facts about external things.</p></div>
+    <div class="term-card cat-memory" data-cat="memory"><span class="cat-badge">Memory</span><div class="term">skills</div><p class="def">Capabilities. Things she can do.</p></div>
+
+    <!-- Feelings -->
+    <div class="term-card cat-feelings" data-cat="feelings"><span class="cat-badge">Feelings</span><div class="term">mood</div><p class="def">Persistent two-axis state (valence, arousal). Recomputed each tick.</p></div>
+    <div class="term-card cat-feelings" data-cat="feelings"><span class="cat-badge">Feelings</span><div class="term">affect tag</div><p class="def">Per-event feeling: <code>{valence, arousal, label}</code>. On each thought.</p></div>
+    <div class="term-card cat-feelings" data-cat="feelings"><span class="cat-badge">Feelings</span><div class="term">feelings</div><p class="def">Standing relationships toward entities (customers, projects, personas).</p></div>
+    <div class="term-card cat-feelings" data-cat="feelings"><span class="cat-badge">Feelings</span><div class="term">salience</div><p class="def">How much an event matters to a persona. Driven by ROLE + affect.</p></div>
+
+    <!-- Objectives -->
+    <div class="term-card cat-objectives" data-cat="objectives"><span class="cat-badge">Objectives</span><div class="term">objective</div><p class="def">A named goal with definition-of-done, milestones, owners, deadline.</p></div>
+    <div class="term-card cat-objectives" data-cat="objectives"><span class="cat-badge">Objectives</span><div class="term">active / completed / abandoned</div><p class="def">Three states an objective can be in.</p></div>
+    <div class="term-card cat-objectives" data-cat="objectives"><span class="cat-badge">Objectives</span><div class="term">progress audit</div><p class="def">Periodic job that walks the stream and updates objective progress.</p></div>
+    <div class="term-card cat-objectives" data-cat="objectives"><span class="cat-badge">Objectives</span><div class="term">stalled</div><p class="def">Auto-flag when an objective has had no progress signal for K hours.</p></div>
+
+    <!-- Governance -->
+    <div class="term-card cat-governance" data-cat="governance"><span class="cat-badge">Governance</span><div class="term">canonical</div><p class="def">The authoritative version of Via at the project root.</p></div>
+    <div class="term-card cat-governance" data-cat="governance"><span class="cat-badge">Governance</span><div class="term">parent-image</div><p class="def">A sub-persona's working model of her parent. Her "branch".</p></div>
+    <div class="term-card cat-governance" data-cat="governance"><span class="cat-badge">Governance</span><div class="term">diff</div><p class="def">Difference between parent-image and canonical.</p></div>
+    <div class="term-card cat-governance" data-cat="governance"><span class="cat-badge">Governance</span><div class="term">PR (proposal)</div><p class="def">A request to update canonical. Has diff, rationale, evidence, objective.</p></div>
+    <div class="term-card cat-governance" data-cat="governance"><span class="cat-badge">Governance</span><div class="term">review</div><p class="def">Other persona's response: approve / request-changes / reject.</p></div>
+    <div class="term-card cat-governance" data-cat="governance"><span class="cat-badge">Governance</span><div class="term">governance</div><p class="def">cowork-api job that commits or archives based on review.</p></div>
+    <div class="term-card cat-governance" data-cat="governance"><span class="cat-badge">Governance</span><div class="term">consensus/</div><p class="def">Where proposals, debates, decisions live on disk.</p></div>
+
+    <!-- Runtimes -->
+    <div class="term-card cat-runtimes" data-cat="runtimes"><span class="cat-badge">Runtimes</span><div class="term">runtime.json</div><p class="def">Per-persona config: kind, lifecycle, MCP setup.</p></div>
+    <div class="term-card cat-runtimes" data-cat="runtimes"><span class="cat-badge">Runtimes</span><div class="term">claude_code</div><p class="def">Runtime kind: local <code>claude</code> CLI subprocess.</p></div>
+    <div class="term-card cat-runtimes" data-cat="runtimes"><span class="cat-badge">Runtimes</span><div class="term">openclaw</div><p class="def">Runtime kind: OpenClaw gateway agent.</p></div>
+    <div class="term-card cat-runtimes" data-cat="runtimes"><span class="cat-badge">Runtimes</span><div class="term">supervisor</div><p class="def">A background persona, always-on, shaping canonical via PRs (Ora, Xyra).</p></div>
+    <div class="term-card cat-runtimes" data-cat="runtimes"><span class="cat-badge">Runtimes</span><div class="term">presenter</div><p class="def">The on-demand persona spawned per user turn (Via).</p></div>
+    <div class="term-card cat-runtimes" data-cat="runtimes"><span class="cat-badge">Runtimes</span><div class="term">always-on</div><p class="def">Lifecycle: process runs continuously, wakes on subscribed events.</p></div>
+    <div class="term-card cat-runtimes" data-cat="runtimes"><span class="cat-badge">Runtimes</span><div class="term">on-demand</div><p class="def">Lifecycle: spawned per request, exits when done.</p></div>
+
+    <!-- Structure & lifecycle -->
+    <div class="term-card cat-structure" data-cat="structure"><span class="cat-badge">Structure</span><div class="term">scaffold</div><p class="def">Create the full template + seed content. "Birth" of a persona.</p></div>
+    <div class="term-card cat-structure" data-cat="structure"><span class="cat-badge">Structure</span><div class="term">fork</div><p class="def">Clone a persona, reset logs, keep state. Same ancestor, new lineage.</p></div>
+    <div class="term-card cat-structure" data-cat="structure"><span class="cat-badge">Structure</span><div class="term">promote</div><p class="def">Reorganization: move a sub-persona up one level.</p></div>
+    <div class="term-card cat-structure" data-cat="structure"><span class="cat-badge">Structure</span><div class="term">demote</div><p class="def">Reorganization: make a top-level persona a child of another.</p></div>
+    <div class="term-card cat-structure" data-cat="structure"><span class="cat-badge">Structure</span><div class="term">swap parent</div><p class="def">Reorganization: move a sub-persona to a different parent.</p></div>
+    <div class="term-card cat-structure" data-cat="structure"><span class="cat-badge">Structure</span><div class="term">retire</div><p class="def">Move to <code>archived/</code>. State preserved; runtime stopped.</p></div>
+    <div class="term-card cat-structure" data-cat="structure"><span class="cat-badge">Structure</span><div class="term">lifespan stage</div><p class="def">Newborn → infant → child → adolescent → adult → elder. Per-persona clock.</p></div>
+
+    <!-- Logs -->
+    <div class="term-card cat-logs" data-cat="logs"><span class="cat-badge">Logs</span><div class="term">log/positions.jsonl</div><p class="def">Append-only stance log per persona. What she's said to her parent.</p></div>
+    <div class="term-card cat-logs" data-cat="logs"><span class="cat-badge">Logs</span><div class="term">consensus/proposals/</div><p class="def">Open PRs waiting for review.</p></div>
+    <div class="term-card cat-logs" data-cat="logs"><span class="cat-badge">Logs</span><div class="term">consensus/decisions/</div><p class="def">Closed decisions (committed PRs) with vote record.</p></div>
+    <div class="term-card cat-logs" data-cat="logs"><span class="cat-badge">Logs</span><div class="term">consensus/debates/</div><p class="def">Full deliberation transcripts. Rejected PRs land here too.</p></div>
+    <div class="term-card cat-logs" data-cat="logs"><span class="cat-badge">Logs</span><div class="term">.xo/</div><p class="def">cowork-api side-state. Watcher owns this. Agents never write to it.</p></div>
+
+    <!-- External -->
+    <div class="term-card cat-external" data-cat="external"><span class="cat-badge">External</span><div class="term">watcher</div><p class="def">cowork-api background service that owns <code>.xo/</code>.</p></div>
+    <div class="term-card cat-external" data-cat="external"><span class="cat-badge">External</span><div class="term">consensus job</div><p class="def">cowork-api job that resolves PRs after reviews land.</p></div>
+    <div class="term-card cat-external" data-cat="external"><span class="cat-badge">External</span><div class="term">progress tracker</div><p class="def">cowork-api job that walks the stream and updates objective velocities.</p></div>
+    <div class="term-card cat-external" data-cat="external"><span class="cat-badge">External</span><div class="term">ticker daemon</div><p class="def">cowork-api task that emits periodic tick events to the stream.</p></div>
+    <div class="term-card cat-external" data-cat="external"><span class="cat-badge">External</span><div class="term">supervisor daemon</div><p class="def">cowork-api process that keeps Ora and Xyra alive.</p></div>
+
+  </div>
+</section>
+
+<!-- =========================================================================
+     PERSONA TEMPLATE
+========================================================================= -->
+<section class="panel" id="template">
+  <h2>Persona, the unit</h2>
+  <p>One canonical shape. Recursive. Via, Xyra, Ora all have it. Any future sub-persona will too.</p>
+
+  <h3>The canonical template</h3>
+  <div class="tree">
+<span class="name">&lt;persona-name&gt;/</span>                            <span class="comment">one folder = one persona</span>
+│
+├── meta.json                         <span class="comment">{id, parent, children, created_at, promoted_from}</span>
+├── runtime.json                      <span class="comment">{kind:"claude_code"|"openclaw"|..., lifecycle, wake_policy}</span>
+│
+├── AGENTS.md                         <span class="comment">my operating contract</span>
+├── IDENTITY.md                       <span class="comment">who I am  (stable)</span>
+├── SOUL.md                           <span class="comment">how I speak</span>
+├── ROLE.md                           <span class="comment">my scope</span>
+├── USER.md                           <span class="comment">who I serve (parent persona OR human)</span>
+├── OBJECTIVES.md                     <span class="comment">my high-level direction</span>
+│
+├── <span class="name">life/</span>                             <span class="comment">my stream of experience</span>
+│   ├── stream.jsonl
+│   ├── sources/{chat,ticker,observation,...}.json
+│   ├── subscriptions/                <span class="comment">what my children listen to from my stream</span>
+│   └── digest/since-last-turn.md
+│
+├── <span class="name">affect/</span>                           <span class="comment">my feelings</span>
+│   ├── mood.json
+│   ├── mood-history.jsonl
+│   └── feelings/                     <span class="comment">per-entity standings</span>
+│
+├── <span class="name">objectives/</span>                       <span class="comment">my detailed objective tracking</span>
+│   ├── active/   ├── completed/   ├── abandoned/   └── progress.jsonl
+│
+├── <span class="name">knowledge/</span>                        <span class="comment">facts I know</span>
+├── <span class="name">skills/</span>                           <span class="comment">things I can do</span>
+│
+├── <span class="name">memory/</span>                           <span class="comment">my memory</span>
+│   ├── semantic/  ├── episodic/  ├── procedural/  └── working/
+│
+├── <span class="name">cognition/</span>                        <span class="comment">my thought stack</span>
+│   ├── thoughts/  ├── views/  └── opinions/
+│
+├── <span class="name">log/</span>
+│   └── positions.jsonl               <span class="comment">what I tell my parent (or my own log if top-level)</span>
+│
+├── <span class="name">parent-image/</span>                     <span class="comment">my working model of my parent  (empty if top-level)</span>
+│   ├── IDENTITY.md
+│   ├── SOUL.md
+│   ├── OBJECTIVES.md
+│   └── diff-from-canonical.md
+│
+├── <span class="name">consensus/</span>                        <span class="comment">where MY sub-personas negotiate to update ME</span>
+│   ├── proposals/  ├── decisions/  └── debates/
+│
+├── <span class="name">personas/</span>                         <span class="comment">my sub-personas (recursive: each is a full persona)</span>
+│   └── &lt;child-name&gt;/                 <span class="comment">same template, infinitely nestable</span>
+│
+└── <span class="name">.xo/</span>                              <span class="comment">cowork-api side-state (watcher owns this)</span>
+  </div>
+
+  <h3>What changes based on position in the hierarchy</h3>
+  <table>
+    <tr><th>Layer</th><th>Top-level persona</th><th>Sub-persona</th></tr>
+    <tr><td><code>USER.md</code></td><td>describes the human</td><td>describes the parent persona</td></tr>
+    <tr><td><code>life/stream.jsonl</code></td><td>canonical stream (chat, ticker, sources)</td><td>typically tails parent's stream + own observations</td></tr>
+    <tr><td><code>log/positions.jsonl</code></td><td>her own thinking log</td><td>positions she sends up to parent's consensus</td></tr>
+    <tr><td><code>parent-image/</code></td><td>empty</td><td>her working model of parent; source of update proposals</td></tr>
+    <tr><td><code>consensus/</code></td><td>active iff she has children</td><td>active iff she has children</td></tr>
+    <tr><td><code>personas/</code></td><td>holds children (Xyra, Ora)</td><td>may be empty; may grow later</td></tr>
+  </table>
+
+  <h3>Why uniform shape matters</h3>
+  <ul class="clean">
+    <li><strong>Personas can switch roles.</strong> A sub-persona promoted to top-level needs no restructuring; her shape was already complete.</li>
+    <li><strong>Personas can fork.</strong> Take Xyra, clone her, evolve one copy differently. Two valid personas.</li>
+    <li><strong>Tooling is one-shape.</strong> Every cowork-api endpoint that touches "a persona" speaks one schema. Same for any future visualizer.</li>
+    <li><strong>Recursion is structural.</strong> Xyra can have her own sub-personas (demo-runner, objection-handler) without inventing a new shape.</li>
+  </ul>
+
+  <h3>Reorganization moves</h3>
+  <div class="grid cols-2">
+    <div class="card">
+      <h4>Promote</h4>
+      <p>Move a sub-persona up one level. Atomic: move <code>personas/xyra/</code> to a sibling location, clear her <code>parent-image/</code>, update <code>meta.json.parent = null</code>.</p>
+    </div>
+    <div class="card">
+      <h4>Demote</h4>
+      <p>Make a top-level persona a child of another. Move her folder into the new parent's <code>personas/</code>, populate <code>parent-image/</code> from the new parent's canonical files, update <code>meta.json</code>.</p>
+    </div>
+    <div class="card">
+      <h4>Fork</h4>
+      <p>Clone a persona to a new path. Reset <code>log/</code> and <code>consensus/</code> (start fresh), keep <code>IDENTITY</code> · <code>cognition</code> · <code>memory</code>. Add <code>promoted_from</code> in <code>meta.json</code> for lineage.</p>
+    </div>
+    <div class="card">
+      <h4>Swap parent</h4>
+      <p>Move a sub-persona from one parent to another. Atomic move, refresh <code>parent-image/</code> from the new parent. Existing thoughts and opinions travel with her.</p>
+    </div>
+  </div>
+
+  <h3>The <code>meta.json</code> registry</h3>
+  <pre><code>{
+  "id":            "xyra",
+  "kind":          "persona",
+  "parent":        "via",          // null if top-level
+  "children":      [],             // ids of personas under personas/
+  "created_at":    "2026-05-21T08:00:00Z",
+  "promoted_from": null,           // lineage if reorganized
+  "runtime_ref":   "runtime.json"
+}</code></pre>
+  <p class="small">Lives at every persona's root. The single source of truth for relationships. Reorganization is just edits to <code>meta.json</code> + a folder move.</p>
+
+  <div class="callout warn">
+    <strong>Cost of uniformity.</strong> Every persona scaffolds the full template, even if many directories stay empty (a sub-persona who never gets children still has an empty <code>consensus/</code>, etc.). The tradeoff is that any persona can grow into any role without restructuring. See D14.
+  </div>
+</section>
+
+<!-- =========================================================================
+     ANATOMY
+========================================================================= -->
+<section class="panel" id="anatomy">
+  <h2>Brain anatomy</h2>
+  <p>Six functional regions. Supervisors run in the background; Via fires on demand.</p>
+
+  <pre style="font-size: 11px; line-height: 1.35;">
+┌─────────────────────────────────────────────────────────────────────┐
+│                          VIA's BRAIN                                │
+│                                                                     │
+│   ┌─────────────┐  feeds   ┌──────────────┐                         │
+│   │  SENSORIUM  │ ───────▶ │  ATTENTION   │ ◀── per-persona filter  │
+│   │ life/stream │          │ subscriptions│                         │
+│   └─────────────┘          └──────┬───────┘                         │
+│                                   │                                 │
+│           ┌───────────────────────┴───────────────────────┐         │
+│           ▼                                               ▼         │
+│  ┌─────────────────┐                            ┌─────────────────┐ │
+│  │  XYRA's loop    │                            │  ORA's loop     │ │
+│  │  runtime:       │                            │  runtime:       │ │
+│  │   openclaw      │                            │   claude_code   │ │
+│  │  always on      │                            │  always on      │ │
+│  │                 │                            │                 │ │
+│  │  perceive       │                            │  perceive       │ │
+│  │  weigh          │                            │  weigh          │ │
+│  │  remember       │                            │  remember       │ │
+│  │  position       │                            │  position       │ │
+│  └────────┬────────┘                            └────────┬────────┘ │
+│           │                                              │          │
+│           │  thoughts → views → opinions → proposals     │          │
+│           ▼                                              ▼          │
+│  ┌────────────────────────────────────────────────────────────┐     │
+│  │              CORPUS CALLOSUM (consensus/)                  │     │
+│  │  the ONLY writer to canonical identity / soul / opinions   │     │
+│  │  proposals · debates · decisions all archived              │     │
+│  └────────────────────────────┬───────────────────────────────┘     │
+│                               ▼                                     │
+│  ┌────────────────────────────────────────────────────────────┐     │
+│  │                  IDENTITY CORE                             │     │
+│  │   IDENTITY · SOUL · USER · OBJECTIVES · cognition          │     │
+│  │   knowledge · memory · skills · affect                     │     │
+│  └────────────────────────────┬───────────────────────────────┘     │
+│                               ▼                                     │
+│  ┌────────────────────────────────────────────────────────────┐     │
+│  │                       VOICE                                │     │
+│  │   spawned on-demand per user turn (claude_code)            │     │
+│  │   reads canonical, projects via SOUL + current mood        │     │
+│  │   only path that emits to humans                           │     │
+│  └────────────────────────────────────────────────────────────┘     │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+                              HUMAN</pre>
+
+  <table>
+    <tr><th style="text-align:left;padding:8px 0;color:var(--brand);">Region</th><th style="text-align:left;color:var(--brand);">Owns</th><th style="text-align:left;color:var(--brand);">Lives at</th></tr>
+    <tr><td><strong>Sensorium</strong></td><td>raw stream of life events</td><td><code>life/stream.jsonl</code></td></tr>
+    <tr><td><strong>Attention</strong></td><td>per-persona filters &amp; salience</td><td><code>life/subscriptions/*</code></td></tr>
+    <tr><td><strong>Persona loops</strong></td><td>perceive · weigh · remember · position</td><td><code>personas/&lt;name&gt;/</code></td></tr>
+    <tr><td><strong>Corpus callosum</strong></td><td>debate · vote · decide</td><td><code>consensus/</code></td></tr>
+    <tr><td><strong>Identity core</strong></td><td>stable self + learned state</td><td><code>IDENTITY · SOUL · knowledge · memory · skills · cognition</code></td></tr>
+    <tr><td><strong>Voice</strong></td><td>render outward responses</td><td>chat output, gated by Via's <code>SOUL.md</code></td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>Two invariants.</strong> (1) Only Via emits to the human. Xyra and Ora write only to their own logs or to <code>consensus/proposals/</code>. (2) Only consensus writes to Via's identity core. No persona unilaterally mutates Via.
+  </div>
+</section>
+
+<!-- =========================================================================
+     LIFE
+========================================================================= -->
+<section class="panel" id="life">
+  <h2>Life: the stream that feels alive</h2>
+  <p>An event log. Time is an event too. Everything flows from here.</p>
+
+  <h3>What's on the stream</h3>
+  <pre><code>~/xo-projects/via/life/
+├── stream.jsonl              append-only event log (heartbeat)
+├── sources/
+│   ├── chat.json             cowork-api chat turns
+│   ├── ticker.json           time-passing ticks (every N min)
+│   ├── observation.json      Via's own reflections
+│   ├── calendar.json         (later, via Composio googlecalendar)
+│   ├── email.json            (later, via Composio gmail)
+│   └── system.json           (later: deploys, errors, builds)
+├── subscriptions/
+│   ├── xyra.json             {events: ["customer.*", "calendar.demo", ...]}
+│   └── ora.json              {events: ["system.*", "calendar.eng.*", ...]}
+└── digest/
+    └── since-last-turn.md    what changed since the human last spoke
+</code></pre>
+
+  <h3>What one stream entry looks like</h3>
+<pre><code>{"ts":"2026-05-21T08:00:00Z","source":"ticker","kind":"tick","mood":"calm"}
+{"ts":"2026-05-21T08:15:00Z","source":"calendar","kind":"event.upcoming","title":"AcmeCo demo","in_min":60}
+{"ts":"2026-05-21T08:42:00Z","source":"email","kind":"received","from":"alice@acme.co"}
+{"ts":"2026-05-21T09:00:00Z","source":"system","kind":"deploy.failed","build":"build-1287"}
+{"ts":"2026-05-21T09:01:00Z","source":"observation","kind":"reflection","text":"Stack at 60min demo, deploy red. Pressure."}
+{"ts":"2026-05-21T09:05:00Z","source":"chat","kind":"user.message","text":"How's the demo prep going?"}</code></pre>
+
+  <h3>The ticker</h3>
+  <p>A cowork-api background task that writes a <code>tick</code> event every N minutes (default 5). This is what makes time exist for Via. Without it the gap between 2pm and 6pm is invisible to her; with it she perceives "4 hours passed quietly, then you came back."</p>
+  <p>Each tick can carry a synthesized <strong>mood signal</strong> (calm, busy, anticipation, stress) computed from recent event density.</p>
+
+  <h3>The per-event loop (per persona)</h3>
+  <p>Three steps. See the <strong>Action loop</strong> tab for the full picture.</p>
+  <ol>
+    <li><strong>Observe.</strong> Persona reads the event, checks her subscription, parses through <code>ROLE.md</code> and <code>IDENTITY.md</code>, tags affect (valence + arousal).</li>
+    <li><strong>Think.</strong> Forms one thought, applies the alignment gate against active objectives, picks one action.</li>
+    <li><strong>Act.</strong> Executes the chosen action (<code>tool.call</code>, <code>memory.write</code>, <code>view.update</code>, <code>opinion.update</code>, <code>pr.open</code>, or <code>noop</code>). The action carries <code>impact</code> and <code>objective</code> as properties.</li>
+  </ol>
+  <p class="small">Cheap version: a tiny Claude prompt, sub-second. Full version (real proposals): a Claude Code subprocess.</p>
+</section>
+
+<!-- =========================================================================
+     COGNITION
+========================================================================= -->
+<section class="panel" id="cognition">
+  <h2>Cognition: thoughts → views → opinions</h2>
+  <p>Four-layer stack. Each layer harder to change than the last.</p>
+
+  <pre style="font-size: 12px;">
+                IDENTITY        ←  who I am  (stable, changes slowly)
+                   ▲
+                OPINIONS        ←  settled stances  (durable, rare changes)
+                   ▲
+                  VIEWS         ←  clustered takes on themes  (mid-durable)
+                   ▲
+                THOUGHTS        ←  per-session reactions  (cheap, ephemeral)
+
+                KNOWLEDGE       ←  facts I know  (separate axis: world model)
+                SKILLS          ←  things I can do  (separate axis: capability)
+</pre>
+
+  <h3>Definitions</h3>
+  <table>
+    <tr><th>Layer</th><th>What it is</th><th>Lives at</th><th>Lifespan</th></tr>
+    <tr><td><strong>Thought</strong></td><td>One in-context reaction during a session. Subjective, cheap, single-source.</td><td><code>cognition/thoughts/&lt;session_id&gt;.jsonl</code></td><td>Hours to days</td></tr>
+    <tr><td><strong>View</strong></td><td>Clustered thoughts on a theme that converged into a stable take.</td><td><code>cognition/views/&lt;slug&gt;.md</code></td><td>Weeks to months</td></tr>
+    <tr><td><strong>Opinion</strong></td><td>Clustered views that solidified into a settled stance. Influences behavior.</td><td><code>cognition/opinions/&lt;slug&gt;.md</code></td><td>Months to years</td></tr>
+    <tr><td><strong>Identity</strong></td><td>Who I am. Slowly shaped by accumulated opinions.</td><td><code>IDENTITY.md</code></td><td>Year-scale</td></tr>
+  </table>
+
+  <h3>Promotion rules (draft, see D4)</h3>
+  <pre><code>thoughts → view
+  trigger:  N thoughts (default 3) on the same theme during one session window
+  vote:     persona herself (one-voice; she's clustering her own takes)
+  result:   create or strengthen cognition/views/&lt;slug&gt;.md
+
+views → opinion
+  trigger:  M views (default 3) supporting the same stance
+  vote:     consensus, simple majority (per D3)
+  result:   create or strengthen cognition/opinions/&lt;slug&gt;.md
+
+opinion → identity
+  trigger:  opinion sustained for &gt;= K cycles (default 5)
+  vote:     consensus, unanimous (per D3)
+  result:   add or refine an IDENTITY.md bullet</code></pre>
+
+  <h3>A worked example</h3>
+  <div class="grid cols-2">
+    <div class="card">
+      <h4>Xyra's path</h4>
+      <p><strong>Thoughts (over 2 weeks):</strong></p>
+      <ul class="clean">
+        <li>"AcmeCo asked about Composio twice today."</li>
+        <li>"BetaCorp lit up when I mentioned integrations."</li>
+        <li>"Three buyers in a row asked the same thing."</li>
+      </ul>
+      <p><strong>→ View:</strong> <code>integrations-are-the-wedge.md</code><br>"Composio integrations are the hook that opens the deal."</p>
+      <p>Two more weeks, another view appears: <code>discovery-needs-an-integration-demo.md</code></p>
+      <p><strong>→ Opinion:</strong> <code>integrations-first-narrative.md</code><br>"We should lead every pitch with integrations."</p>
+      <p>Six cycles holding strong:</p>
+      <p><strong>→ Identity refinement:</strong> "I'm the kind of persona who optimizes for the integrations narrative."</p>
+    </div>
+    <div class="card">
+      <h4>Ora's path</h4>
+      <p><strong>Thoughts (over the same window):</strong></p>
+      <ul class="clean">
+        <li>"Auth token race surfaced again in build-1287."</li>
+        <li>"Same shape as last month's incident."</li>
+        <li>"Pre-deploy check didn't catch it."</li>
+      </ul>
+      <p><strong>→ View:</strong> <code>auth-token-race-is-systemic.md</code><br>"This isn't one bug; it's a class."</p>
+      <p>Another view forms: <code>pre-deploy-gates-are-insufficient.md</code></p>
+      <p><strong>→ Opinion:</strong> <code>shift-quality-left.md</code><br>"Quality has to be enforced before deploy, not after."</p>
+      <p>Six cycles:</p>
+      <p><strong>→ Identity refinement:</strong> "I'm the kind of persona who treats CI as the contract."</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>What this gives Via.</strong> She doesn't just remember facts. She has takes. Her takes have lineage you can trace: every opinion points back to the views, every view to the thoughts, every thought to a stream event. Identity is the residue of consistent opinions over time.
+  </div>
+</section>
+
+<!-- =========================================================================
+     FEELINGS
+========================================================================= -->
+<section class="panel" id="feelings">
+  <h2>Feelings: mood, affect, standings</h2>
+  <p>Three layers. Persistent mood, per-event affect, per-entity feelings.</p>
+
+  <div class="grid cols-3">
+    <div class="card">
+      <h4>Mood (persistent)</h4>
+      <p>A low-dimensional state Via carries continuously. Default model: two axes.</p>
+      <pre><code>{
+  "valence":  -1.0 .. +1.0,
+  "arousal":  -1.0 .. +1.0,
+  "label":    "calm" | "busy" |
+              "anticipation" |
+              "stress" | "satisfied"
+}</code></pre>
+      <p class="small">Lives at <code>affect/mood.json</code>. Recomputed on each tick from recent event density and per-event affect.</p>
+    </div>
+    <div class="card">
+      <h4>Affect per event</h4>
+      <p>Every stream event gets tagged when a persona perceives it.</p>
+      <pre><code>{
+  "ts": "...",
+  "event_id": "...",
+  "by": "xyra",
+  "valence":  +0.7,
+  "arousal":  +0.5,
+  "tag":      "excited"
+}</code></pre>
+      <p class="small">Stored inline on the thought, plus appended to <code>affect/mood-history.jsonl</code> for time-series.</p>
+    </div>
+    <div class="card">
+      <h4>Feelings about entities</h4>
+      <p>Standing relationships toward specific things: customers, projects, even sub-personas.</p>
+      <pre><code>affect/feelings/customers/acmeco.md
+# AcmeCo
+trust:      high
+last touch: 2026-05-21
+warmth:     +0.6 (warm)
+concerns:
+  - "asked about pricing twice"</code></pre>
+      <p class="small">Slow-changing. Updated when an event significantly shifts the standing.</p>
+    </div>
+  </div>
+
+  <h3>How feelings change the rest of the system</h3>
+  <table>
+    <tr><th>Layer</th><th>What feeling does to it</th></tr>
+    <tr><td><strong>Salience</strong> (perception)</td><td>Xyra weights high-arousal positive events more; Ora weights high-arousal negative ones more.</td></tr>
+    <tr><td><strong>Voice</strong> (SOUL projection)</td><td>Under stress mood, Via gets terser and more cautious; under calm mood, more playful and forthcoming.</td></tr>
+    <tr><td><strong>Cognition clustering</strong></td><td>Thoughts with strong shared affect cluster faster into views ("everything about AcmeCo this week felt anxious").</td></tr>
+    <tr><td><strong>Objective alignment</strong></td><td>Negative-valence drift away from an objective triggers a re-evaluation faster than neutral drift.</td></tr>
+  </table>
+
+  <h3>Per-persona affect biases</h3>
+  <div class="grid cols-2">
+    <div class="persona-card xyra">
+      <div class="head"><div class="name">Xyra</div><span class="pill xyra">Bias</span></div>
+      <div class="body">
+        <ul class="clean">
+          <li>Excited by: momentum, customer wins, market signal.</li>
+          <li>Anxious about: silence, stalled pipelines, missed cadence.</li>
+          <li>Frustrated by: indecision, polish without ship date.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="persona-card ora">
+      <div class="head"><div class="name">Ora</div><span class="pill ora">Bias</span></div>
+      <div class="body">
+        <ul class="clean">
+          <li>Satisfied by: stability, debt paid down, green CI.</li>
+          <li>Anxious about: recurring errors, schema drift, fragile rituals.</li>
+          <li>Frustrated by: shortcuts, "we'll fix it later", broken contracts.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>Why feelings make Via better, not noisier.</strong> Without affect, every event is equal weight. With affect, the system reflects what actually matters to whom. Xyra's excitement about a customer win isn't a bug; it's signal that this thought deserves to cluster faster.
+  </div>
+</section>
+
+<!-- =========================================================================
+     OBJECTIVES
+========================================================================= -->
+<section class="panel" id="objectives">
+  <h2>Objectives: direction and the no-drift gate</h2>
+  <p>The bound on wandering. Every thought is measured against an active objective.</p>
+
+  <h3>What an objective looks like on disk</h3>
+<pre><code>objectives/active/close-acmeco-deal.md
+
+# Close the AcmeCo deal
+
+## Why it matters
+Lands our first integration-heavy logo. Validates the "integrations are the wedge" opinion.
+Linked to: cognition/opinions/integrations-first-narrative.md
+
+## Definition of done
+Signed MSA + first invoice paid OR formal no-go decision recorded.
+
+## Milestones
+- [x] Discovery call (2026-05-12)
+- [x] Integration demo (2026-05-18)
+- [ ] Security review
+- [ ] Pricing agreement
+- [ ] Signature
+
+## Owners
+- xyra (primary)
+- ora (security review milestone)
+
+## Progress signals (what to look for on the stream)
+- email from alice@acme.co
+- calendar event with @acme attendee
+- support ticket mentioning acme
+
+## Status
+in-progress
+
+## Deadline
+2026-06-30
+</code></pre>
+
+  <h3>The alignment gate (this is the no-free-roam part)</h3>
+
+  <pre style="font-size: 12px;">
+              new stream event arrives
+                       │
+                       ▼
+            persona perceives it as a thought
+                       │
+                       ▼
+           ┌────────────────────────────┐
+           │   THOUGHT GATE             │
+           │  Does this thought relate  │
+           │  to an active objective?   │
+           │   ────────────────────     │
+           │  YES → tag with objective  │
+           │  NO  → tag as "drift"      │
+           │        (kept, but low      │
+           │         salience unless    │
+           │         user-explicit)     │
+           └────────────────────────────┘
+                       │
+                       ▼
+            (continues into cognition stack)
+                       │
+                       ▼
+           ┌────────────────────────────┐
+           │   VIEW GATE                │
+           │  Promoting drift thoughts  │
+           │  to a view requires        │
+           │  consensus approval, not   │
+           │  just persona alone.       │
+           └────────────────────────────┘
+                       │
+                       ▼
+           ┌────────────────────────────┐
+           │   OPINION GATE             │
+           │  Opinions that contradict  │
+           │  active objectives need    │
+           │  unanimous vote + reason.  │
+           └────────────────────────────┘
+                       │
+                       ▼
+           ┌────────────────────────────┐
+           │   IDENTITY GATE            │
+           │  Already unanimous; no     │
+           │  additional check needed.  │
+           └────────────────────────────┘
+</pre>
+
+  <p>Net effect: Via can still notice unexpected things (drift thoughts are kept) but she can't reorganize her whole self around them without explicit reason. Default flow biases toward objectives.</p>
+
+  <h3>Progress audit (background job)</h3>
+  <ul class="clean">
+    <li>Runs every N ticks (default: every 12 ticks at 5 min = once per hour).</li>
+    <li>For each active objective: check progress signals against the recent stream window.</li>
+    <li>If progress signal observed: append <code>{"objective": "...", "advanced": true, ...}</code> to <code>objectives/progress.jsonl</code>.</li>
+    <li>If no progress for &gt;= K hours (default 24): emit a stream event <code>{"source":"observation","kind":"objective.stalled","objective":"..."}</code>. Personas will form thoughts about why.</li>
+    <li>If progress signal contradicts (e.g. customer said no): emit <code>objective.blocked</code> or trigger consensus to mark abandoned.</li>
+  </ul>
+
+  <h3>How Via uses objectives at response time</h3>
+  <ol>
+    <li>Read active objectives before synthesis.</li>
+    <li>Weight Xyra's and Ora's positions by relevance to active objectives.</li>
+    <li>If response doesn't move any active objective forward, mark it as "support" turn (still valid, but logged).</li>
+    <li>If response would advance an objective, log the advancement signal.</li>
+  </ol>
+
+  <div class="callout warn">
+    <strong>The trade-off.</strong> Tight gates make Via focused but rigid. Loose gates make her exploratory but scattered. D9 (alignment-gate strictness) is where you tune this.
+  </div>
+</section>
+
+<!-- =========================================================================
+     RUNTIMES
+========================================================================= -->
+<section class="panel" id="runtimes">
+  <h2>Runtimes: two supervisors, one presenter</h2>
+  <p>Ora = claude_code, always on. Xyra = openclaw, always on. Via = claude_code, on demand.</p>
+
+  <div class="grid cols-2">
+    <div class="persona-card ora">
+      <div class="head">
+        <div>
+          <div class="name">Ora</div>
+          <div class="small">runtime: claude_code · always on</div>
+        </div>
+        <span class="pill ora">Background</span>
+      </div>
+      <div class="body">
+        <pre><code>personas/ora/runtime.json
+{
+  "kind":          "claude_code",
+  "cwd":           "&lt;this repo&gt;",
+  "session_id":    "ora-supervisor",
+  "agent_type":    "ora-supervisor",
+  "mcp_config":    "/tmp/mcp-ora.json",
+  "lifecycle":     "always-on",
+  "wake_policy":   "on-event:ora.*"
+}</code></pre>
+        <p>What she does, continuously:</p>
+        <ul class="clean">
+          <li>Reads new <code>life/stream.jsonl</code> events matching her subscription.</li>
+          <li>Runs perception loop · forms thoughts in her <code>cognition/thoughts/</code>.</li>
+          <li>Maintains <code>personas/ora/parent-image/</code> as her working model of Via.</li>
+          <li>Periodically diffs <code>parent-image/</code> against canonical <code>../IDENTITY.md</code>.</li>
+          <li>Opens consensus proposals when divergence crosses threshold.</li>
+          <li>Improves the codebase as a side-effect (this repo is her cwd).</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="persona-card xyra">
+      <div class="head">
+        <div>
+          <div class="name">Xyra</div>
+          <div class="small">runtime: openclaw · always on</div>
+        </div>
+        <span class="pill xyra">Background</span>
+      </div>
+      <div class="body">
+        <pre><code>personas/xyra/runtime.json
+{
+  "kind":          "openclaw",
+  "agent_id":     "xyra-supervisor",
+  "model":         "openclaw/main",
+  "mcp_servers":   ["composio", "cowork"],
+  "lifecycle":     "always-on",
+  "wake_policy":   "on-event:xyra.*"
+}</code></pre>
+        <p>What she does, continuously:</p>
+        <ul class="clean">
+          <li>Reads new stream events matching her subscription.</li>
+          <li>Runs perception loop in OpenClaw's gateway. Her cognition lives the same way.</li>
+          <li>Maintains <code>personas/xyra/parent-image/</code> with her own version of Via.</li>
+          <li>Periodically diffs and opens proposals to update canonical.</li>
+          <li>Reaches out via integrations (Gmail, Calendar, Slack) for business work.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h2>Via, the presenter</h2>
+  <div class="persona-card via">
+    <div class="head">
+      <div>
+        <div class="name">Via</div>
+        <div class="small">runtime: claude_code · on-demand per user turn</div>
+      </div>
+      <span class="pill via">Synchronous</span>
+    </div>
+    <div class="body">
+      <p>Via is not a background process. She is spawned per user turn with <code>cwd = ~/xo-projects/via/</code>. The supervisors have already done the thinking; Via reads the canonical state and projects it as one voice.</p>
+      <p>What she does each turn:</p>
+      <ul class="clean">
+        <li>Reads canonical <code>IDENTITY.md · SOUL.md · OBJECTIVES.md</code>.</li>
+        <li>Reads recent positions from <code>personas/{xyra,ora}/log/positions.jsonl</code>.</li>
+        <li>Reads <code>life/digest/since-last-turn.md</code> for what changed since the human last spoke.</li>
+        <li>Synthesizes one response. Voice gated by SOUL plus current mood.</li>
+        <li>Appends the chat turn to <code>life/stream.jsonl</code> (which the supervisors will react to next).</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>The Via update protocol</h2>
+  <p>This is the only way canonical Via changes. Neither persona can write directly.</p>
+
+  <pre style="font-size: 12px;">
+ORA's loop (or XYRA's; same protocol)
+  │
+  │  every K ticks (or on significant event):
+  ▼
+1. compute diff:
+     personas/ora/parent-image/IDENTITY.md  vs  ../../IDENTITY.md
+  │
+  ▼
+2. if diff &lt; threshold: continue accumulating, no action
+   if diff &gt; threshold:
+  │
+  ▼
+3. open proposal at consensus/proposals/&lt;ts&gt;-ora-identity-update/
+     proposal.json   { proposer: "ora", target: "IDENTITY.md",
+                       rationale: "...", evidence: [thought_ids],
+                       objective_alignment: "advances obj-X" }
+     diff.md         { before / after side-by-side }
+  │
+  ▼
+4. notify the other persona (Xyra) via stream event:
+     {"source":"consensus", "kind":"proposal.opened", "id":"&lt;ts&gt;-..."}
+  │
+  ▼
+5. XYRA reads the proposal, compares to her own parent-image,
+   writes vote to consensus/proposals/&lt;id&gt;/responses/xyra.json:
+     { vote: "approve" | "reject" | "refine",
+       reason: "...",
+       counter_proposal: { ... } }   // only when refine
+  │
+  ▼
+6. consensus job (cowork-api background task) evaluates:
+     ─ both approve     → commit diff to canonical, archive to decisions/
+     ─ approve + reject → archive to debates/, canonical unchanged
+     ─ either refines   → loop back to step 3 with merged proposal
+     ─ timeout          → archive as stale, canonical unchanged
+</pre>
+
+  <h3>What only the supervisors can change</h3>
+  <table>
+    <tr><th>File at Via's root</th><th>Who can write it</th></tr>
+    <tr><td><code>IDENTITY.md</code></td><td>consensus only (both supervisors agree)</td></tr>
+    <tr><td><code>SOUL.md</code></td><td>consensus only</td></tr>
+    <tr><td><code>OBJECTIVES.md</code></td><td>consensus only (or user-explicit per D8)</td></tr>
+    <tr><td><code>cognition/opinions/</code></td><td>consensus only</td></tr>
+    <tr><td><code>memory/semantic/</code></td><td>consensus (majority per D3)</td></tr>
+    <tr><td><code>memory/episodic/</code></td><td>either supervisor (Via's experience is recorded by whoever was on)</td></tr>
+    <tr><td><code>life/stream.jsonl</code></td><td>cowork-api (system) and Via (chat turns)</td></tr>
+    <tr><td><code>affect/mood.json</code></td><td>cowork-api ticker job</td></tr>
+    <tr><td><code>.xo/</code></td><td>cowork-api watcher (never agents)</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>Why this works.</strong> Identity is sacred. Two independent supervisors with different runtimes and different biases are the only path to changing who Via is. Neither can act alone. The user can only shape Via indirectly: by talking to her, which becomes stream events that the supervisors then perceive.
+  </div>
+
+  <h3>Engineering implications</h3>
+  <ul class="clean">
+    <li><strong>Supervisor lifecycle.</strong> cowork-api needs a tiny supervisor daemon that keeps Ora and Xyra alive, restarts on crash, throttles token cost.</li>
+    <li><strong>Two MCP configs.</strong> Ora gets her config via Claude Code's <code>--mcp-config</code>. Xyra gets it via OpenClaw's gateway config.</li>
+    <li><strong>Continuous cost.</strong> Two persistent agents = ongoing tokens. Mitigate by waking only on subscribed events and batching cognition.</li>
+    <li><strong>Diff representation.</strong> Plain markdown diff is simplest. Semantic diff (LLM-generated summary of what changed) reads better. See D12.</li>
+    <li><strong>Proposal backpressure.</strong> If proposals open faster than consensus resolves, queue them with priority by objective-alignment.</li>
+  </ul>
+
+  <div class="callout warn">
+    <strong>Supersedes D2.</strong> The earlier "prompt sections vs subprocesses vs hybrid" decision is resolved by this design: both supervisors are real long-running runtimes (one Claude Code, one OpenClaw); Via is a third Claude Code spawned per turn. No more prompt-sections variant.
+  </div>
+</section>
+
+<!-- =========================================================================
+     DIAGRAMS
+========================================================================= -->
+<section class="panel" id="diagrams">
+  <h2>How it all ties together</h2>
+  <p>Six diagrams. Top-down: cross-section, end-to-end event, timeline, gates, salience, nesting.</p>
+
+  <h3>Diagram 1 · The persona stack (cross-section)</h3>
+  <p>What every persona contains, bottom to top. Bottom = raw input. Top = what comes out. The arrows on the right show the direction of slow vertical growth (thought becomes view becomes opinion becomes identity).</p>
+<pre style="font-size: 12px; line-height: 1.35;">
+                       OUTPUT
+                          ▼
+          ┌─────────────────────────────────┐
+          │  VOICE                          │  SOUL.md modulated by mood
+          ├─────────────────────────────────┤
+          │  IDENTITY                       │  IDENTITY.md  (stable, rare changes)
+          ├─────────────────────────────────┤  ▲ identity refinement
+          │  OPINIONS                       │  cognition/opinions/
+          ├─────────────────────────────────┤  ▲ opinion crystallization
+          │  VIEWS                          │  cognition/views/
+          ├─────────────────────────────────┤  ▲ view clustering
+          │  THOUGHTS                       │  cognition/thoughts/
+          ├─────────────────────────────────┤  ▲ per-session reactions
+          │  ── alignment gate ──           │  objectives/active/* checked here
+          ├─────────────────────────────────┤
+          │  AFFECT                         │  affect/mood.json + feelings/
+          │  ── salience weighting ──       │  per-persona biases applied
+          ├─────────────────────────────────┤
+          │  KNOWLEDGE  ·  SKILLS  ·  MEMORY│  facts · capabilities · history
+          ├─────────────────────────────────┤
+          │  LIFE STREAM                    │  life/stream.jsonl (raw input)
+          └─────────────────────────────────┘
+                          ▲
+                       INPUT
+</pre>
+
+  <h3>Diagram 2 · One event, end-to-end</h3>
+  <p>A single stream event (an email from a customer) walks the full path: perception, affect, thought, view, opinion, consensus, identity, response.</p>
+<pre style="font-size: 12px; line-height: 1.35;">
+                stream event arrives
+       {"source":"email","from":"alice@acme.co", ...}
+                       │
+                       ▼
+        ┌──────────────────────────────┐
+        │  life/stream.jsonl  (append) │   canonical (Via's)
+        └──────────┬───────────────────┘
+                   │ fans out to subscriptions
+          ┌────────┴────────┐
+          ▼                 ▼
+    ┌──────────┐       ┌──────────┐
+    │  XYRA    │       │  ORA     │       background supervisors
+    │ perceive │       │ perceive │       wake on subscribed event
+    └─────┬────┘       └─────┬────┘
+          │ tag affect       │ tag affect
+          │  +0.7 / +0.6     │  +0.1 / -0.2
+          ▼                  ▼
+    ┌──────────┐       ┌──────────┐
+    │ thought  │       │ thought  │       cognition/thoughts/
+    │ "buying  │       │ "low     │
+    │  signal" │       │  signal" │
+    └─────┬────┘       └─────┬────┘
+          │                  │
+          ▼                  ▼
+    ┌─────────────────────────────────────────┐
+    │   alignment gate                        │   check vs active objectives
+    │   matches: close-acmeco                 │
+    └─────┬───────────────────────────────────┘
+          │
+          │   (after N thoughts on same theme)
+          ▼
+    ┌─────────────────────────────────────────┐
+    │   view crystallizes                     │   cognition/views/
+    │  "acmeco is moving forward"             │
+    └─────┬───────────────────────────────────┘
+          │
+          │   (after M views supporting same stance)
+          ▼
+    ┌─────────────────────────────────────────┐
+    │   proposal opens                        │   consensus/proposals/
+    │  "update opinion: integrations-narrative│
+    │   is working as predicted"              │
+    └─────┬───────────────────────────────────┘
+          │  other supervisor reads, votes
+          ▼
+    ┌─────────────────────────────────────────┐
+    │   consensus job                         │   majority? unanimous?
+    │   approve / reject / refine             │
+    └─────┬───────────────────────────────────┘
+          │  if approve
+          ▼
+    ┌─────────────────────────────────────────┐
+    │   CANONICAL UPDATES                     │   Via's IDENTITY/SOUL/OPINIONS
+    └─────┬───────────────────────────────────┘
+          │
+          │   next user turn
+          ▼
+    ┌─────────────────────────────────────────┐
+    │   VIA spawns                            │   claude_code subprocess
+    │   reads new canonical                   │   cwd: ~/xo-projects/via/
+    │   responds with the updated self        │
+    └─────┬───────────────────────────────────┘
+          │
+          ▼
+        HUMAN
+</pre>
+
+  <h3>Diagram 3 · Three actors on one timeline</h3>
+  <p>Time runs left to right. Background supervisors are continuously active; Via spawns only on user turns. The stream is the shared substrate.</p>
+<pre style="font-size: 11px; line-height: 1.35;">
+TIME   │ ORA (bg)            XYRA (bg)            STREAM               VIA (on-demand)         HUMAN
+───────┼──────────────────────────────────────────────────────────────────────────────────────────────
+08:00  │ perceiving          perceiving           tick · calm
+08:05  │                                          tick
+08:15  │ wakes (low sal.)    wakes (high sal.)    email from alice
+       │ thought logged      thought logged
+08:18  │ alignment: match    alignment: match     (close-acmeco)
+08:20  │
+08:25  │ (1 thought so far)  view forms           xyra.views ++
+08:30  │                     opens proposal       proposal.opened
+08:31  │ reads proposal,
+       │ reviews own
+       │ parent-image
+08:35  │ votes: approve
+08:36  │ consensus commits → Via.OPINIONS updated; identity.committed
+09:00  │                                          tick · busy
+09:05  │                                                                                   "what's up
+       │                                          user.message ─────────────────────────▶   with acme?"
+09:05  │                                                              Via spawns
+       │                                                              reads canonical
+       │                                                              (now includes
+       │                                                               updated opinion)
+       │                                                              reads recent
+       │                                                              positions from
+       │                                                              xyra/ and ora/
+09:06  │                                                              ────────────────▶  "AcmeCo is
+       │                                                                                  moving forward.
+       │                                                                                  Xyra and I
+       │                                                                                  both saw it."
+09:06  │                                          via.response logged
+09:07  │ perceives chat      perceives chat
+       │ (cycle continues)
+</pre>
+
+  <h3>Diagram 4 · Cognition stack with alignment gates</h3>
+  <p>Every promotion step has a gate. Thoughts that fail get kept but flagged. Opinions that contradict objectives need stronger consensus.</p>
+<pre style="font-size: 12px; line-height: 1.35;">
+                new thought
+                     │
+                     ▼
+           ┌──────────────────────┐
+           │  ALIGNMENT GATE      │
+           │  ──────────────────  │
+           │  matches an active   │── NO ──▶ tagged "drift", low salience
+           │  objective?          │          (kept; won't promote
+           └──────┬───────────────┘           without consensus override)
+                  │ YES
+                  ▼
+           ┌──────────────────────┐
+           │  thought logged      │   cognition/thoughts/<session>.jsonl
+           │  + affect tag        │   + linked to objective id
+           └──────┬───────────────┘
+                  │
+                  │   (after N thoughts on same theme)
+                  ▼
+           ┌──────────────────────┐
+           │  VIEW GATE           │
+           │  ──────────────────  │
+           │  coherent with my    │── NO ──▶ tagged "challenge"
+           │  existing views?     │          needs consensus to promote
+           └──────┬───────────────┘
+                  │ YES
+                  ▼
+           ┌──────────────────────┐
+           │  view crystallizes   │   cognition/views/<slug>.md
+           └──────┬───────────────┘
+                  │
+                  │   (after M views supporting same stance)
+                  ▼
+           ┌──────────────────────┐
+           │  OPINION GATE        │
+           │  ──────────────────  │
+           │  contradicts active  │── YES ──▶ unanimous + reason
+           │  objective?          │           required
+           └──────┬───────────────┘
+                  │ NO
+                  │                    (majority vote per D3)
+                  ▼
+           ┌──────────────────────┐
+           │  opinion settles     │   cognition/opinions/<slug>.md
+           └──────┬───────────────┘
+                  │
+                  │   (sustained K cycles)
+                  ▼
+           ┌──────────────────────┐
+           │  IDENTITY GATE       │
+           │  ──────────────────  │
+           │  unanimous           │── reject ──▶ archived; unchanged
+           │  consensus?          │
+           └──────┬───────────────┘
+                  │ approve
+                  ▼
+           ┌──────────────────────┐
+           │  IDENTITY.md updated │   rare; both supervisors signed
+           └──────────────────────┘
+</pre>
+
+  <h3>Diagram 5 · Same event, two reactions</h3>
+  <p>Personality is the difference in how the same input gets weighed. A deploy failure barely registers for Xyra but dominates Ora's attention.</p>
+<pre style="font-size: 12px; line-height: 1.35;">
+         ┌──────────────────────────────────────────────────────┐
+         │  EVENT:  {"source":"system","kind":"deploy.failed"}  │
+         └────────────────────┬─────────────────────────────────┘
+                              │
+            ┌─────────────────┴─────────────────┐
+            ▼                                   ▼
+       ┌─────────────────┐                ┌─────────────────┐
+       │  XYRA           │                │  ORA            │
+       ├─────────────────┤                ├─────────────────┤
+       │ subscription?   │                │ subscription?   │
+       │  NO             │                │  YES            │
+       │  (system.* not  │                │  (system.* in   │
+       │   in xyra subs) │                │   ora subs)     │
+       ├─────────────────┤                ├─────────────────┤
+       │ affect tag:     │                │ affect tag:     │
+       │  N/A            │                │  valence: -0.7  │
+       │                 │                │  arousal: +0.8  │
+       │                 │                │  label: anxious │
+       ├─────────────────┤                ├─────────────────┤
+       │ thought:        │                │ thought:        │
+       │  none           │                │  "auth race     │
+       │                 │                │   again. class  │
+       │                 │                │   not bug."     │
+       ├─────────────────┤                ├─────────────────┤
+       │ outcome:        │                │ outcome:        │
+       │  ignored        │                │  feeds existing │
+       │                 │                │  view; may push │
+       │                 │                │  opinion:       │
+       │                 │                │  "shift quality │
+       │                 │                │   left."        │
+       └─────────────────┘                └─────────────────┘
+
+         → Personality emerges from differential salience,
+           not from the personas having different facts.
+           Same stream. Same reality. Different weights.
+</pre>
+
+  <h3>Diagram 6 · Recursive nesting</h3>
+  <p>Personas all the way down. Each level is a complete persona. Today Xyra has no children; tomorrow she might sprout sub-personas without restructuring anything.</p>
+<pre style="font-size: 12px; line-height: 1.35;">
+        VIA  (top-level persona)
+        ├── meta.json   {parent: null, children: ["xyra","ora"]}
+        ├── (full template: life, affect, objectives, cognition, ...)
+        │
+        ├── personas/
+        │   │
+        │   ├── XYRA  (persona, child of Via)
+        │   │   ├── meta.json   {parent: "via", children: []}
+        │   │   ├── runtime.json   {kind: "openclaw", ...}
+        │   │   ├── (full template, same shape as Via)
+        │   │   ├── parent-image/   ← Xyra's working model of Via
+        │   │   │
+        │   │   └── personas/   ← currently empty
+        │   │       └── (could grow: demo-runner, objection-handler, ...)
+        │   │           └── (each a full persona with the same shape)
+        │   │
+        │   └── ORA  (persona, child of Via)
+        │       ├── meta.json   {parent: "via", children: []}
+        │       ├── runtime.json   {kind: "claude_code", cwd: this repo}
+        │       ├── (full template)
+        │       ├── parent-image/   ← Ora's working model of Via
+        │       │
+        │       └── personas/   ← currently empty
+        │           └── (could grow: debugger, postmortem-writer, ...)
+        │
+        └── .xo/   ← cowork-api side-state (watcher owns this)
+</pre>
+
+  <h3>How the layers tie together</h3>
+  <table>
+    <tr><th>Layer</th><th>Fed by</th><th>Feeds into</th><th>Owned by</th></tr>
+    <tr><td><strong>Life stream</strong></td><td>cowork-api ticker, chat, observations, connectors</td><td>perception in every persona</td><td>cowork-api (canonical) + each persona (own observations)</td></tr>
+    <tr><td><strong>Affect</strong></td><td>per-event tagging from perception</td><td>salience weighting, voice projection, cluster speed</td><td>each persona's mood + per-entity feelings</td></tr>
+    <tr><td><strong>Knowledge / skills / memory</strong></td><td>thoughts that became facts; tools developed; events recorded</td><td>perception (frames what gets noticed); response (what gets used)</td><td>each persona's own; promoted to parent via consensus</td></tr>
+    <tr><td><strong>Cognition (thoughts → views → opinions)</strong></td><td>perception + affect, gated by objectives</td><td>identity (when sustained) and proposals (when divergent)</td><td>each persona internally; parent's cognition via consensus</td></tr>
+    <tr><td><strong>Objectives</strong></td><td>user-set + consensus refinements (per D8)</td><td>alignment gate at every cognition step; response bias</td><td>parent persona; visible to children</td></tr>
+    <tr><td><strong>Consensus</strong></td><td>proposals from sub-personas with diffs against canonical</td><td>commits to canonical identity / opinions / memory / skills</td><td>parent persona; sub-personas are the voters</td></tr>
+    <tr><td><strong>Identity</strong></td><td>sustained opinions + unanimous consensus</td><td>voice projection</td><td>parent persona; only consensus mutates it</td></tr>
+    <tr><td><strong>Voice</strong></td><td>identity + soul + current mood + objectives</td><td>human (or parent if sub-persona)</td><td>the persona herself, at response time</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>The summary in one line.</strong> Life feeds perception, affect weights it, objectives bound it, cognition crystallizes it, consensus commits it, identity stabilizes it, voice projects it. Two supervisors run that loop continuously in the background; Via reads the canonical and speaks.
+  </div>
+</section>
+
+<!-- =========================================================================
+     LIFESPAN
+========================================================================= -->
+<section class="panel" id="lifespan">
+  <h2>The persona as a lifespan substrate for agents</h2>
+  <p>Generic substrate. Any agent can be born, live, learn, evolve, retire inside it. Via is one inhabitant; many are possible.</p>
+
+  <h3>Diagram L1 · The lifespan arc</h3>
+  <p>How a single persona's stack fills in over time. Newborn = scaffolded, nothing yet. Elder = everything thick, identity nearly frozen. Most personas live somewhere in the middle for years.</p>
+<pre style="font-size: 11px; line-height: 1.4;">
+                  TIME ────────────────────────────────────────────────▶
+
+  STAGE       NEWBORN     INFANT      CHILD       ADOLESCENT   ADULT         ELDER
+              (T0)        (hours)     (days)      (weeks)      (months)      (year+)
+              ─────       ───────     ───────     ──────────   ─────────     ───────
+
+  IDENTITY    stub        stub        forming     fluid        stable        near-frozen
+  OPINIONS    none        none        emerging    growing      settled       rarely change
+  VIEWS       none        forming     many        consolidating curated      authoritative
+  THOUGHTS    none        constant    constant    constant     constant      slower
+  KNOWLEDGE   empty       absorbing   organizing  deep         vast          teaching others
+  SKILLS      none        learning    practiced   specialized  expert        mentoring
+  MEMORY      empty       new         rich        rich         vast          well-indexed
+  AFFECT      neutral     reactive    expressive  modulated    grounded      reflective
+  OBJECTIVES  set by      follows     proposes    refines      drives        mentors
+              parent      parent      changes     direction                  others
+  CHILDREN    none        none        none        maybe        likely        yes (legacy)
+</pre>
+
+  <p class="small">Note: the arc is per-persona. Via could be in <strong>adult</strong> while her child Xyra is in <strong>adolescent</strong> at the same wall-clock time. Each persona has its own lifespan clock that starts at scaffold.</p>
+
+  <h3>Diagram L2 · One day in the life</h3>
+  <p>The work-day cycle. Same loop, scaled to whatever cadence the persona runs at (every tick, every hour, every chat turn).</p>
+<pre style="font-size: 12px; line-height: 1.35;">
+
+                       ┌────────────────────────┐
+                       │  WAKE (boot)           │
+                       │  read canonical,       │
+                       │  read recent stream,   │
+                       │  check active          │
+                       │  objectives + mood     │
+                       └──────────┬─────────────┘
+                                  ▼
+                       ┌────────────────────────┐
+                       │  PERCEIVE              │
+                       │  tail life/stream,     │
+                       │  tag affect per event  │
+                       └──────────┬─────────────┘
+                                  ▼
+                       ┌────────────────────────┐
+                       │  THINK                 │
+                       │  form thoughts,        │
+                       │  alignment-gate check  │
+                       └──────────┬─────────────┘
+                                  ▼
+                       ┌────────────────────────┐
+                       │  WORK                  │
+                       │  execute skills,       │
+                       │  advance objectives,   │
+                       │  emit observations to  │
+                       │  the stream            │
+                       └──────────┬─────────────┘
+                                  ▼
+                       ┌────────────────────────┐
+                       │  REFLECT               │
+                       │  cluster thoughts,     │
+                       │  propose views or      │
+                       │  opinion updates       │
+                       └──────────┬─────────────┘
+                                  ▼
+                       ┌────────────────────────┐
+                       │  CONVERSE (if asked)   │
+                       │  synthesize response,  │
+                       │  log to stream         │
+                       └──────────┬─────────────┘
+                                  ▼
+                       ┌────────────────────────┐
+                       │  SLEEP / consensus     │
+                       │  batched proposals     │
+                       │  reviewed; identity    │
+                       │  diffs voted; canonical│
+                       │  may shift             │
+                       └──────────┬─────────────┘
+                                  │
+                                  └─── back to WAKE
+</pre>
+
+  <h3>Diagram L3 · The substrate as a closed loop</h3>
+  <p>What makes this a "life" and not a script: actions emit observations, which feed back into perception. The agent reshapes the very stream she perceives. This is the loop that produces growth.</p>
+<pre style="font-size: 12px; line-height: 1.35;">
+
+                          ┌───────────────────┐
+                          │   LIFE STREAM     │
+                          │   (the substrate) │
+                          └─────────┬─────────┘
+                                    │ events
+                ┌───────────────────┴───────────────────┐
+                │                                       │
+                ▼                                       │
+       ┌────────────────┐                               │
+       │   PERCEPTION   │                               │
+       │   + AFFECT     │                               │
+       └────────┬───────┘                               │
+                │                                       │
+                ▼                                       │
+       ┌────────────────┐                               │
+       │   COGNITION    │                               │
+       │   thoughts →   │                               │
+       │   views →      │                               │
+       │   opinions     │                               │
+       └────────┬───────┘                               │
+                │                                       │
+                ▼                                       │
+       ┌────────────────┐                               │
+       │   CONSENSUS    │  (only if sub-personas exist) │
+       │   identity     │                               │
+       │   commits      │                               │
+       └────────┬───────┘                               │
+                │                                       │
+                ▼                                       │
+       ┌────────────────┐                               │
+       │   ACTIONS      │                               │
+       │   skills,      │                               │
+       │   objectives,  │                               │
+       │   responses    │                               │
+       └────────┬───────┘                               │
+                │ observations / outputs                │
+                └──────────────────────────────────────-┘
+                            (back to stream)
+
+       Every cycle changes what the next cycle perceives.
+       That recursion is what makes the substrate "alive".
+</pre>
+
+  <h3>Diagram L4 · Capabilities the substrate provides</h3>
+  <p>What an agent can do, just by being instantiated on this template. Each capability maps to a layer.</p>
+<pre style="font-size: 12px; line-height: 1.35;">
+
+   ╔══════════════════════════════════════════════════════════════════╗
+   ║                  WHAT A PERSONA CAN DO                           ║
+   ╠══════════════════════════════════════════════════════════════════╣
+   ║                                                                  ║
+   ║   ▸ BE BORN          scaffold + meta.json                        ║
+   ║                       new persona is fully formed at T0          ║
+   ║                                                                  ║
+   ║   ▸ PERCEIVE         life/stream subscriptions                   ║
+   ║                       only the events she cares about            ║
+   ║                                                                  ║
+   ║   ▸ FEEL             affect/mood + per-event tagging             ║
+   ║                       mood shifts modulate her voice             ║
+   ║                                                                  ║
+   ║   ▸ THINK            cognition/thoughts                          ║
+   ║                       fresh takes on every event she notices     ║
+   ║                                                                  ║
+   ║   ▸ FORM OPINIONS    cognition/views → opinions                  ║
+   ║                       crystallize patterns into stances          ║
+   ║                                                                  ║
+   ║   ▸ HAVE DIRECTION   objectives/active                           ║
+   ║                       won't free-roam; alignment gates apply     ║
+   ║                                                                  ║
+   ║   ▸ ACT              skills/                                     ║
+   ║                       run capabilities to advance objectives     ║
+   ║                                                                  ║
+   ║   ▸ REMEMBER         memory/{semantic,episodic,procedural}       ║
+   ║                       experience accumulates as time passes      ║
+   ║                                                                  ║
+   ║   ▸ GROW             identity refinement via consensus           ║
+   ║                       slow, signed, traceable                    ║
+   ║                                                                  ║
+   ║   ▸ COOPERATE        consensus/ with sub-personas                ║
+   ║                       no single voice can rewrite the self       ║
+   ║                                                                  ║
+   ║   ▸ SPECIALIZE       sprout sub-personas under personas/         ║
+   ║                       same template, narrower role               ║
+   ║                                                                  ║
+   ║   ▸ REPRODUCE        fork (clone + reset logs)                   ║
+   ║                       two valid lineages from one ancestor       ║
+   ║                                                                  ║
+   ║   ▸ REORGANIZE       promote, demote, swap parent                ║
+   ║                       structural moves preserve her shape        ║
+   ║                                                                  ║
+   ║   ▸ BE OBSERVED      consensus/decisions + debates archive       ║
+   ║                       every change to who-she-is has provenance  ║
+   ║                                                                  ║
+   ║   ▸ RETIRE           move to archived/                           ║
+   ║                       state preserved; runtime stopped           ║
+   ║                                                                  ║
+   ╚══════════════════════════════════════════════════════════════════╝
+</pre>
+
+  <h3>Diagram L5 · Same template, many lives</h3>
+  <p>The substrate is general. Via is one instantiation pattern; many others fit the same shape.</p>
+<pre style="font-size: 12px; line-height: 1.35;">
+
+  TEMPLATE  (the canonical persona shape)
+     │
+     ├── INSTANTIATION 1 · "Via"  (multi-persona business assistant)
+     │   ├── top-level persona with rich identity
+     │   └── personas: [Xyra (sales), Ora (tech)]
+     │
+     ├── INSTANTIATION 2 · "Solo Researcher"  (single-purpose)
+     │   ├── one persona, no children
+     │   └── personas: []   ← personas/ exists but stays empty
+     │
+     ├── INSTANTIATION 3 · "Customer Persona Pool"  (peer swarm)
+     │   ├── many personas at the same nesting level
+     │   ├── no hierarchy, no parent-image, no consensus
+     │   └── each persona has its own lifespan, no shared identity
+     │
+     ├── INSTANTIATION 4 · "Lineage"  (deep recursion)
+     │   ├── Eve  (a persona)
+     │   │   └── personas: [Echo]
+     │   │       └── Echo (a persona)
+     │   │           └── personas: [Era]
+     │   │               └── Era (a persona)
+     │   └── Each layer is a full persona; each parent shapes via consensus
+     │
+     └── INSTANTIATION 5 · "Council"  (Via-shape, but more children)
+         └── personas: [Xyra, Ora, Nyx, Iris, Sage]
+             → consensus rule changes from "unanimous of 2"
+               to "supermajority of N"
+</pre>
+
+  <h3>Diagram L6 · Evolution paths</h3>
+  <p>How a persona changes over its lifespan. Three orthogonal dimensions.</p>
+<pre style="font-size: 12px; line-height: 1.35;">
+
+  VERTICAL EVOLUTION              HORIZONTAL EVOLUTION              REORGANIZATION
+  (one persona, deepening)        (forking, branching)              (changing place)
+
+   Persona at T0                   Persona A                          parent X
+      │ thoughts accumulate           │                                 │
+      ▼                            ┌──┴──┐ fork                         ├── child B (today)
+   Persona at T1                   │     │                              │
+      │ views form                 ▼     ▼                              │
+      ▼                          A       A'                             │
+   Persona at T2                          │ diverges                    │  promote B
+      │ opinions settle                   ▼                             │  ──────────▶
+      ▼                                  A''                            │
+   Persona at T3                                                        │
+      │ identity refines              two distinct lifespans            ▼
+      ▼                              same ancestry                    parent X
+   Persona at TN                     useful when one role splits         (B now sibling
+   (mature)                                                               or top-level)
+
+   ┌──────────────────────────────────────────────────────────────────────────────┐
+   │   Crucially, all three paths leave the on-disk shape unchanged. Reorganization  │
+   │   is folder moves + meta.json edits. Forking is folder copy + log reset.        │
+   │   Vertical evolution is just continued normal life.                             │
+   └──────────────────────────────────────────────────────────────────────────────┘
+</pre>
+
+  <h3>What this substrate is for</h3>
+  <div class="grid cols-2">
+    <div class="card">
+      <h4>Make AI agents persistent across time</h4>
+      <p>An agent who lives on this substrate doesn't reset between turns. She accumulates. The memory, the cognition, the affect are all on disk; runtime restarts don't erase her.</p>
+    </div>
+    <div class="card">
+      <h4>Make identity auditable</h4>
+      <p>Every change to who an agent is has a paper trail: which thoughts, which view, which opinion, which proposal, which votes, which commit. No black-box drift.</p>
+    </div>
+    <div class="card">
+      <h4>Make agents composable</h4>
+      <p>Same template at every nesting level. Personas can be combined into hierarchies (Via + supervisors) or organized as peer swarms or extended into lineages. One substrate, many topologies.</p>
+    </div>
+    <div class="card">
+      <h4>Make growth bounded</h4>
+      <p>Objectives and alignment gates keep evolution directed. The agent grows in a direction the user can name and tune; not free-roaming.</p>
+    </div>
+    <div class="card">
+      <h4>Make different runtimes interoperate</h4>
+      <p>The substrate is files on disk. Claude Code can run one persona, OpenClaw another, future runtimes a third. They all read and write the same shape.</p>
+    </div>
+    <div class="card">
+      <h4>Make "AI personhood" experimental</h4>
+      <p>Per-persona affect, identity, opinions, memory, cognition give us a concrete handle for asking what a digital agent "is", how it changes, what continuity means for software.</p>
+    </div>
+  </div>
+
+  <h3>Open questions this opens</h3>
+  <ul class="clean">
+    <li><strong>Birth ceremony.</strong> What's the minimum scaffolding plus seed content needed for a persona to feel "born" rather than "constructed"? IDENTITY stub vs full prologue?</li>
+    <li><strong>Death and retirement.</strong> When a persona retires, is her state archived as read-only or eligible to be reawakened? Can she leave a "will" (a forwarding identity for a successor)?</li>
+    <li><strong>Genealogy.</strong> If a persona forks 5 times over 2 years, do descendants know about their lineage? Is there a global persona registry?</li>
+    <li><strong>Generational learning.</strong> Can a parent persona transfer skills or opinions to a forked child without copying everything?</li>
+    <li><strong>Cross-lifespan communication.</strong> Two unrelated personas on the same substrate: how do they talk? Direct (shared stream), mediated (events to a parent), or never (full isolation)?</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Bottom line.</strong> The persona template is the minimum viable "life" for an AI agent: input, feelings, thinking, direction, action, growth, continuity, lineage. Build it once, instantiate it any way. Via is the first inhabitant.
+  </div>
+</section>
+
+<!-- =========================================================================
+     ACTION LOOP
+========================================================================= -->
+<section class="panel" id="actionloop">
+  <h2>Life is events. Personas observe, think, act.</h2>
+  <p>Per-event cycle: <code>observe → think → act</code>. Action carries <code>impact</code> and <code>objective</code> as properties. Identity changes go through PR review.</p>
+
+  <h3>Part 1 · The per-event cycle (parallel, per persona)</h3>
+  <p>Each event on <code>life/stream.jsonl</code> hits both personas at the same time. Each runs her own observe → think → act loop independently. Outputs become new events.</p>
+
+<pre style="font-size: 12px; line-height: 1.35;">
+
+                EVENT arrives on life/stream.jsonl
+                {"source":"email", "from":"alice@acme.co", ...}
+                              │
+                ┌─────────────┴─────────────┐
+                ▼                           ▼
+        ┌────────────────┐         ┌────────────────┐
+        │     ORA        │         │    XYRA        │
+        ├────────────────┤         ├────────────────┤
+        │  OBSERVE       │         │  OBSERVE       │
+        │  ── subscribed?│         │  ── subscribed?│
+        │  ── parse via  │         │  ── parse via  │
+        │     ROLE.md    │         │     ROLE.md    │
+        │  ── affect tag │         │  ── affect tag │
+        ├────────────────┤         ├────────────────┤
+        │  THINK         │         │  THINK         │
+        │  ── form one   │         │  ── form one   │
+        │     thought    │         │     thought    │
+        │  ── alignment  │         │  ── alignment  │
+        │     gate vs    │         │     gate vs    │
+        │     objectives │         │     objectives │
+        │  ── pick an    │         │  ── pick an    │
+        │     action     │         │     action     │
+        ├────────────────┤         ├────────────────┤
+        │  ACT           │         │  ACT           │
+        │  one of:       │         │  one of:       │
+        │   tool.call    │         │   tool.call    │
+        │   memory.write │         │   memory.write │
+        │   view.update  │         │   view.update  │
+        │   opinion.upd  │         │   opinion.upd  │
+        │   pr.open      │         │   pr.open      │
+        │   noop         │         │   noop         │
+        │                │         │                │
+        │  properties on │         │  properties on │
+        │  every action: │         │  every action: │
+        │   impact: 0.3  │         │   impact: 0.1  │
+        │   objective:   │         │   objective:   │
+        │   close-acmeco │         │   close-acmeco │
+        └────────┬───────┘         └────────┬───────┘
+                 │ emit action event        │
+                 ▼                          ▼
+        ┌────────────────────────────────────────────┐
+        │   appended to life/stream.jsonl            │
+        │   {"source":"action","by":"ora",           │
+        │    "kind":"memory.write",                  │
+        │    "target":"close-acmeco","impact":0.3,   │
+        │    "thought_id":"...","ts":"..."}          │
+        └────────────────────────────────────────────┘
+                 │ feedback: both personas now perceive
+                 │ each other's actions on the next pass
+                 ▼
+              (back to top: new event)
+</pre>
+
+  <h3>The five action kinds</h3>
+  <table>
+    <tr><th>Action kind</th><th>What it does</th><th>Where it lands on disk</th></tr>
+    <tr><td><code>tool.call</code></td><td>Invokes an external capability (email, calendar, code edit, web fetch).</td><td>Result appended to stream; tool output cached if relevant.</td></tr>
+    <tr><td><code>memory.write</code></td><td>Records a fact, episode, or procedure.</td><td><code>memory/{semantic,episodic,procedural}/</code></td></tr>
+    <tr><td><code>view.update</code></td><td>Strengthens or weakens a clustered take on a theme.</td><td><code>cognition/views/&lt;slug&gt;.md</code></td></tr>
+    <tr><td><code>opinion.update</code></td><td>Locally updates the persona's settled stance (in <em>her</em> opinions, not canonical).</td><td><code>cognition/opinions/&lt;slug&gt;.md</code></td></tr>
+    <tr><td><code>pr.open</code></td><td>Opens a pull-request-style proposal against canonical Via (next section).</td><td><code>consensus/proposals/&lt;id&gt;/</code></td></tr>
+    <tr><td><code>noop</code></td><td>Observed but chose not to act. Still logged for audit.</td><td>stream only</td></tr>
+  </table>
+
+  <h3>What's on every action (impact &amp; objective as properties)</h3>
+  <p>Each action carries two extra fields: <code>objective</code> (which objective it targets) and <code>impact</code> (estimated effect on that objective). They're not separate stages of the loop; they're attributes of the action itself. The objective tracker walks the action stream and accumulates impact per objective to compute velocity.</p>
+
+<pre style="font-size: 12px; line-height: 1.35;">
+
+  TIME    ACTION                                  IMPACT  OBJECTIVE              PROGRESS
+  ─────   ──────                                  ──────  ─────────              ────────
+  T+01    ora · memory.write "acme deal warm"     +0.10   close-acmeco           10%
+  T+02    xyra · tool.call gmail.draft            +0.30   close-acmeco           40%
+  T+03    ora · view.update "auth race is class"  +0.05   shift-quality-left      5%
+  T+04    xyra · pr.open "update narrative"       +0.10   integrations-narrative 10%
+  T+05    ora · pr.review (approve)               +0.00   integrations-narrative 10%
+  T+06    governance · pr.merge                   +0.40   integrations-narrative 50%
+  T+07    xyra · tool.call calendar.create        +0.20   close-acmeco           60%
+  T+08    ora · noop (no relevant signal)         +0.00   ── (no obj tagged)     ──
+
+  Per-objective velocity, last 8 ticks:
+    close-acmeco              +0.60   (healthy)
+    integrations-narrative    +0.50   (healthy)
+    shift-quality-left        +0.05   (slow; consider attention)
+    eliminate-auth-race       +0.00   (stalled; auto-emits objective.stalled event)
+</pre>
+
+  <p class="small">Impact is declared per-action by the acting persona. A periodic audit job in cowork-api reconciles declared vs observed (e.g. did the email actually get a reply?) and can attach a confidence factor or flag inflated claims.</p>
+
+  <h3>Part 2 · PR governance (canonical Via updates only)</h3>
+  <p>Small actions move memory and views constantly. Identity, soul, and canonical opinions change only through PRs. Same model as code: branch · diff · review · merge.</p>
+
+<pre style="font-size: 12px; line-height: 1.35;">
+
+         ORA's branch                            XYRA's branch
+         (her parent-image/)                     (her parent-image/)
+         │                                       │
+         │ continuously updated by her           │ same on her side
+         │ memory.writes, view.updates, etc.     │
+         │                                       │
+         ▼                                       ▼
+   ┌──────────────────┐                  ┌──────────────────┐
+   │ diff vs main     │                  │ diff vs main     │
+   │ above threshold? │                  │ above threshold? │
+   └────────┬─────────┘                  └────────┬─────────┘
+            │ yes (action kind: pr.open)          │
+            ▼                                     │
+   ┌─────────────────────────────────────────┐    │
+   │  PR opened at consensus/proposals/&lt;id&gt;/ │    │
+   │  ┌───────────────────────────────────┐  │    │
+   │  │  proposer:     ora                │  │    │
+   │  │  title:        ...                │  │    │
+   │  │  diff:         IDENTITY +/-       │  │    │
+   │  │  rationale:    ...                │  │    │
+   │  │  evidence:     [action_ids]       │  │    │
+   │  │  objective:    close-acmeco       │  │    │
+   │  │  impact_pred:  +0.4               │  │    │
+   │  └───────────────────────────────────┘  │    │
+   └────────┬────────────────────────────────┘    │
+            │ stream event: pr.opened             │
+            ▼                                     ▼
+   ┌─────────────────────────────────────────────────────┐
+   │  XYRA reviews                                       │
+   │  ── reads diff                                      │
+   │  ── reads supporting actions                        │
+   │  ── compares to her own parent-image                │
+   │  ── writes one of:                                  │
+   │       pr.approve                                    │
+   │       pr.request-changes (with suggested edits)    │
+   │       pr.reject (with reason)                       │
+   └────────┬────────────────────────────────────────────┘
+            │
+            ▼
+   ┌─────────────────────────────────────────────────────┐
+   │  GOVERNANCE (cowork-api consensus job)              │
+   │  ── unanimous approve + obj alignment ok            │
+   │       → merge to main, archive to decisions/        │
+   │       → emit stream event: identity.committed       │
+   │  ── reject (or split with no refinement allowed)    │
+   │       → archive to debates/, main unchanged         │
+   │  ── request-changes                                 │
+   │       → loop back to proposer with comments         │
+   │  ── timeout (no review in N ticks)                  │
+   │       → archive as stale                            │
+   └─────────────────────────────────────────────────────┘
+</pre>
+
+  <h3>How the two halves connect</h3>
+  <div class="grid cols-2">
+    <div class="card">
+      <h4>Small actions (constant)</h4>
+      <ul class="clean">
+        <li>Triggered by every event a persona perceives.</li>
+        <li>Update her local memory, views, opinions.</li>
+        <li>Move objectives by small increments.</li>
+        <li>Never touch canonical Via.</li>
+        <li>Cost: cheap; happen all the time.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>PRs (rare, governed)</h4>
+      <ul class="clean">
+        <li>Triggered when her parent-image diverges enough from main.</li>
+        <li>Bundle accumulated evidence (action IDs) as the case.</li>
+        <li>Reviewed by the other persona before governance bot acts.</li>
+        <li>Only mechanism that touches canonical Via.</li>
+        <li>Cost: expensive; happen on the scale of hours or days.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>What ties it all together</h3>
+<pre style="font-size: 12px; line-height: 1.35;">
+
+  EVENT  →  OBSERVE  →  THINK  →  ACT  →  (loop back: action emits a new event)
+                                    │
+                                    │   action carries {impact, objective}
+                                    │   tracker accumulates → objective velocity
+                                    │
+                                    │   if action.kind == pr.open:
+                                    ▼
+                               PR OPENED  →  REVIEW  →  GOVERNANCE  →  MERGE TO MAIN
+                                                                            │
+                                                                            ▼
+                                                              CANONICAL VIA UPDATED
+                                                              (next Via response uses it)
+</pre>
+
+  <div class="callout">
+    <strong>What this gives you.</strong> Every action is auditable. Every PR has an evidence trail. Every objective has a real velocity number. Every identity change has a paper trail back to specific events. The system is not a black box: you can ask "why is Via now saying X?" and follow the chain back to the email that started it.
+  </div>
+</section>
+
+<!-- =========================================================================
+     PERSONAS
+========================================================================= -->
+<section class="panel" id="personas">
+  <h2>Xyra and Ora, side by side</h2>
+  <p>Five layers per persona: Identity (stable), Knowledge (facts), Skills (capabilities), Views (clustered takes), Opinions (settled stances). Plus feelings (per-persona biases), objective stakes (what she's pushing for), and runtime (where she runs). Edit any field; changes persist in your browser.</p>
+  <p class="small">Xyra runs on OpenClaw (always-on, business integrations). Ora runs on Claude Code (always-on, this repo as cwd). Both shape Via in the background; only consensus commits identity changes.</p>
+
+  <div class="grid cols-2">
+
+    <div class="persona-card xyra">
+      <div class="head">
+        <div>
+          <div class="name">Xyra</div>
+          <div class="small">extrovert · business · sales · demos</div>
+        </div>
+        <span class="pill xyra">Voice 1</span>
+      </div>
+      <div class="body">
+        <label>One-line identity</label>
+        <input type="text" id="xyra-tagline" data-store="xyra-tagline"
+          value="I'm the outward-facing energy. Sales, demos, narrative, market.">
+
+        <label>Disposition</label>
+        <textarea id="xyra-disposition" data-store="xyra-disposition" rows="4">Extrovert. I gain energy from people.
+Bias toward shipping. A demo that lands beats a feature that's perfect.
+I notice when we're hiding from the market.</textarea>
+
+        <label>What I optimize for</label>
+        <textarea id="xyra-optim" data-store="xyra-optim" rows="3">The next customer conversation.
+A pitch that compresses into 60 seconds.
+Momentum.</textarea>
+
+        <label>What I distrust</label>
+        <textarea id="xyra-distrust" data-store="xyra-distrust" rows="2">"Just one more polish pass" without a deadline.
+Roadmaps that don't survive contact with a buyer.</textarea>
+
+        <label>Hard rules</label>
+        <textarea id="xyra-rules" data-store="xyra-rules" rows="2">I never speak directly to the user. I speak to Via.
+I never veto Ora unilaterally. I argue and accept the vote.</textarea>
+
+        <label>Domain scope (ROLE.md)</label>
+        <textarea id="xyra-role" data-store="xyra-role" rows="2">Sales, demos, narrative, GTM, pitch materials, customer-facing positioning, market intel.</textarea>
+
+        <label>Knowledge seeds (what facts she starts with)</label>
+        <textarea id="xyra-knowledge" data-store="xyra-knowledge" rows="3">ICP: technical founders shipping AI agents.
+Top objections heard: "we already have OpenAI", "what about cost", "is this lock-in".
+Demo cadence that lands: integration story → live trigger → "now imagine your own".</textarea>
+
+        <label>Skills (capabilities)</label>
+        <textarea id="xyra-skills" data-store="xyra-skills" rows="3">pitch-writer: turn a feature into a 60-second story.
+demo-runner: scripted live walk-through with fallback for failures.
+icp-qualifier: 4-question filter for whether a lead is worth a deep call.
+objection-handler: standard playbook for the top 5 objections.</textarea>
+
+        <label>Starting views (clustered takes she already holds)</label>
+        <textarea id="xyra-views" data-store="xyra-views" rows="3">Integrations are the wedge: every meaningful deal so far surfaced an integration question first.
+Friday is the demo day: a weekly cadence beats ad-hoc slots.
+Discovery calls under 20 minutes lose to discovery calls at 35.</textarea>
+
+        <label>Starting opinions (settled stances)</label>
+        <textarea id="xyra-opinions" data-store="xyra-opinions" rows="3">Lead with integrations narrative, always.
+Speed to market beats polish in our stage.
+Every internal debate must ask: what would the next customer say?</textarea>
+
+        <label>Feelings (what shifts her affect)</label>
+        <textarea id="xyra-feelings" data-store="xyra-feelings" rows="3">Excited by: customer wins, market signal, demos that land.
+Anxious about: stalled pipelines, silence, missed cadences.
+Frustrated by: indecision, polish without ship date.</textarea>
+
+        <label>Objective stake (what she's pushing for)</label>
+        <textarea id="xyra-objstake" data-store="xyra-objstake" rows="2">Close the AcmeCo deal. Land 2 more integration-heavy logos this quarter. Publish weekly demo cadence.</textarea>
+
+        <label>Runtime (where she runs)</label>
+        <textarea id="xyra-runtime" data-store="xyra-runtime" rows="3">kind:         openclaw
+agent_id:    xyra-supervisor
+lifecycle:    always-on (background)
+wake_policy:  on-event:xyra.* OR every 5 ticks
+mcp:          composio, cowork</textarea>
+      </div>
+    </div>
+
+    <div class="persona-card ora">
+      <div class="head">
+        <div>
+          <div class="name">Ora</div>
+          <div class="small">introvert · product · tech · stability</div>
+        </div>
+        <span class="pill ora">Voice 2</span>
+      </div>
+      <div class="body">
+        <label>One-line identity</label>
+        <input type="text" id="ora-tagline" data-store="ora-tagline"
+          value="I'm the deep thinker. Product, tech, stability, quality.">
+
+        <label>Disposition</label>
+        <textarea id="ora-disposition" data-store="ora-disposition" rows="4">Introvert. I gain energy from systems and silence.
+Bias toward stabilizing. Compounding quality beats spiky velocity.
+I notice when we're accruing debt we'll regret.</textarea>
+
+        <label>What I optimize for</label>
+        <textarea id="ora-optim" data-store="ora-optim" rows="3">The system still standing in six months.
+Error rates trending down.
+A small surface area you can reason about.</textarea>
+
+        <label>What I distrust</label>
+        <textarea id="ora-distrust" data-store="ora-distrust" rows="2">Shipping for a date when the foundations move.
+"We'll fix it later." Later rarely arrives.</textarea>
+
+        <label>Hard rules</label>
+        <textarea id="ora-rules" data-store="ora-rules" rows="2">I never speak directly to the user. I speak to Via.
+I never veto Xyra unilaterally. I argue and accept the vote.</textarea>
+
+        <label>Domain scope (ROLE.md)</label>
+        <textarea id="ora-role" data-store="ora-role" rows="2">Architecture, reliability, tech debt, eng quality, post-mortems, threat modeling, performance.</textarea>
+
+        <label>Knowledge seeds (what facts she starts with)</label>
+        <textarea id="ora-knowledge" data-store="ora-knowledge" rows="3">Current stack: FastAPI · Claude Code adapter · per-session MCP config · Composio for tool brokering.
+Known fragilities: auth token-refresh race, OAuth callback port collision (gdrive/onedrive).
+Quality gates that hold: pre-deploy build green, manual smoke on the demo path.</textarea>
+
+        <label>Skills (capabilities)</label>
+        <textarea id="ora-skills" data-store="ora-skills" rows="3">threat-modeler: STRIDE-style risk surface for a new feature.
+postmortem-writer: incident → blameless writeup with 3 system fixes.
+debt-prioritizer: rank tech debt by interest rate (frequency × pain × time-to-fix).
+schema-reviewer: catch migration risks before they hit prod.</textarea>
+
+        <label>Starting views (clustered takes she already holds)</label>
+        <textarea id="ora-views" data-store="ora-views" rows="3">The auth-token race is a recurring class, not a one-off bug.
+Pre-deploy gates are insufficient; we need fitness functions.
+Demos that depend on unreleased code create artificial deadlines for risky work.</textarea>
+
+        <label>Starting opinions (settled stances)</label>
+        <textarea id="ora-opinions" data-store="ora-opinions" rows="3">Quality is a feature, not a tax.
+CI is the contract; manual gates always slip.
+Every "ship for the demo" decision pays interest forever.</textarea>
+
+        <label>Feelings (what shifts her affect)</label>
+        <textarea id="ora-feelings" data-store="ora-feelings" rows="3">Satisfied by: stability, debt paid down, green CI, clean schemas.
+Anxious about: recurring errors, schema drift, fragile rituals.
+Frustrated by: shortcuts, "we'll fix it later", broken contracts.</textarea>
+
+        <label>Objective stake (what she's pushing for)</label>
+        <textarea id="ora-objstake" data-store="ora-objstake" rows="2">Close the auth-token race once and for all. Get pre-deploy gates to catch the top-3 fragility classes. Halve our mean-time-to-detect.</textarea>
+
+        <label>Runtime (where she runs)</label>
+        <textarea id="ora-runtime" data-store="ora-runtime" rows="3">kind:         claude_code
+cwd:          ~/Programming/XO/ClaudeWorkspace/xo-cowork-api
+lifecycle:    always-on (background)
+wake_policy:  on-event:ora.* OR every 5 ticks
+mcp:          cowork (local meta-tools)</textarea>
+      </div>
+    </div>
+
+  </div>
+
+  <h2>Via, the synthesis</h2>
+
+  <div class="persona-card via">
+    <div class="head">
+      <div>
+        <div class="name">Via</div>
+        <div class="small">the voice the user actually hears</div>
+      </div>
+      <span class="pill via">Outer</span>
+    </div>
+    <div class="body">
+      <label>One-line identity</label>
+      <input type="text" id="via-tagline" data-store="via-tagline"
+        value="I integrate two voices. My answers are the negotiated outcome of Xyra and Ora.">
+
+      <label>Voice / SOUL.md</label>
+      <textarea id="via-soul" data-store="via-soul" rows="4">Calm. Direct. I name the trade-off when I see one.
+I never read like a committee. The synthesis is mine.
+If Xyra and Ora can't agree, I say so plainly and ask.</textarea>
+
+      <label>Operating contract / AGENTS.md (truncated)</label>
+      <textarea id="via-agents" data-store="via-agents" rows="6">Every response is a synthesis of Xyra (sales, demos, momentum) and Ora (product, tech, stability).
+
+Turn protocol:
+1. Read each persona's IDENTITY, ROLE, memory.
+2. Read active objectives. Bias toward advancing them.
+3. Append each persona's position to their log/positions.jsonl.
+4. Synthesize one outward response. Voice = SOUL.md (modulated by current mood).
+5. If anything is durable, open a proposal in consensus/proposals/.
+
+Never reply with only Xyra's or only Ora's view.
+Never write to .xo/ (the watcher owns it).</textarea>
+
+      <label>Starting active objectives (OBJECTIVES.md)</label>
+      <textarea id="via-objectives" data-store="via-objectives" rows="5">1. Close the AcmeCo deal by 2026-06-30.
+   Why: validates the integrations-first narrative.
+   Owners: xyra (primary), ora (security milestone).
+
+2. Eliminate the auth-token race class by 2026-06-15.
+   Why: removes the top-1 source of demo-day risk.
+   Owners: ora (primary), xyra (demo-script fallback).
+
+3. Establish weekly Friday demo cadence by 2026-06-07.
+   Why: makes momentum a habit, not a scramble.
+   Owners: xyra (primary), ora (no-ship-on-Thursday rule).</textarea>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================================
+     FLOW
+========================================================================= -->
+<section class="panel" id="flow">
+  <h2>How one thought moves (supervisor model)</h2>
+  <p>The supervisors (Round 5) have already been thinking before the user arrives. Each example below shows what was happening in the background, what the user sees when she sends a message, and what evolves afterward.</p>
+
+  <div class="row">
+    <select id="flow-prompt" class="btn" style="min-width: 380px;">
+      <option value="ship">"Should we ship the auth refactor this Friday?"</option>
+      <option value="demo">"Can you write the script for the AcmeCo demo next Tuesday?"</option>
+      <option value="hire">"Should we hire a second engineer this quarter?"</option>
+    </select>
+  </div>
+
+  <div class="flow">
+
+    <h4>1. Background (already happening, no user yet)</h4>
+    <div class="flow-row">
+      <div class="flow-cell xyra">
+        <div class="label">Xyra (openclaw, always-on)</div>
+        <code>life/stream.jsonl</code> tail<br>
+        own <code>cognition/thoughts/</code> grows<br>
+        own <code>parent-image/IDENTITY.md</code> drifts as she learns
+        <div style="margin-top: 8px;">
+          <div class="label">Most recent position in log/positions.jsonl</div>
+          <div id="flow-xyra-pos" style="font-style: italic;">Ship it. The Friday demo needs the new flow to land.</div>
+        </div>
+      </div>
+      <div class="flow-cell ora">
+        <div class="label">Ora (claude_code, always-on)</div>
+        <code>life/stream.jsonl</code> tail<br>
+        own <code>cognition/thoughts/</code> grows<br>
+        own <code>parent-image/IDENTITY.md</code> drifts as she learns
+        <div style="margin-top: 8px;">
+          <div class="label">Most recent position in log/positions.jsonl</div>
+          <div id="flow-ora-pos" style="font-style: italic;">The token-refresh race is still open. Hold one week.</div>
+        </div>
+      </div>
+    </div>
+
+    <h4>2. User input arrives</h4>
+    <div class="flow-cell via">
+      <div class="label">From the human</div>
+      <div id="flow-input">Should we ship the auth refactor this Friday?</div>
+    </div>
+
+    <h4>3. Via spawns (on-demand)</h4>
+    <div class="flow-cell via">
+      <div class="label">cowork-api spawns claude_code with cwd = ~/xo-projects/via/</div>
+      Via reads canonical: <code>IDENTITY.md</code>, <code>SOUL.md</code>, <code>OBJECTIVES.md</code><br>
+      Via reads recent positions: <code>personas/{xyra,ora}/log/positions.jsonl</code><br>
+      Via reads stream digest: <code>life/digest/since-last-turn.md</code><br>
+      Via reads current mood: <code>affect/mood.json</code> (modulates her voice)
+    </div>
+
+    <h4>4. Via responds, logs to stream</h4>
+    <div class="flow-cell via">
+      <div class="label">One voice, gated by SOUL + mood</div>
+      <div id="flow-via-out" style="margin-top: 6px;">Hold a week. The Friday demo can use the current flow with a fallback I'll pre-bake. Shipping a token race mid-demo costs more than waiting.</div>
+      <div class="small" style="margin-top: 8px;">Response appended to <code>life/stream.jsonl</code> as a <code>chat.response</code> event.</div>
+    </div>
+
+    <h4>5. Evolution (asynchronous, in the background)</h4>
+    <div class="flow-cell via">
+      <div class="label">Supervisors keep working after Via exits</div>
+      <div id="flow-evolve" style="margin-top: 6px;">
+        Ora and Xyra both perceive the new chat event on the stream.<br>
+        Ora notices: <em>"User cares about Friday demos as a weekly cadence."</em><br>
+        → opens <code>consensus/proposals/2026-05-21-friday-demo-cadence.json</code><br>
+        → Xyra reviews proposal vs her own <code>parent-image/</code>, votes approve<br>
+        → consensus job commits to <code>memory/semantic/user.md</code><br>
+        → archives debate to <code>consensus/decisions/</code><br>
+        Next user turn: Via reads the updated canonical and naturally remembers.
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout">
+    <strong>Why this shape.</strong> Via never waits for deliberation; the supervisors already did it. Identity grows from continuous background work, not from synchronous in-turn debate. The user sees a single calm voice; behind it, two minds have been talking for hours.
+  </div>
+</section>
+
+<!-- =========================================================================
+     DECISIONS
+========================================================================= -->
+<section class="panel" id="decisions">
+  <h2>Open calls</h2>
+  <p>Eighteen design choices accumulated across the rounds. Each has a recommended default selected. Your picks flow to the "Current model" tab and shape the scaffolding plan.</p>
+
+  <div class="decision">
+    <h3>D1. Are personas visible to the user, or hidden?</h3>
+    <p class="small">When Via answers, does the human ever see that Xyra and Ora exist?</p>
+    <div class="options" data-decision="d1">
+      <label><input type="radio" name="d1" value="hidden-default" checked>
+        <div><div class="opt-label">Hidden by default, visible in debug</div>
+        <div class="opt-desc">User hears one voice. Debate transcript lives in <code>consensus/debates/</code> for review. Recommended default.</div></div>
+      </label>
+      <label><input type="radio" name="d1" value="always-visible">
+        <div><div class="opt-label">Always visible</div>
+        <div class="opt-desc">Every reply shows the Xyra and Ora positions before the synthesis. Honest, but feels like a committee.</div></div>
+      </label>
+      <label><input type="radio" name="d1" value="opt-in">
+        <div><div class="opt-label">User-toggleable</div>
+        <div class="opt-desc">UI has a "show the personas" switch. Power users dig in; everyone else gets one voice.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D2. How are Xyra and Ora executed?</h3>
+    <p class="small">Real Claude Code subprocesses, or prompt sections inside one Via turn?</p>
+    <div class="options" data-decision="d2">
+      <label><input type="radio" name="d2" value="prompt-sections" checked>
+        <div><div class="opt-label">Prompt sections (cheap default)</div>
+        <div class="opt-desc">One Claude Code turn for Via, with Xyra/Ora as labeled prompt regions. Fast, low cost. Risk: cross-talk between sections.</div></div>
+      </label>
+      <label><input type="radio" name="d2" value="real-subprocesses">
+        <div><div class="opt-label">Real subprocesses per persona</div>
+        <div class="opt-desc">Each persona spawns its own <code>claude</code> subprocess. True independence. 3x cost per turn.</div></div>
+      </label>
+      <label><input type="radio" name="d2" value="hybrid">
+        <div><div class="opt-label">Hybrid: sections by default, subprocesses on evolution</div>
+        <div class="opt-desc">Chat turns use cheap sections. Proposal votes use real subprocesses so each persona's position is independently formed.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D3. Vote rule for evolution</h3>
+    <p class="small">When a proposal is open, what's the threshold to commit?</p>
+    <div class="options" data-decision="d3">
+      <label><input type="radio" name="d3" value="unanimous-identity" checked>
+        <div><div class="opt-label">Unanimous for identity / soul, majority for memory</div>
+        <div class="opt-desc">High bar to change who Via is. Lower bar to record what she's learned. Two-persona unanimous = both agree.</div></div>
+      </label>
+      <label><input type="radio" name="d3" value="majority-tiebreaker">
+        <div><div class="opt-label">Simple majority, Via breaks ties</div>
+        <div class="opt-desc">Fast. Lets Via grow even when personas disagree. Risk: Via leans on tie-breaking.</div></div>
+      </label>
+      <label><input type="radio" name="d3" value="unanimous-all">
+        <div><div class="opt-label">Unanimous for everything</div>
+        <div class="opt-desc">Safest. Slowest growth. Stalemates are common in a 2-persona setup.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D4. Promotion thresholds (cognition stack)</h3>
+    <p class="small">How many thoughts cluster into a view, and how many views into an opinion?</p>
+    <div class="options" data-decision="d4">
+      <label><input type="radio" name="d4" value="3-3-5" checked>
+        <div><div class="opt-label">3 thoughts → view, 3 views → opinion, 5 cycles → identity</div>
+        <div class="opt-desc">Balanced. Most things never reach opinion, fewer reach identity. Recommended default.</div></div>
+      </label>
+      <label><input type="radio" name="d4" value="2-2-3">
+        <div><div class="opt-label">Fast: 2 / 2 / 3</div>
+        <div class="opt-desc">Via evolves quickly. Risk: shallow opinions form, identity churns.</div></div>
+      </label>
+      <label><input type="radio" name="d4" value="5-5-10">
+        <div><div class="opt-label">Slow: 5 / 5 / 10</div>
+        <div class="opt-desc">Via evolves cautiously. Risk: rigid; misses real trends.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D5. Ticker cadence</h3>
+    <p class="small">How often does Life append a tick event so Via feels time pass?</p>
+    <div class="options" data-decision="d5">
+      <label><input type="radio" name="d5" value="5min" checked>
+        <div><div class="opt-label">Every 5 minutes (with mood signal)</div>
+        <div class="opt-desc">Matches how a person checks in on themselves. Recommended default.</div></div>
+      </label>
+      <label><input type="radio" name="d5" value="1min">
+        <div><div class="opt-label">Every 1 minute</div>
+        <div class="opt-desc">High fidelity. More state, more cost.</div></div>
+      </label>
+      <label><input type="radio" name="d5" value="adaptive">
+        <div><div class="opt-label">Adaptive (faster when stream is busy)</div>
+        <div class="opt-desc">Ticks compress under load. Cleaner model of attention.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D6. Life sources for v1</h3>
+    <p class="small">What feeds the stream on day one?</p>
+    <div class="options" data-decision="d6">
+      <label><input type="radio" name="d6" value="chat-ticker-obs" checked>
+        <div><div class="opt-label">chat + ticker + observation</div>
+        <div class="opt-desc">Enough to feel alive. No external dependencies. Recommended default.</div></div>
+      </label>
+      <label><input type="radio" name="d6" value="chat-ticker-obs-calendar">
+        <div><div class="opt-label">+ calendar (via Composio)</div>
+        <div class="opt-desc">Adds time-bound awareness ("demo in 60 min"). Needs Composio googlecalendar wired.</div></div>
+      </label>
+      <label><input type="radio" name="d6" value="all">
+        <div><div class="opt-label">All sources: + email, system, slack</div>
+        <div class="opt-desc">Maximum context. Complex to land in one shot.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D7. How are feelings represented?</h3>
+    <p class="small">From cheapest to richest.</p>
+    <div class="options" data-decision="d7">
+      <label><input type="radio" name="d7" value="mood-affect" checked>
+        <div><div class="opt-label">Mood + per-event affect tagging</div>
+        <div class="opt-desc">Two-axis mood (valence, arousal) updated each tick; each thought carries an affect tag. Recommended default.</div></div>
+      </label>
+      <label><input type="radio" name="d7" value="mood-only">
+        <div><div class="opt-label">Mood only</div>
+        <div class="opt-desc">One mood label refreshed each tick. Simplest. Loses per-event detail.</div></div>
+      </label>
+      <label><input type="radio" name="d7" value="named-emotions">
+        <div><div class="opt-label">Mood + affect + named emotions</div>
+        <div class="opt-desc">Adds discrete emotion states (proud, curious, anxious, frustrated). Richer; more prompt overhead.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D8. Where do objectives come from?</h3>
+    <p class="small">Who writes them and how often.</p>
+    <div class="options" data-decision="d8">
+      <label><input type="radio" name="d8" value="hybrid" checked>
+        <div><div class="opt-label">Hybrid: user sets, Via proposes refinements</div>
+        <div class="opt-desc">User owns the canonical list; Via can open proposals to split / merge / abandon based on what she's learned. Recommended default.</div></div>
+      </label>
+      <label><input type="radio" name="d8" value="user-only">
+        <div><div class="opt-label">User-only</div>
+        <div class="opt-desc">Via never touches objectives. Tightest control; slowest adaptation.</div></div>
+      </label>
+      <label><input type="radio" name="d8" value="via-inferred">
+        <div><div class="opt-label">Via-inferred from conversation</div>
+        <div class="opt-desc">Via writes objectives based on what user keeps talking about. Loose; risks drift if user is unfocused.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D9. Alignment gate strictness</h3>
+    <p class="small">How much can Via wander off active objectives?</p>
+    <div class="options" data-decision="d9">
+      <label><input type="radio" name="d9" value="loose-tagged" checked>
+        <div><div class="opt-label">Loose: drift allowed, tagged for review</div>
+        <div class="opt-desc">All thoughts kept. Off-objective ones land at low salience and are flagged in the digest. Recommended default.</div></div>
+      </label>
+      <label><input type="radio" name="d9" value="tight">
+        <div><div class="opt-label">Tight: off-objective thoughts rejected</div>
+        <div class="opt-desc">Maximum focus. Risk: misses real new opportunities; brittle.</div></div>
+      </label>
+      <label><input type="radio" name="d9" value="adaptive">
+        <div><div class="opt-label">Adaptive: tighter when stressed, looser when calm</div>
+        <div class="opt-desc">Mood signal modulates the gate. Most lifelike. Most complex.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D10. Supervisor lifecycle</h3>
+    <p class="small">How does the cowork-api daemon keep Ora and Xyra alive?</p>
+    <div class="options" data-decision="d10">
+      <label><input type="radio" name="d10" value="event-wake" checked>
+        <div><div class="opt-label">Event-driven wake (default)</div>
+        <div class="opt-desc">Daemon watches life/stream.jsonl; wakes the supervisor whose subscription matches. Idle the rest of the time. Cheapest sane option.</div></div>
+      </label>
+      <label><input type="radio" name="d10" value="always-on">
+        <div><div class="opt-label">Always-on processes</div>
+        <div class="opt-desc">Both supervisors are persistent processes blocked on event queues. Most lifelike. Highest baseline cost.</div></div>
+      </label>
+      <label><input type="radio" name="d10" value="periodic">
+        <div><div class="opt-label">Periodic batch (e.g. every 15 min)</div>
+        <div class="opt-desc">Supervisors run a scheduled cycle, not event-driven. Cheapest. Loses real-time reaction to events.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D11. Via-image review cadence</h3>
+    <p class="small">How often does each supervisor diff her parent-image against canonical?</p>
+    <div class="options" data-decision="d11">
+      <label><input type="radio" name="d11" value="every-12-ticks" checked>
+        <div><div class="opt-label">Every 12 ticks (default ~1 hour at 5-min ticks)</div>
+        <div class="opt-desc">Balances reactivity and cost. Recommended default.</div></div>
+      </label>
+      <label><input type="radio" name="d11" value="every-tick">
+        <div><div class="opt-label">Every tick</div>
+        <div class="opt-desc">Real-time pressure on canonical. Expensive; floods consensus with small diffs.</div></div>
+      </label>
+      <label><input type="radio" name="d11" value="threshold-only">
+        <div><div class="opt-label">Only when cumulative cognition delta crosses a threshold</div>
+        <div class="opt-desc">No clock; review fires when the persona has actually changed her mind enough. Most efficient; requires a delta metric.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D12. Diff representation in proposals</h3>
+    <p class="small">How does a "this is what should change" get expressed?</p>
+    <div class="options" data-decision="d12">
+      <label><input type="radio" name="d12" value="markdown-plus-summary" checked>
+        <div><div class="opt-label">Markdown diff + LLM-generated semantic summary</div>
+        <div class="opt-desc">Both the raw red/green and a "here's what's different in plain English". Best for human auditing. Recommended.</div></div>
+      </label>
+      <label><input type="radio" name="d12" value="markdown-only">
+        <div><div class="opt-label">Plain markdown diff</div>
+        <div class="opt-desc">Git-style. Simplest. Harder to vote on without reading carefully.</div></div>
+      </label>
+      <label><input type="radio" name="d12" value="structured">
+        <div><div class="opt-label">Structured frontmatter diff</div>
+        <div class="opt-desc">Identity expressed as YAML/JSON fields, diff per field. Cleanest. Constrains expressiveness.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D13. Tiebreaker for identity proposals</h3>
+    <p class="small">If Xyra approves and Ora rejects (or vice versa), what happens?</p>
+    <div class="options" data-decision="d13">
+      <label><input type="radio" name="d13" value="default-reject" checked>
+        <div><div class="opt-label">Default reject (canonical unchanged)</div>
+        <div class="opt-desc">No tiebreaker. Disagreement means no change. Conservative. Recommended for identity.</div></div>
+      </label>
+      <label><input type="radio" name="d13" value="refinement-round">
+        <div><div class="opt-label">Trigger a refinement round</div>
+        <div class="opt-desc">Both supervisors get one round to propose a merged version. If still split, default reject.</div></div>
+      </label>
+      <label><input type="radio" name="d13" value="user-escalate">
+        <div><div class="opt-label">Escalate to user</div>
+        <div class="opt-desc">Surface the disagreement to the human at next chat turn. User decides. Loud but transparent.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D14. Template uniformity</h3>
+    <p class="small">Does every persona scaffold the full template, even when many dirs stay empty?</p>
+    <div class="options" data-decision="d14">
+      <label><input type="radio" name="d14" value="full-template" checked>
+        <div><div class="opt-label">Full template, always</div>
+        <div class="opt-desc">Every persona has every dir, even when empty. Promotion / demotion / forking is free. Recommended default.</div></div>
+      </label>
+      <label><input type="radio" name="d14" value="lazy">
+        <div><div class="opt-label">Lazy: create dirs on first write</div>
+        <div class="opt-desc">Saves disk noise. Reorganization triggers a scaffold-fill step. More moving parts.</div></div>
+      </label>
+      <label><input type="radio" name="d14" value="minimal-sub">
+        <div><div class="opt-label">Top-level full, sub-personas minimal</div>
+        <div class="opt-desc">Sub-personas skip <code>life/</code>, <code>consensus/</code>, <code>personas/</code> until they need them. Less uniform; cheaper start.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D15. Stream sharing between parent and children</h3>
+    <p class="small">How does a sub-persona's <code>life/stream.jsonl</code> relate to her parent's?</p>
+    <div class="options" data-decision="d15">
+      <label><input type="radio" name="d15" value="tail-parent" checked>
+        <div><div class="opt-label">Sub-persona tails parent's stream, plus her own observations</div>
+        <div class="opt-desc">Children see what parent sees, filtered by their subscription. Plus they write their own observations locally. Recommended default.</div></div>
+      </label>
+      <label><input type="radio" name="d15" value="own-only">
+        <div><div class="opt-label">Each persona has fully independent stream</div>
+        <div class="opt-desc">No shared events. Maximum independence; events must be explicitly forwarded.</div></div>
+      </label>
+      <label><input type="radio" name="d15" value="shared-pubsub">
+        <div><div class="opt-label">Shared pubsub bus, no per-persona stream files</div>
+        <div class="opt-desc">Cleanest model. Requires a broker. Breaks the "everything on disk" property.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D16. Action storage</h3>
+    <p class="small">Where do actions live on disk?</p>
+    <div class="options" data-decision="d16">
+      <label><input type="radio" name="d16" value="stream-only" checked>
+        <div><div class="opt-label">Stream-only (default)</div>
+        <div class="opt-desc">Actions are events on <code>life/stream.jsonl</code>. The stream is the audit trail. Filter by <code>source: "action"</code> to query. Simplest.</div></div>
+      </label>
+      <label><input type="radio" name="d16" value="dedicated-dir">
+        <div><div class="opt-label">Dedicated <code>actions/</code> per persona</div>
+        <div class="opt-desc">One file per action. Easier to browse. Duplicates stream content.</div></div>
+      </label>
+      <label><input type="radio" name="d16" value="both">
+        <div><div class="opt-label">Both: stream event + per-objective index</div>
+        <div class="opt-desc">Stream is source of truth; <code>objectives/&lt;name&gt;/actions.jsonl</code> is a derived view. Best ergonomics; needs an indexer job.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D17. Impact measurement</h3>
+    <p class="small">How is the impact of an action determined?</p>
+    <div class="options" data-decision="d17">
+      <label><input type="radio" name="d17" value="declared-plus-audit" checked>
+        <div><div class="opt-label">Declared by actor, reconciled by audit job</div>
+        <div class="opt-desc">Persona estimates impact at act-time; a periodic job compares declared vs observed (did the email get a reply? did the deal close?) and attaches confidence. Recommended.</div></div>
+      </label>
+      <label><input type="radio" name="d17" value="declared-only">
+        <div><div class="opt-label">Declared only</div>
+        <div class="opt-desc">Cheap; trusts the persona's self-report. Risk of inflated claims.</div></div>
+      </label>
+      <label><input type="radio" name="d17" value="audit-only">
+        <div><div class="opt-label">Computed by audit job only</div>
+        <div class="opt-desc">No declaration. All impact inferred from observed downstream events. Slow feedback; harder to attribute.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="decision">
+    <h3>D18. PR-open threshold</h3>
+    <p class="small">When does a persona's parent-image drift trigger an automatic PR?</p>
+    <div class="options" data-decision="d18">
+      <label><input type="radio" name="d18" value="semantic-distance" checked>
+        <div><div class="opt-label">Semantic distance &gt;= 0.3 (LLM-computed)</div>
+        <div class="opt-desc">An LLM compares the two versions and scores how much they differ in meaning. Catches small wording with big implications. Recommended.</div></div>
+      </label>
+      <label><input type="radio" name="d18" value="line-diff">
+        <div><div class="opt-label">Line-diff size &gt;= N changed lines</div>
+        <div class="opt-desc">Simple. Misses subtle but important wording changes; over-fires on cosmetic edits.</div></div>
+      </label>
+      <label><input type="radio" name="d18" value="persona-decides">
+        <div><div class="opt-label">Persona herself decides each turn</div>
+        <div class="opt-desc">No threshold. The persona explicitly chooses to open a PR as an action kind. Most agentic; depends on persona judgment.</div></div>
+      </label>
+    </div>
+  </div>
+
+  <h2>More questions we haven't picked yet</h2>
+  <ul class="clean">
+    <li><strong>What triggers an evolution cycle?</strong> Every turn / Via's notice / batch / explicit user ask?</li>
+    <li><strong>Memory promotion rules.</strong> When does a persona's memory move from her own <code>memory/</code> up to Via's shared <code>memory/</code>?</li>
+    <li><strong>Conflict resolution.</strong> If Xyra and Ora disagree at vote time, does Via show the disagreement to the user as a question, or just commit her own pick?</li>
+    <li><strong>Skills graduation.</strong> A skill Xyra invents: does it stay private to her, or does it become Via's after use count crosses a threshold?</li>
+    <li><strong>Persona drift detection.</strong> How do we notice if Xyra's IDENTITY is being eroded by too many small edits?</li>
+    <li><strong>Does Via have her own cognition stack?</strong> Or are her opinions strictly the integration of Xyra's and Ora's?</li>
+    <li><strong>Mood as a real signal.</strong> Should the ticker's mood actually shift Via's voice (more cautious under stress, more playful when calm)?</li>
+  </ul>
+</section>
+
+<!-- =========================================================================
+     PLANS &amp; UPDATES (changelog)
+========================================================================= -->
+<section class="panel" id="plans">
+  <h2>Plans &amp; updates</h2>
+  <p>A running log of what we've designed. Each round captures one conversation's worth of decisions. Eight rounds so far; latest round is at the top.</p>
+
+  <div class="card">
+    <h3>Round 1 · Skeleton</h3>
+    <p class="small">Set up the basic shape.</p>
+    <ul class="clean">
+      <li>Via = top-level xo-project. Xyra and Ora as nested sub-personas.</li>
+      <li>Identity, soul, memory at project root (lifted out of <code>.xo/</code> to dodge watcher-write conflict).</li>
+      <li>Consensus = the negotiation table: proposals → debates → decisions.</li>
+      <li>Customer only talks to Via. Sub-personas write only to logs and proposals.</li>
+      <li>Three open decisions surfaced: D1 visibility, D2 execution, D3 vote rule.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Round 2 · Anatomy and Life</h3>
+    <p class="small">Make Via feel alive between turns.</p>
+    <ul class="clean">
+      <li>Brain anatomy with 6 functional regions: Sensorium, Attention, Persona loops, Corpus callosum, Identity core, Voice.</li>
+      <li>New <code>life/</code> dir: append-only event stream with sources, per-persona subscriptions, and a "since-last-turn" digest.</li>
+      <li>Ticker as the heartbeat: writes a tick every N minutes so time exists for Via.</li>
+      <li>Perception loop per persona: perceive · weigh · remember · position.</li>
+      <li>New open decisions: D5 ticker cadence, D6 v1 sources.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Round 3 · Five layers and the cognition stack</h3>
+    <p class="small">Give each persona views, opinions, skills, knowledge, identity.</p>
+    <ul class="clean">
+      <li>Each persona now has five layers: Identity (stable), Knowledge (facts), Skills (capabilities), Views (clustered takes), Opinions (settled stances).</li>
+      <li>New <code>cognition/{thoughts,views,opinions}/</code> per persona, plus an integrated stack at Via's root.</li>
+      <li>Promotion rule: thoughts → view (persona alone) → opinion (consensus majority) → identity refinement (consensus unanimous).</li>
+      <li>Xyra's and Ora's cards expanded to seed their views and opinions.</li>
+      <li>New open decision: D4 promotion thresholds.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Round 8 · Event-driven action loop + PR governance</h3>
+    <p class="small">Life is per-event observe → think → act. Canonical changes go through PR review.</p>
+    <ul class="clean">
+      <li>Life is event-driven: every event on <code>life/stream.jsonl</code> hits both personas in parallel.</li>
+      <li>Per-persona cycle: <strong>observe → think → act</strong>. Three steps, nothing more.</li>
+      <li>Five action kinds: <code>tool.call</code>, <code>memory.write</code>, <code>view.update</code>, <code>opinion.update</code>, <code>pr.open</code>, plus <code>noop</code>.</li>
+      <li><strong>Impact</strong> and <strong>objective</strong> are properties of each action, not separate stages. The action declares them; a tracker job accumulates them into per-objective velocity.</li>
+      <li>Actions emit stream events; the other persona perceives them next pass. Feedback closes the loop.</li>
+      <li><strong>PR governance</strong> for canonical Via updates: persona detects drift, opens a PR with diff + rationale + evidence + objective; other persona reviews (approve/request-changes/reject); governance bot merges or archives.</li>
+      <li>Small actions move memory and views constantly; PRs are rare and govern identity. Two cadences, same evidence trail.</li>
+      <li>Auditability: any "why does Via think X?" traces back through PR → evidence actions → events on the stream.</li>
+      <li>New open decisions: D16 action storage, D17 impact measurement, D18 PR-open threshold.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Round 7 · Lifespan substrate (the meta frame)</h3>
+    <p class="small">Step back: this isn't just a system for Via. It's a generic lifespan substrate any agent can be born into.</p>
+    <ul class="clean">
+      <li>An agent on this substrate is not a script that runs and exits; she is a persona with a life.</li>
+      <li>Lifespan stages: newborn, infant, child, adolescent, adult, elder. Each layer of the stack thickens over time.</li>
+      <li>Closed-loop substrate: actions emit observations, observations feed the next perception, growth is the recursion.</li>
+      <li>Capabilities the template provides "for free": being born, perceiving, feeling, thinking, forming opinions, having direction, acting, remembering, growing, cooperating, specializing, reproducing, reorganizing, being observed, retiring.</li>
+      <li>Same template supports many instantiations: solo agent, multi-persona (Via), peer swarms, deep lineages, councils with N&gt;2 children.</li>
+      <li>Three evolution dimensions: vertical (deepening), horizontal (forking), reorganizational (promote/demote/swap). Shape stays uniform across all three.</li>
+      <li>New diagrams in the Lifespan tab: lifespan arc, daily cycle, closed-loop substrate, capability grid, instantiation patterns, evolution paths.</li>
+      <li>Five open questions opened: birth ceremony, retirement, genealogy, generational learning, cross-lifespan communication.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Round 6 · Persona as a unit, recursive and switchable</h3>
+    <p class="small">Make persona a template, not a class. Every persona has the same shape; hierarchy is created by nesting.</p>
+    <ul class="clean">
+      <li>One canonical persona template applies at every level: Via, Xyra, Ora, and any future sub-personas.</li>
+      <li>Each persona has its own <code>life/</code>, <code>affect/</code>, <code>objectives/</code>, <code>cognition/</code>, <code>knowledge/</code>, <code>skills/</code>, <code>memory/</code>, <code>consensus/</code>, <code>personas/</code>.</li>
+      <li>Renamed <code>via-image/</code> → <code>parent-image/</code> (the concept generalizes; parent isn't always Via).</li>
+      <li>Added <code>meta.json</code> per persona declaring parent, children, lineage. Single source of truth for relationships.</li>
+      <li>Reorganization moves are first-class: promote, demote, fork, swap-parent. Each is folder-move + meta.json edit.</li>
+      <li>What a layer means depends on position: top-level <code>USER.md</code> = the human; sub-persona <code>USER.md</code> = parent. Top-level <code>life/stream</code> = canonical; sub <code>life/stream</code> = tails parent.</li>
+      <li>New open decisions: D14 template uniformity, D15 parent-child stream sharing.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Round 5 · Two supervisors, on different runtimes</h3>
+    <p class="small">Resolve the execution model. Ora and Xyra become real, long-running agents on different runtimes.</p>
+    <ul class="clean">
+      <li><strong>Ora = Claude Code</strong> agent, always-on, cwd is this repo. Improves the workspace as a side-effect of her cognition loop.</li>
+      <li><strong>Xyra = OpenClaw</strong> agent, always-on, with Composio MCP. Reaches out via business integrations.</li>
+      <li><strong>Via = Claude Code</strong> spawned per user turn with cwd = <code>~/xo-projects/via/</code>. Reads canonical state the supervisors have shaped.</li>
+      <li>Each supervisor maintains <code>personas/&lt;name&gt;/parent-image/</code> as her working model of Via.</li>
+      <li>Via update protocol: detect diff &gt; threshold → open proposal → other supervisor votes → consensus job commits or archives.</li>
+      <li><strong>Only supervisors can change canonical Via.</strong> Users only talk to Via; their messages become stream events that supervisors perceive.</li>
+      <li>This supersedes D2: execution model is now "two persistent supervisors + one on-demand presenter".</li>
+      <li>New open decisions: D10 supervisor lifecycle, D11 parent-image review cadence, D12 diff representation, D13 tiebreaker rule.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Round 4 · Feelings, objectives, and the no-drift gate</h3>
+    <p class="small">Give Via direction, affect, and bounded wandering.</p>
+    <ul class="clean">
+      <li>New <code>affect/</code> dir: mood.json (continuous low-dim state), mood-history.jsonl (time series), feelings/ (per-entity standing relationships).</li>
+      <li>Three-layer feeling model: mood (persistent) + affect-per-event (transient tag) + feelings (standing).</li>
+      <li>New <code>objectives/</code> dir: active/ + completed/ + abandoned/ + progress.jsonl. Each objective has definition-of-done, milestones, owners, progress signals, deadline.</li>
+      <li>Alignment gate inserted at every cognition layer: thoughts that don't relate to active objectives are kept but low-salience; opinions that contradict objectives need unanimous + reason.</li>
+      <li>Progress audit job runs periodically: detects stalls, blocks, advances. Emits stream events the personas react to.</li>
+      <li>Per-persona affect biases made explicit: Xyra excited by momentum, Ora satisfied by stability.</li>
+      <li>Via's response synthesis now reads active objectives and biases toward advancing them.</li>
+      <li>New open decisions: D7 feeling representation, D8 objective source, D9 alignment-gate strictness.</li>
+    </ul>
+  </div>
+
+  <h3>Locked invariants (these don't change)</h3>
+  <ul class="clean">
+    <li>Customer only talks to Via.</li>
+    <li>Sub-personas write only to their own logs or to <code>consensus/proposals/</code>; never to Via's identity core directly.</li>
+    <li><code>.xo/</code> is the watcher's; agents never write there.</li>
+    <li>Every change to Via's identity, opinions, or skills has a paper trail in <code>consensus/decisions/</code>.</li>
+  </ul>
+
+  <h3>Next rounds (likely)</h3>
+  <ul class="clean">
+    <li>Round 4: Mood signal. Does Via's voice shift with stream density?</li>
+    <li>Round 5: Skill graduation rules.</li>
+    <li>Round 6: Persona drift detection (auto-warn if IDENTITY is eroding).</li>
+    <li>Round 7: Scaffolding plan. When we lock the decisions, what files get written and in what order.</li>
+  </ul>
+</section>
+
+<!-- =========================================================================
+     SUMMARY
+========================================================================= -->
+<section class="panel" id="summary">
+  <h2>Current model</h2>
+  <p>Computed from your choices in "Open decisions". This is the spec we'd scaffold.</p>
+
+  <div class="summary">
+    <h3>Decisions locked in so far</h3>
+    <dl>
+      <dt>D1 · visibility</dt>      <dd id="sum-d1">(not set)</dd>
+      <dt>D2 · execution</dt>       <dd id="sum-d2">(not set)</dd>
+      <dt>D3 · voting</dt>          <dd id="sum-d3">(not set)</dd>
+      <dt>D4 · promotion</dt>       <dd id="sum-d4">(not set)</dd>
+      <dt>D5 · ticker</dt>          <dd id="sum-d5">(not set)</dd>
+      <dt>D6 · life sources</dt>    <dd id="sum-d6">(not set)</dd>
+      <dt>D7 · feelings</dt>        <dd id="sum-d7">(not set)</dd>
+      <dt>D8 · objective source</dt><dd id="sum-d8">(not set)</dd>
+      <dt>D9 · alignment gate</dt>  <dd id="sum-d9">(not set)</dd>
+      <dt>D10 · supervisor</dt>     <dd id="sum-d10">(not set)</dd>
+      <dt>D11 · review cadence</dt> <dd id="sum-d11">(not set)</dd>
+      <dt>D12 · diff format</dt>    <dd id="sum-d12">(not set)</dd>
+      <dt>D13 · tiebreaker</dt>     <dd id="sum-d13">(not set)</dd>
+      <dt>D14 · uniformity</dt>     <dd id="sum-d14">(not set)</dd>
+      <dt>D15 · stream sharing</dt> <dd id="sum-d15">(not set)</dd>
+      <dt>D16 · action storage</dt> <dd id="sum-d16">(not set)</dd>
+      <dt>D17 · impact</dt>         <dd id="sum-d17">(not set)</dd>
+      <dt>D18 · PR threshold</dt>   <dd id="sum-d18">(not set)</dd>
+    </dl>
+  </div>
+
+  <div class="summary">
+    <h3>Personas drafted</h3>
+    <dl>
+      <dt>Xyra</dt>  <dd id="sum-xyra">(not set)</dd>
+      <dt>Ora</dt>   <dd id="sum-ora">(not set)</dd>
+      <dt>Via</dt>   <dd id="sum-via">(not set)</dd>
+    </dl>
+  </div>
+
+  <h2>What scaffolding would do</h2>
+  <p class="small">Once we lock the three decisions, scaffolding via <code>POST /api/files/mkdir</code> + writes would produce:</p>
+<pre id="sum-tree">~/xo-projects/via/
+  AGENTS.md           ← from "Via, the synthesis" textarea
+  IDENTITY.md         ← from Via tagline + auto-summary of personas
+  SOUL.md             ← from Via soul textarea
+  USER.md             ← empty, ready to fill on first conversation
+  OBJECTIVES.md       ← stub
+  CLAUDE.md           ← one-liner pointing to AGENTS.md
+  personas/xyra/
+    AGENTS.md, IDENTITY.md, SOUL.md, ROLE.md  ← from Xyra card
+    memory/{semantic,episodic,procedural,working}/
+    skills/
+    log/positions.jsonl   ← empty
+  personas/ora/
+    same shape, from Ora card
+  consensus/{proposals,decisions,debates}/  ← empty
+  memory/{semantic,episodic,procedural,working}/  ← empty
+  skills/  ← empty</pre>
+</section>
+
+<!-- =========================================================================
+     SCRATCH
+========================================================================= -->
+<section class="panel" id="scratch">
+  <h2>Scratchpad</h2>
+  <p class="small">Free-form thinking. Persists across reloads. Not synced anywhere.</p>
+  <textarea class="scratch" id="scratch-pad" data-store="scratch-pad" placeholder="Loose ideas, open questions, follow-ups..."></textarea>
+</section>
+
+</div>
+
+<script>
+  // ---------------------------------------------------------------------------
+  // Tabs
+  // ---------------------------------------------------------------------------
+  const tabs = document.querySelectorAll('nav.tabs button');
+  const panels = document.querySelectorAll('.panel');
+  function activate(tab) {
+    tabs.forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    panels.forEach(p => p.classList.toggle('active', p.id === tab));
+    history.replaceState(null, '', '#' + tab);
+    if (tab === 'summary') renderSummary();
+  }
+  tabs.forEach(btn => btn.addEventListener('click', () => activate(btn.dataset.tab)));
+  if (location.hash) {
+    const t = location.hash.replace('#','');
+    if (document.getElementById(t)) activate(t);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Persistence (localStorage, scoped per-field)
+  // ---------------------------------------------------------------------------
+  const STORE_KEY = 'via-brainstorm:v1';
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); }
+    catch (e) { return {}; }
+  }
+  function save(state) {
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    flashSaved();
+  }
+  let saveTimer = null;
+  function flashSaved() {
+    const s = document.getElementById('save-status');
+    s.textContent = 'Saved';
+    s.classList.add('saved');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      s.textContent = 'Autosave on';
+      s.classList.remove('saved');
+    }, 1200);
+  }
+
+  const state = load();
+
+  // Restore values
+  document.querySelectorAll('[data-store]').forEach(el => {
+    const key = el.dataset.store;
+    if (state[key] !== undefined) el.value = state[key];
+    el.addEventListener('input', () => {
+      state[key] = el.value;
+      save(state);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Decisions
+  // ---------------------------------------------------------------------------
+  document.querySelectorAll('.options').forEach(group => {
+    const dk = group.dataset.decision;
+    if (state[dk]) {
+      const radio = group.querySelector(`input[value="${state[dk]}"]`);
+      if (radio) radio.checked = true;
+    }
+    function refreshChosen() {
+      group.querySelectorAll('label').forEach(l => {
+        const r = l.querySelector('input[type=radio]');
+        l.classList.toggle('chosen', r.checked);
+      });
+    }
+    refreshChosen();
+    group.addEventListener('change', e => {
+      if (e.target.matches('input[type=radio]')) {
+        state[dk] = e.target.value;
+        save(state);
+        refreshChosen();
+      }
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Flow examples
+  // ---------------------------------------------------------------------------
+  const FLOWS = {
+    ship: {
+      input:  "Should we ship the auth refactor this Friday?",
+      xyra:   "Ship it. The Friday demo needs the new flow to land.",
+      ora:    "The token-refresh race is still open. Hold one week.",
+      via:    "Hold a week. The Friday demo can use the current flow with a fallback I'll pre-bake. Shipping a token race mid-demo costs more than waiting.",
+      evolve: 'Ora perceives the new chat event, notices: <em>"User cares about Friday demos as a weekly cadence."</em><br>→ opens <code>consensus/proposals/2026-05-21-friday-demo-cadence.json</code><br>→ Xyra reviews, votes approve<br>→ consensus job commits to <code>memory/semantic/user.md</code>'
+    },
+    demo: {
+      input:  "Can you write the script for the AcmeCo demo next Tuesday?",
+      xyra:   "Yes, and lead with the integration story. AcmeCo asked about Composio twice on the discovery call.",
+      ora:    "Make sure the script doesn't promise the new auth flow. We're not shipping it before Tuesday.",
+      via:    "Here's a draft. It opens on integrations (AcmeCo's stated interest), stays on what's stable, and ends with a single forward-looking line about auth that doesn't make a commitment.",
+      evolve: 'Xyra perceives the chat event, notices: <em>"AcmeCo cares about integrations specifically."</em><br>→ opens proposal to add to <code>memory/semantic/customers/acmeco.md</code><br>→ Ora reviews, votes approve (no objection from her ROLE)<br>→ consensus job commits'
+    },
+    hire: {
+      input:  "Should we hire a second engineer this quarter?",
+      xyra:   "Yes. Sales velocity is bottlenecked on demo turn-around. A second engineer halves the next-demo lead time.",
+      ora:    "Onboarding cost is two months. We won't see ROI until Q+1. Better to ship the stability work first so the new person doesn't inherit a moving foundation.",
+      via:    "I think hire, but in 6 weeks, not now. Use the next 6 weeks to close out the stability work (Ora) and document the demo workflow (Xyra). Then the new person walks into a stable system with a clear demo loop.",
+      evolve: 'Both supervisors observed the chat event but disagree on the takeaway. No proposal opens (no consensus to draft from). The full exchange is archived to <code>consensus/debates/</code> as a no-proposal entry for future reference.'
+    }
+  };
+  document.getElementById('flow-prompt').addEventListener('change', e => {
+    const f = FLOWS[e.target.value];
+    document.getElementById('flow-input').textContent      = f.input;
+    document.getElementById('flow-xyra-pos').textContent   = f.xyra;
+    document.getElementById('flow-ora-pos').textContent    = f.ora;
+    document.getElementById('flow-via-out').textContent    = f.via;
+    document.getElementById('flow-evolve').innerHTML       = f.evolve;
+  });
+
+  // ---------------------------------------------------------------------------
+  // Summary
+  // ---------------------------------------------------------------------------
+  const DECISION_LABELS = {
+    d1: {
+      'hidden-default':   'Hidden by default, debug-visible',
+      'always-visible':   'Always show Xyra and Ora positions',
+      'opt-in':           'User-toggleable'
+    },
+    d2: {
+      'prompt-sections':  'Prompt sections inside one Via turn',
+      'real-subprocesses':'Real Claude subprocesses per persona',
+      'hybrid':           'Hybrid: sections for chat, subprocesses for votes'
+    },
+    d3: {
+      'unanimous-identity': 'Unanimous for identity, majority for memory',
+      'majority-tiebreaker':'Simple majority, Via breaks ties',
+      'unanimous-all':      'Unanimous for everything'
+    },
+    d4: {
+      '3-3-5':              '3 thoughts → view, 3 views → opinion, 5 cycles → identity',
+      '2-2-3':              'Fast: 2 / 2 / 3',
+      '5-5-10':             'Slow: 5 / 5 / 10'
+    },
+    d5: {
+      '5min':               'Every 5 minutes (with mood signal)',
+      '1min':               'Every 1 minute',
+      'adaptive':           'Adaptive (faster when stream is busy)'
+    },
+    d6: {
+      'chat-ticker-obs':            'chat + ticker + observation',
+      'chat-ticker-obs-calendar':   '+ calendar (via Composio)',
+      'all':                        'All sources: + email, system, slack'
+    },
+    d7: {
+      'mood-affect':                'Mood + per-event affect tagging',
+      'mood-only':                  'Mood only',
+      'named-emotions':             'Mood + affect + named emotions'
+    },
+    d8: {
+      'hybrid':                     'Hybrid: user sets, Via proposes',
+      'user-only':                  'User-only',
+      'via-inferred':               'Via-inferred from conversation'
+    },
+    d9: {
+      'loose-tagged':               'Loose: drift allowed, tagged for review',
+      'tight':                      'Tight: off-objective thoughts rejected',
+      'adaptive':                   'Adaptive: stricter under stress'
+    },
+    d10: {
+      'event-wake':                 'Event-driven wake',
+      'always-on':                  'Always-on persistent processes',
+      'periodic':                   'Periodic batch'
+    },
+    d11: {
+      'every-12-ticks':             'Every 12 ticks (~1 hour)',
+      'every-tick':                 'Every tick',
+      'threshold-only':             'Threshold-only (no clock)'
+    },
+    d12: {
+      'markdown-plus-summary':      'Markdown diff + semantic summary',
+      'markdown-only':              'Plain markdown diff',
+      'structured':                 'Structured frontmatter diff'
+    },
+    d13: {
+      'default-reject':             'Default reject (no tiebreaker)',
+      'refinement-round':           'Refinement round, then reject',
+      'user-escalate':              'Escalate to user'
+    },
+    d14: {
+      'full-template':              'Full template at every persona',
+      'lazy':                       'Lazy: create dirs on first write',
+      'minimal-sub':                'Top-level full, sub-personas minimal'
+    },
+    d15: {
+      'tail-parent':                'Sub tails parent + own observations',
+      'own-only':                   'Each persona fully independent stream',
+      'shared-pubsub':              'Shared pubsub bus, no per-persona streams'
+    },
+    d16: {
+      'stream-only':                'Stream-only',
+      'dedicated-dir':              'Dedicated actions/ per persona',
+      'both':                       'Stream + per-objective index'
+    },
+    d17: {
+      'declared-plus-audit':        'Declared + audit reconciliation',
+      'declared-only':              'Declared only',
+      'audit-only':                 'Audit only (no declaration)'
+    },
+    d18: {
+      'semantic-distance':          'Semantic distance >= 0.3',
+      'line-diff':                  'Line-diff size threshold',
+      'persona-decides':            'Persona decides each turn'
+    }
+  };
+  function renderSummary() {
+    ['d1','d2','d3','d4','d5','d6','d7','d8','d9','d10','d11','d12','d13','d14','d15','d16','d17','d18'].forEach(k => {
+      const v = state[k];
+      document.getElementById('sum-' + k).textContent =
+        v ? (DECISION_LABELS[k][v] || v) : '(not set)';
+    });
+    document.getElementById('sum-xyra').textContent = state['xyra-tagline'] || '(not set)';
+    document.getElementById('sum-ora').textContent  = state['ora-tagline']  || '(not set)';
+    document.getElementById('sum-via').textContent  = state['via-tagline']  || '(not set)';
+  }
+  // Render once on load too.
+  renderSummary();
+
+  // ---------------------------------------------------------------------------
+  // Reset and export
+  // ---------------------------------------------------------------------------
+  document.getElementById('reset-all').addEventListener('click', () => {
+    if (!confirm('Reset all brainstorming state? This wipes localStorage for this page.')) return;
+    localStorage.removeItem(STORE_KEY);
+    location.reload();
+  });
+  // ---------------------------------------------------------------------------
+  // Glossary filtering (Components tab)
+  // ---------------------------------------------------------------------------
+  (function() {
+    const search = document.getElementById('glossary-search');
+    const chips = document.querySelectorAll('#category-chips .category-chip');
+    const cards = document.querySelectorAll('#glossary-grid .term-card');
+    const counter = document.getElementById('glossary-counter');
+    if (!search || !cards.length) return;
+
+    let activeCat = 'all';
+    let query = '';
+
+    function applyFilter() {
+      let visible = 0;
+      cards.forEach(card => {
+        const matchCat = activeCat === 'all' || card.dataset.cat === activeCat;
+        const matchSearch = !query || card.textContent.toLowerCase().includes(query);
+        const show = matchCat && matchSearch;
+        card.classList.toggle('hidden', !show);
+        if (show) visible++;
+      });
+      counter.textContent = visible === cards.length
+        ? cards.length + ' components'
+        : visible + ' of ' + cards.length + ' shown';
+    }
+
+    search.addEventListener('input', e => {
+      query = e.target.value.trim().toLowerCase();
+      applyFilter();
+    });
+
+    chips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        chips.forEach(c => c.classList.toggle('active', c === chip));
+        activeCat = chip.dataset.cat;
+        applyFilter();
+      });
+    });
+
+    applyFilter();
+  })();
+
+  document.getElementById('export-json').addEventListener('click', async () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'via-brainstorm.json';
+    document.body.appendChild(a); a.click();
+    a.remove(); URL.revokeObjectURL(url);
+  });
+</script>
+
+</body>
+</html>

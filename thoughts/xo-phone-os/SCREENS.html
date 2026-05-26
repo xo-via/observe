@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>XO Phone — Screens (v1.x)</title>
+  <style>
+    :root {
+      --lime:#83d63a; --lime-s:rgba(131,214,58,.14); --lime-e:rgba(131,214,58,.5);
+      --ink:#08090A; --ink2:#131416; --ink3:#1c1c1e;
+      --t:rgba(255,255,255,1); --t2:rgba(255,255,255,.72); --t3:rgba(255,255,255,.42);
+      --div:rgba(255,255,255,.08);
+      --amber:#ffb547; --amb-s:rgba(255,181,71,.12);
+      --red:#ff6b6b; --red-s:rgba(255,107,107,.12);
+      --blue:#64b5f6; --blu-s:rgba(100,181,246,.13);
+      --vio:#b794ff; --vio-s:rgba(183,148,255,.12);
+      --teal:#4ecdc4;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--ink);color:var(--t);
+      font-family:'Inter',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+      line-height:1.55;-webkit-font-smoothing:antialiased}
+    .w{max-width:1100px;margin:0 auto;padding:48px 22px 96px}
+
+    header{border-bottom:1px solid var(--div);padding-bottom:26px;margin-bottom:36px}
+    .brand{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+    .bm{width:32px;height:32px}
+    .bt{font-weight:700;letter-spacing:.01em;color:var(--lime);font-size:13px;text-transform:uppercase}
+    h1{font-size:30px;font-weight:700;letter-spacing:-.02em;margin:0 0 7px}
+    .lead{color:var(--t2);font-size:14px;margin:0}
+    .pills{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}
+    .p{padding:3px 11px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.05em;
+       text-transform:uppercase;background:var(--ink3);color:var(--t2);border:1px solid var(--div)}
+    .p.g{background:var(--lime-s);color:var(--lime);border-color:var(--lime-e)}
+    .p.a{background:var(--amb-s);color:var(--amber);border-color:rgba(255,181,71,.4)}
+
+    h2{font-size:20px;font-weight:700;letter-spacing:-.015em;margin:52px 0 8px}
+    .ss{color:var(--t2);font-size:13px;margin:0 0 18px}
+    p{color:var(--t2);margin:10px 0}
+    p strong{color:var(--t);font-weight:600}
+    code{background:var(--ink3);padding:1px 6px;border-radius:4px;
+         font-family:'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;font-size:11.5px;color:var(--lime)}
+
+    /* SCREEN CARD */
+    .sc{border:1px solid var(--div);border-radius:16px;background:var(--ink2);
+        padding:22px 24px;margin:18px 0}
+    .sc.deferred{border-style:dashed;opacity:.88}
+    .sc.done{border-color:var(--lime-e);background:linear-gradient(160deg,var(--lime-s),transparent),var(--ink2)}
+    .sc.new{border-color:rgba(100,181,246,.4);background:linear-gradient(160deg,var(--blu-s),transparent),var(--ink2)}
+    .sc.auth{border-color:rgba(183,148,255,.4);background:linear-gradient(160deg,var(--vio-s),transparent),var(--ink2)}
+    .sc-num{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+            color:var(--t3);font-family:'JetBrains Mono',monospace;margin-bottom:8px}
+    .sc-title{font-size:19px;font-weight:700;letter-spacing:-.01em;margin:0 0 4px;color:var(--t)}
+    .sc-meta{font-size:11.5px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-bottom:14px}
+    .sc-body{display:grid;grid-template-columns:1fr;gap:20px;align-items:start}
+    @media(min-width:720px){.sc-body{grid-template-columns:290px 1fr;gap:26px}}
+
+    .phone{background:var(--ink);border:1px solid var(--div);border-radius:26px;
+           padding:16px 10px;font-family:'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;
+           font-size:10.5px;line-height:1.5;color:var(--t);white-space:pre;
+           overflow-x:auto;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+
+    .details > section+section{margin-top:16px}
+    .details h4{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+                color:var(--t3);margin:0 0 7px}
+    .sl{list-style:none;padding:0;margin:0}
+    .sl li{padding:4px 0 4px 21px;font-size:12.5px;color:var(--t);position:relative;line-height:1.5}
+    .sl.shows li::before{content:'\2022';position:absolute;left:5px;top:3px;
+                          color:var(--lime);font-weight:700;font-size:14px}
+    .sl.acts li::before{content:'\2192';position:absolute;left:1px;top:3px;
+                         color:var(--blue);font-weight:700;font-size:12px}
+    .sl.nav li::before{content:'\21B3';position:absolute;left:1px;top:3px;
+                        color:var(--amber);font-weight:700;font-size:12px}
+    .sl.data li::before{content:'\25C6';position:absolute;left:4px;top:7px;
+                         color:var(--t3);font-size:8px}
+    .sl.tbd li::before{content:'?';position:absolute;left:3px;top:3px;
+                        color:var(--amber);font-weight:700;font-size:13px}
+
+    footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--div);
+           color:var(--t3);font-size:11.5px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  </style>
+</head>
+<body>
+<div class="w">
+
+  <header>
+    <div class="brand">
+      <svg class="bm" viewBox="0 0 100 100">
+        <path d="M18 28L38 50L18 72" stroke="white" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M82 28L62 50L82 72" stroke="white" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M32 28L52 50L32 72" stroke="#83d63a" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M68 28L48 50L68 72" stroke="#83d63a" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="bt">XO Phone — Screens</span>
+    </div>
+    <h1>Screens the user sees</h1>
+    <p class="lead">Updated for v1.x. Sections A (agent cleanup), C (Pager), G (Clerk) shipped. Three modes: Landing · Agent · Feed. Uniform dock across all modes. New: Folder overlay, Stories viewer, SignInOverlay.</p>
+    <div class="pills">
+      <span class="p g">v1.x shipped</span>
+      <span class="p g">Section A done</span>
+      <span class="p g">Section C done</span>
+      <span class="p g">Clerk wired</span>
+      <span class="p">3 modes: Landing · Agent · Feed</span>
+      <span class="p a">Feed mode: coming soon</span>
+    </div>
+  </header>
+
+  <!-- ══ DOCK CONVENTION (all modes) ══ -->
+  <h2>Dock convention — uniform across all modes</h2>
+  <p class="ss">The dock is <strong>identical on every mode page</strong>. Content changes via crossfade, not swipe.</p>
+<pre style="background:var(--ink2);border:1px solid var(--div);border-radius:12px;padding:14px 18px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;color:var(--t)">
+  ┌───┬───┬───┬───┐
+  │ 💬│ ◈ │ ? │ 👤│     All modes, always
+  └───┴───┴───┴───┘
+   Chat  Via  How  Guest/
+   /ask /about /how-to Profile
+                       (Clerk-aware AuthDockTile:
+                        shows avatar + name when signed in,
+                        shows 👤 "Guest mode" when signed out)
+</pre>
+
+  <!-- ══ SECTION 1: ENTRY ══ -->
+  <h2>1. Entry</h2>
+
+  <div class="sc done">
+    <div class="sc-num">SCREEN 01 · auth:none</div>
+    <div class="sc-title">Lockscreen</div>
+    <div class="sc-meta">cold load · first impression · Thought of the day + Via tap-to-pat</div>
+    <div class="sc-body">
+<pre class="phone">
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474; 9:41          &#9612;&#9612; &#9698;  &#9889;  &#9474;
+&#9474;       &#9472;&#9472;&#9472;&#9472;&#9472;          &#9474;
+&#9474;                          &#9474;
+&#9474;          9:41            &#9474;
+&#9474;                          &#9474;
+&#9474;  "agents that work        &#9474; Thought of the day
+&#9474;   for you"                &#9474; (replaces date)
+&#9474;                          &#9474;
+&#9474;       &#9586;&#9586;   &#9586;&#9586;          &#9474;
+&#9474;        &#9586;&#9586;   &#9586;&#9586;         &#9474; Via with expression
+&#9474;       &#9585;&#9585;   &#9585;&#9585;          &#9474; (Mood widget)
+&#9474;        &#9585;&#9585;   &#9585;&#9585;         &#9474;
+&#9474;          &#9687;&#8255;&#9687;  idle       &#9474; current expression
+&#9474;      tap to pat &#8594;        &#9474; interaction hint
+&#9474;                          &#9474;
+&#9474;   swipe up to unlock     &#9474;
+&#9474;        &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;            &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+</pre>
+      <div class="details">
+        <section><h4>What's on screen</h4>
+          <ul class="sl shows">
+            <li>Big live clock (HH:MM)</li>
+            <li><strong>Thought of the day</strong> widget (replaces the old date line)</li>
+            <li><strong>Via mascot</strong> with current expression (idle default)</li>
+            <li>"tap to pat" hint</li>
+            <li>"swipe up to unlock" pill</li>
+            <li>Animated XO wallpaper behind everything</li>
+          </ul>
+        </section>
+        <section><h4>User can</h4>
+          <ul class="sl acts">
+            <li><strong>Tap Via</strong> → pat animation, Via briefly happy (~1s) then returns</li>
+            <li>Tap Thought → cycle to next quip</li>
+            <li>Swipe up / Tap pill / Esc → unlock → Screen 02</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SECTION 2: MODES ══ -->
+  <h2>2. Modes — three pages</h2>
+  <p class="ss">After unlock: Landing (page 1). Swipe left to Agent (page 2), then Feed (page 3). ModeIslandIndicator at the bottom (compact pill, tap to expand) drives mode switching. Dynamic Island at top is cosmetic-only black pill.</p>
+
+  <!-- Screen 02: Landing -->
+  <div class="sc done">
+    <div class="sc-num">SCREEN 02 · PAGE 1 · auth:public</div>
+    <div class="sc-title">Landing home</div>
+    <div class="sc-meta">8 social/productivity tiles · uniform dock · no widgets</div>
+    <div class="sc-body">
+<pre class="phone">
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474; 9:41          &#9612;&#9612; &#9698;  &#9889;  &#9474;
+&#9474;       &#9472;&#9472;&#9472;&#9472;&#9472;          &#9474;  cosmetic pill (static)
+&#9474;                          &#9474;
+&#9474; &#9484;&#9472;&#9488; &#9484;&#9472;&#9488; &#9484;&#9472;&#9488; &#9484;&#9472;&#9488;         &#9474;
+&#9474; &#9474;&#9618;&#9618;&#9474; &#9474; X&#9474; &#9474; &#9635;&#9474; &#9474;&#128172;&#9474;         &#9474; Manifesto  X  Reddit  Slack
+&#9474; &#9492;&#9472;&#9496; &#9492;&#9472;&#9496; &#9492;&#9472;&#9496; &#9492;&#9472;&#9496;         &#9474; (glass morphism tiles)
+&#9474; &#9484;&#9472;&#9488; &#9484;&#9472;&#9488; &#9484;&#9472;&#9488; &#9484;&#9472;&#9488;         &#9474;
+&#9474; &#9474;&#9992;&#9474; &#9474;&#9654;&#9474; &#9474;&#9710;&#9474; &#9474;&#9993;&#9474;         &#9474; Telegram YouTube GitHub Gmail
+&#9474; &#9492;&#9472;&#9496; &#9492;&#9472;&#9496; &#9492;&#9472;&#9496; &#9492;&#9472;&#9496;         &#9474;
+&#9474;                          &#9474;
+&#9474;                          &#9474;
+&#9474;                          &#9474;
+&#9474;       &#9675;&#9679;&#9675;                 &#9474; ModeIslandIndicator (pill)
+&#9474;  &#9484;&#9472;&#9472;&#9516;&#9472;&#9472;&#9516;&#9472;&#9472;&#9516;&#9472;&#9472;&#9488;         &#9474;
+&#9474;  &#9474;&#128172;&#9474;&#9675;&#9620;&#9474; ? &#9474;&#128100;&#9474;         &#9474; Chat Via How-to Guest
+&#9474;  &#9492;&#9472;&#9472;&#9524;&#9472;&#9472;&#9524;&#9472;&#9472;&#9524;&#9472;&#9472;&#9496;         &#9474; (uniform dock, all modes)
+&#9474;          &#9472;&#9472;              &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+</pre>
+      <div class="details">
+        <section><h4>Apps in grid (8 tiles)</h4>
+          <ul class="sl shows">
+            <li>Manifesto · X (Twitter) · Reddit · Slack</li>
+            <li>Telegram · YouTube · GitHub · Gmail</li>
+            <li>All kind:"external" → open in new tab</li>
+            <li>Glass morphism: backdrop blur + inner top highlight + border</li>
+          </ul>
+        </section>
+        <section><h4>Dock (uniform, all modes)</h4>
+          <ul class="sl shows">
+            <li>Chat (/ask) · Via (/about) · How to (/how-to) · Guest/Profile (/signup-external)</li>
+            <li>Rightmost = AuthDockTile: shows avatar + first name when signed in</li>
+          </ul>
+        </section>
+        <section><h4>ModeIslandIndicator</h4>
+          <ul class="sl shows">
+            <li>Compact pill between WanderingVia and Dock</li>
+            <li>3 dots: active = lime, others = white/40</li>
+            <li>Tap → expand to show Landing · Agent · Feed buttons</li>
+          </ul>
+        </section>
+        <section><h4>User can</h4>
+          <ul class="sl acts">
+            <li>Tap any tile → opens external app in new tab</li>
+            <li>Tap Chat (dock) → expand chat surface</li>
+            <li>Tap Via (dock) → /about Stories viewer</li>
+            <li>Swipe left → Screen 03 transition → Screen 04 (Agent)</li>
+            <li>Swipe down from top → Overlay panel</li>
+            <li>Tap ModeIslandIndicator → mode picker expands</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 03: Mode swipe -->
+  <div class="sc">
+    <div class="sc-num">SCREEN 03 · TRANSITION</div>
+    <div class="sc-title">Mode swipe, mid-flight</div>
+    <div class="sc-meta">swipeable strip translates · wallpaper crossfades · dock crossfades in place</div>
+    <div class="sc-body">
+<pre class="phone">
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474; 9:41          &#9612;&#9612; &#9698;  &#9889;  &#9474;
+&#9474;       &#9472;&#9472;&#9472;&#9472;&#9472;          &#9474;  cosmetic (static)
+&#9474;                          &#9474;
+&#9474; &#9484;&#9472;&#9488;&#9484;&#9472;&#9488; &#9474; &#9484;&#9472;&#9488;&#9484;&#9472;&#9488;&#9484;&#9472;&#9488;       &#9474;
+&#9474; &#9474;&#9618;&#9618;&#9474;&#9474; X&#9474; &#9474; &#9474;&#9744;&#9474;&#9474;&#9744;&#9474;&#9474;&#9744;&#9474;       &#9474; Landing sliding out
+&#9474; &#9492;&#9472;&#9496;&#9492;&#9472;&#9496; &#9474; &#9492;&#9472;&#9496;&#9492;&#9472;&#9496;&#9492;&#9472;&#9496;       &#9474; Agent sliding in
+&#9474;              &#9474;            &#9474;
+&#9474;  wallpaper    &#9474;            &#9474;
+&#9474;  crossfading  &#9474;            &#9474;
+&#9474;              &#9474; &#9612;            &#9474; strip divider mid-drag
+&#9474;              &#9474;            &#9474;
+&#9474;                          &#9474;
+&#9474;       &#9675;&#9679;&#9675;                 &#9474; ModeIslandIndicator dot animating
+&#9474;  &#9484;&#9472;&#9472;&#9516;&#9472;&#9472;&#9516;&#9472;&#9472;&#9516;&#9472;&#9472;&#9488;         &#9474;
+&#9474;  &#9474;&#128172;&#9474;&#9675;&#9620;&#9474; ? &#9474;&#128100;&#9474;         &#9474; dock crossfades in place
+&#9474;  &#9492;&#9472;&#9472;&#9524;&#9472;&#9472;&#9524;&#9472;&#9472;&#9524;&#9472;&#9472;&#9496;         &#9474; (content identical across modes)
+&#9474;          &#9472;&#9472;              &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+</pre>
+      <div class="details">
+        <section><h4>4-layer Pager architecture</h4>
+          <ul class="sl shows">
+            <li>Layer 1 (back): Wallpaper — themed by active mode, crossfades via AnimatePresence on commit</li>
+            <li>Layer 2: ModeBanner (top) — fixed, reflects active mode label</li>
+            <li>Layer 3: Swipeable strip — ONLY this translates with finger. N ModePage instances side-by-side</li>
+            <li>Layer 4 (front): WanderingVia + ModeIslandIndicator + Dock — fixed, never translates</li>
+          </ul>
+        </section>
+        <section><h4>Commit + auth check</h4>
+          <ul class="sl shows">
+            <li>Drag past 30% OR velocity threshold → commit</li>
+            <li>If destination mode has auth:"required" and user signed out → snap back + fire SignInOverlay</li>
+            <li>spring: stiffness 280, damping 32, mass 0.9</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 04: Agent home -->
+  <div class="sc done">
+    <div class="sc-num">SCREEN 04 · PAGE 2 · auth:public</div>
+    <div class="sc-title">Agent home — folders + productivity</div>
+    <div class="sc-meta">4 iPhone-style folders + standalone tiles · glass morphism</div>
+    <div class="sc-body">
+<pre class="phone">
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474; 9:41          &#9612;&#9612; &#9698;  &#9889;  &#9474;
+&#9474;       &#9472;&#9472;&#9472;&#9472;&#9472;          &#9474;
+&#9474;                          &#9474;
+&#9474; &#9484;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9488;  &#9474;
+&#9474; &#9474;&#9618;&#9618;&#9618;&#9618;&#9474; &#9474;&#9618;&#9618;&#9618;&#9618;&#9474; &#9474;&#9618;&#9618;&#9618;&#9618;&#9474; &#9474;&#9618;&#9618;&#9618;&#9618;&#9474;  &#9474; Folders (2x2 preview tiles):
+&#9474; &#9474;&#9618; &#9618;&#9474; &#9474;&#9618; &#9618;&#9474; &#9474;&#9618; &#9618;&#9474; &#9474;&#9618; &#9618;&#9474;  &#9474; XO · Projects
+&#9474; &#9492;&#9472;&#9472;&#9472;&#9496; &#9492;&#9472;&#9472;&#9472;&#9496; &#9492;&#9472;&#9472;&#9472;&#9496; &#9492;&#9472;&#9472;&#9472;&#9496;  &#9474; App Store · Games
+&#9474;  XO  Prjct  Apps  Games  &#9474;
+&#9474;                          &#9474;
+&#9474; &#9484;&#9472;&#9488; &#9484;&#9472;&#9488; &#9484;&#9472;&#9488; &#9484;&#9472;&#9488;         &#9474;
+&#9474; &#9474;&#9651;&#9474; &#9474;&#9682;&#9474; &#9474;&#128172;&#9474; &#9474;&#9654;&#9474;         &#9474; Drive  Vercel  Slack  YouTube
+&#9474; &#9492;&#9472;&#9496; &#9492;&#9472;&#9496; &#9492;&#9472;&#9496; &#9492;&#9472;&#9496;         &#9474; (standalone tiles)
+&#9474;                          &#9474;
+&#9474;       &#9675;&#9679;&#9675;                 &#9474; ModeIslandIndicator
+&#9474;  &#9484;&#9472;&#9472;&#9516;&#9472;&#9472;&#9516;&#9472;&#9472;&#9516;&#9472;&#9472;&#9488;         &#9474;
+&#9474;  &#9474;&#128172;&#9474;&#9675;&#9620;&#9474; ? &#9474;&#128100;&#9474;         &#9474; same dock (all modes)
+&#9474;  &#9492;&#9472;&#9472;&#9524;&#9472;&#9472;&#9524;&#9472;&#9472;&#9524;&#9472;&#9472;&#9496;         &#9474;
+&#9474;          &#9472;&#9472;              &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+</pre>
+      <div class="details">
+        <section><h4>Apps in grid</h4>
+          <ul class="sl shows">
+            <li><strong>XO folder</strong>: contains / (XO home) + /cloud (Cloud iframe)</li>
+            <li><strong>Projects folder</strong>: contains /google-docs</li>
+            <li><strong>App Store folder</strong>: contains /whatsapp</li>
+            <li><strong>Games folder</strong>: contains /pong (full Pong game)</li>
+            <li>Drive · Vercel · Slack · YouTube (standalone)</li>
+            <li>Folder tiles show 2×2 app preview (glass card)</li>
+          </ul>
+        </section>
+        <section><h4>User can</h4>
+          <ul class="sl acts">
+            <li>Tap a folder tile → FolderOverlay (Screen 05)</li>
+            <li>Tap standalone tile → opens app or new tab (kind:external)</li>
+            <li>Swipe right → back to Landing, Swipe left → Feed</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 05: Folder overlay -->
+  <div class="sc new">
+    <div class="sc-num">SCREEN 05 · FOLDER OVERLAY · new in v1.x</div>
+    <div class="sc-title">Folder overlay</div>
+    <div class="sc-meta">tap a folder tile → glass card slides in · 2×2 app grid · backdrop blur</div>
+    <div class="sc-body">
+<pre class="phone">
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474; 9:41          &#9612;&#9612; &#9698;  &#9889;  &#9474;
+&#9474;       &#9472;&#9472;&#9472;&#9472;&#9472;          &#9474;
+&#9474;                          &#9474;
+&#9474;  &#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;  &#9474;
+&#9474;  &#9619; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9619;  &#9474; blurred home behind
+&#9474;  &#9619; &#9474; top glass highlight &#9474; &#9619;  &#9474;
+&#9474;  &#9619; &#9474;                    &#9474; &#9619;  &#9474;
+&#9474;  &#9619; &#9474;     XO folder       &#9474; &#9619;  &#9474;
+&#9474;  &#9619; &#9474;                    &#9474; &#9619;  &#9474;
+&#9474;  &#9619; &#9474; &#9484;&#9472;&#9472;&#9488;  &#9484;&#9472;&#9472;&#9488;          &#9474; &#9619;  &#9474;
+&#9474;  &#9619; &#9474; &#9474;XO&#9474;  &#9474;&#9601;&#9601;&#9474;          &#9474; &#9619;  &#9474; 2&#215;2 grid of apps
+&#9474;  &#9619; &#9474; &#9492;&#9472;&#9472;&#9496;  &#9492;&#9472;&#9472;&#9496;          &#9474; &#9619;  &#9474;
+&#9474;  &#9619; &#9474;  XO   Cloud         &#9474; &#9619;  &#9474;
+&#9474;  &#9619; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496; &#9619;  &#9474;
+&#9474;  &#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;&#9619;  &#9474;
+&#9474;       &#9675;&#9679;&#9675;                 &#9474;
+&#9474;  &#9484;&#9472;&#9472;&#9516;&#9472;&#9472;&#9516;&#9472;&#9472;&#9516;&#9472;&#9472;&#9488;         &#9474;
+&#9474;  &#9474;&#128172;&#9474;&#9675;&#9620;&#9474; ? &#9474;&#128100;&#9474;         &#9474;
+&#9474;  &#9492;&#9472;&#9472;&#9524;&#9472;&#9472;&#9524;&#9472;&#9472;&#9524;&#9472;&#9472;&#9496;         &#9474;
+&#9474;          &#9472;&#9472;              &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+</pre>
+      <div class="details">
+        <section><h4>Visual design</h4>
+          <ul class="sl shows">
+            <li>Scrim: backdrop-blur-2xl + backdrop-saturate-150 + bg-black/40 on home grid</li>
+            <li>Glass card: bg-white/12 + backdrop-blur-2xl + border-white/20 + rounded-[28px]</li>
+            <li>Inner top highlight: gradient from-white/60 1px strip</li>
+            <li>Spring entrance: scale 0.92→1, y 8→0, opacity 0→1</li>
+            <li>Apps inside use the same AppIcon component as the grid</li>
+          </ul>
+        </section>
+        <section><h4>Folders defined</h4>
+          <ul class="sl shows">
+            <li><strong>XO folder</strong> → XO home (/) + XO Cloud (/cloud)</li>
+            <li><strong>Projects folder</strong> → Google Docs (/google-docs)</li>
+            <li><strong>App Store folder</strong> → WhatsApp (/whatsapp)</li>
+            <li><strong>Games folder</strong> → Pong (/pong)</li>
+          </ul>
+        </section>
+        <section><h4>User can</h4>
+          <ul class="sl acts">
+            <li>Tap app inside folder → navigates to app, folder closes</li>
+            <li>Tap scrim / Esc → close folder</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 06: Feed / Coming Soon -->
+  <div class="sc">
+    <div class="sc-num">SCREEN 06 · PAGE 3 · auth:public</div>
+    <div class="sc-title">Feed — coming soon placeholder</div>
+    <div class="sc-meta">was "Public mode" · renamed Feed · ComingSoon component with Via</div>
+    <div class="sc-body">
+<pre class="phone">
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474; 9:41          &#9612;&#9612; &#9698;  &#9889;  &#9474;
+&#9474;       &#9472;&#9472;&#9472;&#9472;&#9472;          &#9474;
+&#9474;                          &#9474;
+&#9474;    &#10022;         &#10022;    &#10022;     &#9474; sparkle particles
+&#9474;                          &#9474;
+&#9474;        &#9586;&#9586;               &#9474;
+&#9474;         &#9586;&#9586;  Via          &#9474; Via in "curious" expression
+&#9474;        &#9585;&#9585;               &#9474;
+&#9474;         &#9585;&#9585;              &#9474;
+&#9474;                          &#9474;
+&#9474;      Coming soon         &#9474; large headline
+&#9474;                          &#9474;
+&#9474;   The feed is where       &#9474; subtitle
+&#9474;   agent folders live      &#9474;
+&#9474;                          &#9474;
+&#9474; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9474;
+&#9474; &#9474;    &#9651; Summer 2026     &#9474; &#9474; ETA pill
+&#9474; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496; &#9474;
+&#9474;       &#9675;&#9675;&#9679;                 &#9474; ModeIslandIndicator (page 3 active)
+&#9474;  &#9484;&#9472;&#9472;&#9516;&#9472;&#9472;&#9516;&#9472;&#9472;&#9516;&#9472;&#9472;&#9488;         &#9474;
+&#9474;  &#9474;&#128172;&#9474;&#9675;&#9620;&#9474; ? &#9474;&#128100;&#9474;         &#9474;
+&#9474;  &#9492;&#9472;&#9472;&#9524;&#9472;&#9472;&#9524;&#9472;&#9472;&#9524;&#9472;&#9472;&#9496;         &#9474;
+&#9474;          &#9472;&#9472;              &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+</pre>
+      <div class="details">
+        <section><h4>What's on screen</h4>
+          <ul class="sl shows">
+            <li>Sparkle particles (decorative, disabled in reduced-motion)</li>
+            <li>Via mascot in "curious" expression (thinking mood)</li>
+            <li>"Coming soon" headline + subtitle copy</li>
+            <li>ETA pill (lime-accented)</li>
+            <li>ModeIslandIndicator shows page 3 active</li>
+            <li>Uniform dock (same 4 pins)</li>
+          </ul>
+        </section>
+        <section><h4>Planning</h4>
+          <ul class="sl tbd">
+            <li>Feed mode content (agent folders, public data) has its own dedicated planning session</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SECTION 3: STORIES ══ -->
+  <h2>3. Stories viewer</h2>
+
+  <div class="sc new">
+    <div class="sc-num">SCREEN 07 · STORIES · new in v1.x</div>
+    <div class="sc-title">StoriesViewer — /how-to and /about</div>
+    <div class="sc-meta">Instagram-style · chromeless (no NavBar) · tap-to-advance</div>
+    <div class="sc-body">
+<pre class="phone">
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474; 9:41          &#9612;&#9612; &#9698;  &#9889;  &#9474;
+&#9474;       &#9472;&#9472;&#9472;&#9472;&#9472;          &#9474;
+&#9474; &#9554;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9557;&#9554;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9557;&#9554;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9557; &#9474; progress pills (auto-advance)
+&#9474; &#9562;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9565;&#9562;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9565;&#9562;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9565; &#9474;
+&#9474;                          &#9474;
+&#9474; &#9675;&#9620;                        &#9474; avatar + label on left
+&#9474; XO Phone               &#10005; &#9474; title on left, X close on right
+&#9474;                          &#9474;
+&#9474;                          &#9474;
+&#9474;                          &#9474; (full-bleed background, themed
+&#9474;        &#10024; glyph          &#9474;  per story)
+&#9474;                          &#9474;
+&#9474;      Story title         &#9474;
+&#9474;                          &#9474;
+&#9474;   Story body text lives   &#9474;
+&#9474;   here, centered, large   &#9474;
+&#9474;                          &#9474;
+&#9474; &#9554;&#9552;&#9552;&#9557;&#9554;&#9552;&#9552;&#9557;&#9554;&#9552;&#9552;&#9557;&#9554;&#9552;&#9552;&#9557;&#9554;&#9552;&#9552;&#9557; &#9474; thumbnail strip (up-next)
+&#9474; &#9562;&#9552;&#9552;&#9565;&#9562;&#9552;&#9552;&#9565;&#9562;&#9552;&#9552;&#9565;&#9562;&#9552;&#9552;&#9565;&#9562;&#9552;&#9552;&#9565; &#9474;
+&#9474;          &#9472;&#9472;              &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+</pre>
+      <div class="details">
+        <section><h4>Used by</h4>
+          <ul class="sl shows">
+            <li><strong>/how-to</strong> — OS feature tour (How to dock tile)</li>
+            <li><strong>/about</strong> — Via intro (Via dock tile)</li>
+            <li>Both use <code>chromeless: true</code> on their app.ts → no NavBar</li>
+          </ul>
+        </section>
+        <section><h4>Interaction</h4>
+          <ul class="sl acts">
+            <li>Right 2/3 tap → next story (or close on last)</li>
+            <li>Left 1/3 tap → previous story (or restart on first)</li>
+            <li>PointerDown → pause auto-advance; PointerUp → resume (5s default)</li>
+            <li>Esc → close; ArrowLeft/Right → previous/next</li>
+            <li>X button top-right → close, return to dock</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SECTION 4: CHAT ══ -->
+  <h2>4. Chat</h2>
+
+  <div class="sc">
+    <div class="sc-num">SCREEN 08 · CHAT EXPAND TRANSITION</div>
+    <div class="sc-title">Chat dock button → expand to fullscreen</div>
+    <div class="sc-meta">tap leftmost dock pin · ~450ms animation · icons fade, dock morphs to input bar</div>
+    <div class="sc-body">
+<pre class="phone">
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474; 9:41          &#9612;&#9612; &#9698;  &#9889;  &#9474;
+&#9474;       &#9472;&#9472;&#9472;&#9472;&#9472;          &#9474;
+&#9474;                          &#9474;
+&#9474; &#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;&#9468;  &#9474; icons fading out
+&#9474;                          &#9474;
+&#9474;   &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9474; chat growing from
+&#9474;   &#9474;   chat growing...   &#9474; &#9474; its dock position
+&#9474;   &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496; &#9474;
+&#9474;                          &#9474;
+&#9474;       &#9675;&#9679;&#9675;                 &#9474; ModeIslandIndicator fades
+&#9474;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;    &#9474;
+&#9474;  &#9474; input forming...   &#9474;    &#9474; dock morphs to input bar
+&#9474;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;    &#9474;
+&#9474;          &#9472;&#9472;              &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+</pre>
+      <div class="details">
+        <section><h4>Animation phases (~450ms)</h4>
+          <ul class="sl shows">
+            <li>0–150ms: icons fade out + scale 0.96</li>
+            <li>0–250ms: Chat button expands from dock position (shared layoutId)</li>
+            <li>100–300ms: dock background slides up, Via + ModeIslandIndicator fade</li>
+            <li>100–300ms: remaining dock slots (Via, How-to, Guest) fade out</li>
+            <li>200–400ms: input bar fades in where dock was</li>
+            <li>300–450ms: back chevron + stop button appear</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="sc">
+    <div class="sc-num">SCREEN 09 · CHAT EXPANDED</div>
+    <div class="sc-title">Chat expanded surface</div>
+    <div class="sc-meta">full screen · UI shell in v1.x · cowork backend wired in v.Next+</div>
+    <div class="sc-body">
+<pre class="phone">
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474; 9:41          &#9612;&#9612; &#9698;  &#9889;  &#9474;
+&#9474;       &#9472;&#9472;&#9472;&#9472;&#9472;          &#9474;
+&#9474; &#8592;  Chat             &#8861;  &#9474; back chevron + stop button
+&#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;  &#9474;
+&#9474;                          &#9474;
+&#9474;       &#9586;&#9586;               &#9474; Via at 96px (idle, bob)
+&#9474;        &#9586;&#9586;   Via        &#9474;
+&#9474;       &#9585;&#9585;               &#9474;
+&#9474;        &#9585;&#9585;              &#9474;
+&#9474;                          &#9474;
+&#9474;   Hi, I'm Via.            &#9474;
+&#9474;   ask me anything         &#9474;
+&#9474;                          &#9474;
+&#9474; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9474; suggestion chips
+&#9474; &#9474; Show me what you   &#9474;  &#9474;
+&#9474; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9474;
+&#9474;                          &#9474;
+&#9474; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#8594;   &#9474; input bar (was dock)
+&#9474; &#9474; Message...      &#9474;     &#9474;
+&#9474; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;     &#9474;
+&#9474;          &#9472;&#9472;              &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+</pre>
+      <div class="details">
+        <section><h4>v1.x state (UI shell)</h4>
+          <ul class="sl shows">
+            <li>Expand/collapse animation fully functional</li>
+            <li>Via mascot at 96px with bob animation</li>
+            <li>Suggestion chips rendered</li>
+            <li>Input bar visible and focusable</li>
+            <li>Send button: wired but non-functional (cowork backend in v.Next+)</li>
+          </ul>
+        </section>
+        <section><h4>v.Next+ (Section B)</h4>
+          <ul class="sl tbd">
+            <li>POST /api/chat → Next proxy → cowork-api</li>
+            <li>EventSource /api/chat/stream/{id} → SSE pipe</li>
+            <li>text-delta events render in chat bubbles</li>
+            <li>client-action events dispatch to ActionDispatcher</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SECTION 5: AUTH ══ -->
+  <h2>5. Auth — Clerk wired in v1.x</h2>
+
+  <div class="sc auth">
+    <div class="sc-num">SCREEN 10 · AUTH GATE · shipped v1.x</div>
+    <div class="sc-title">SignInOverlay — Clerk sign-in sheet</div>
+    <div class="sc-meta">slides up from bottom · full-bleed · fires when requestSignIn() is called</div>
+    <div class="sc-body">
+<pre class="phone">
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474; 9:41          &#9612;&#9612; &#9698;  &#9889;  &#9474;
+&#9474;       &#9472;&#9472;&#9472;&#9472;&#9472;          &#9474;
+&#9474; &#8592; Back     Sign in       &#9474; back chevron + title
+&#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;  &#9474;
+&#9474;                          &#9474;
+&#9474;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;   &#9474;
+&#9474;  &#9474; G  Continue with   &#9474;   &#9474; Google SSO
+&#9474;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;   &#9474;
+&#9474;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;   &#9474; GitHub SSO
+&#9474;  &#9474; &#9651;  Continue with   &#9474;   &#9474;
+&#9474;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;   &#9474;
+&#9474;       &#9472;&#9472;&#9472; or &#9472;&#9472;&#9472;          &#9474;
+&#9474;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;   &#9474; email input
+&#9474;  &#9474;  Email address      &#9474;   &#9474;
+&#9474;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;   &#9474;
+&#9474;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;   &#9474;
+&#9474;  &#9474; &#9654;&#9654; Continue         &#9474;   &#9474; lime CTA
+&#9474;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;   &#9474;
+&#9474;                          &#9474;
+&#9474;   Don't have an account?  &#9474;
+&#9474;   Sign up &#8594;              &#9474;
+&#9474;          &#9472;&#9472;              &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+</pre>
+      <div class="details">
+        <section><h4>How it works</h4>
+          <ul class="sl shows">
+            <li>Fires when <code>useAuthGate().requestSignIn()</code> is called</li>
+            <li>Listens for <code>xo:sign-in-request</code> custom event</li>
+            <li>Slides up from bottom with spring (full-bleed dark bg)</li>
+            <li>Renders Clerk's <code>&lt;SignIn /&gt;</code> with XO dark theming</li>
+            <li>Back chevron collapses; successful sign-in auto-completes queued swipe</li>
+          </ul>
+        </section>
+        <section><h4>Clerk theming</h4>
+          <ul class="sl shows">
+            <li>colorPrimary: #83d63a (XO lime)</li>
+            <li>colorBackground: transparent (phone wallpaper shows through)</li>
+            <li>All inputs: bg-white/8 + border-white/15</li>
+            <li>CTA button: bg-lime text-black</li>
+          </ul>
+        </section>
+        <section><h4>Signed-in state: AuthDockTile</h4>
+          <ul class="sl shows">
+            <li>Rightmost dock shows Clerk avatar + first name</li>
+            <li>Tapping opens /signup-external (UserButton account card)</li>
+            <li>Signed-out: 👤 "Guest mode"</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SECTION 6: OVERLAY ══ -->
+  <h2>6. Overlay (consolidated)</h2>
+
+  <div class="sc">
+    <div class="sc-num">SCREEN 11 · OVERLAY</div>
+    <div class="sc-title">Consolidated overlay panel</div>
+    <div class="sc-meta">top swipe-down anywhere · Notifications + Controls + Search · ControlCenterPanel removed</div>
+    <div class="sc-body">
+<pre class="phone">
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474; 9:41          &#9612;&#9612; &#9698;  &#9889;  &#9474;
+&#9474;       &#9472;&#9472;&#9472;&#9472;&#9472;          &#9474;
+&#9474; &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;  &#9474;
+&#9474;                          &#9474;
+&#9474; Notifications            &#9474;
+&#9474;   nothing yet            &#9474;
+&#9474;                          &#9474;
+&#9474; Controls                 &#9474;
+&#9474;  &#9633; Reduced motion    &#9744; &#9474;
+&#9474;  &#9633; Theme              &#9744; &#9474; real toggles
+&#9474;  &#9633; Hide Via           &#9744; &#9474;
+&#9474;  &#9988; Wifi   &#9889; Battery   &#9474; cosmetic tiles
+&#9474;                          &#9474;
+&#9474; Search                   &#9474;
+&#9474;  &#128269; type to filter...  &#9474; was Spotlight
+&#9474;                          &#9474;
+&#9474;     scrim &#9619;&#9619;&#9619;&#9619;&#9619;&#9619;        &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+</pre>
+      <div class="details">
+        <section><h4>Changes from plan</h4>
+          <ul class="sl shows">
+            <li><code>ControlCenterPanel.tsx</code> deleted (-209 lines)</li>
+            <li>Spotlight merged into Search section</li>
+            <li>No mode picker (replaced by swipe + ModeIslandIndicator)</li>
+            <li>Trigger: swipe down from top 24px, full width</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SECTION 7: ERROR + MISC ══ -->
+  <h2>7. Error + misc</h2>
+
+  <div class="sc new">
+    <div class="sc-num">SCREEN 12 · ERROR · new in v1.x</div>
+    <div class="sc-title">ErrorScreen</div>
+    <div class="sc-meta">app/error.tsx + global-error.tsx · Via in thinking expression</div>
+    <div class="sc-body">
+<pre class="phone">
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474; 9:41          &#9612;&#9612; &#9698;  &#9889;  &#9474;
+&#9474;       &#9472;&#9472;&#9472;&#9472;&#9472;          &#9474;
+&#9474;                          &#9474;
+&#9474;                          &#9474;
+&#9474;       &#9586;&#9586;               &#9474; Via in "thinking" expression
+&#9474;        &#9586;&#9586;   Via        &#9474; (same mood as coming-soon)
+&#9474;       &#9585;&#9585;               &#9474;
+&#9474;        &#9585;&#9585;              &#9474;
+&#9474;                          &#9474;
+&#9474;  Something went wrong     &#9474;
+&#9474;                          &#9474;
+&#9474;  <error message here>     &#9474;
+&#9474;                          &#9474;
+&#9474; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9474;
+&#9474; &#9474;    Try again           &#9474;  &#9474; retry CTA
+&#9474; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9474;
+&#9474;                          &#9474;
+&#9474;          &#9472;&#9472;              &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+</pre>
+      <div class="details">
+        <section><h4>Files</h4>
+          <ul class="sl shows">
+            <li><code>app/error.tsx</code> — per-segment error boundary</li>
+            <li><code>app/global-error.tsx</code> — full-page global error</li>
+            <li><code>components/ErrorScreen.tsx</code> — shared visual component</li>
+            <li>Via mascot in "thinking" expression (matches ComingSoon mood)</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 13: Handoff -->
+  <div class="sc">
+    <div class="sc-num">SCREEN 13 · HANDOFF</div>
+    <div class="sc-title">Sign-up handoff</div>
+    <div class="sc-meta">rightmost dock anchor (AuthDockTile) · opens app.xo.builders/signup</div>
+    <div class="sc-body">
+<pre class="phone">
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474; 9:41          &#9612;&#9612; &#9698;  &#9889;  &#9474;
+&#9474;                          &#9474;
+&#9474;   (any mode page)         &#9474;
+&#9474;                          &#9474;
+&#9474;                          &#9474;
+&#9474;                          &#9474;
+&#9474;                          &#9474;
+&#9474;       &#9675;&#9679;&#9675;                 &#9474; ModeIslandIndicator
+&#9474;  &#9484;&#9472;&#9472;&#9516;&#9472;&#9472;&#9516;&#9472;&#9472;&#9516;&#9472;&#9472;&#9488;         &#9474;
+&#9474;  &#9474;&#128172;&#9474;&#9675;&#9620;&#9474; ? &#9474;&#128100;&#9474;         &#9474; Chat Via How-to Guest/Profile
+&#9474;  &#9492;&#9472;&#9472;&#9524;&#9472;&#9472;&#9524;&#9472;&#9472;&#9524;&#9472;&#9472;&#9496;         &#9474;
+&#9474;           &#9651; AuthDockTile  &#9474;
+&#9474;           tap to open      &#9474;
+&#9474;           /signup-external &#9474;
+&#9474;          &#9472;&#9472;              &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+</pre>
+      <div class="details">
+        <section><h4>AuthDockTile states</h4>
+          <ul class="sl shows">
+            <li><strong>Signed out:</strong> 👤 "Guest mode" → opens /signup-external → Clerk SignUp</li>
+            <li><strong>Signed in:</strong> Clerk avatar + first name → opens /signup-external → UserButton card</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span>XO Phone screens guide · v1.x · companion to V_NEXT_PLAN.html + COWORK_INTERACTION.html</span>
+    <span>Last updated 2026-05-22</span>
+  </footer>
+
+</div>
+</body>
+</html>

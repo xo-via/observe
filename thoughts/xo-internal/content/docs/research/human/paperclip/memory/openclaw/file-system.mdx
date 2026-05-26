@@ -1,0 +1,309 @@
+---
+title: File System
+description: OpenClaw's storage model — plain Markdown files for memory and SQLite FTS for indexed search.
+---
+
+# OpenClaw — File System
+
+## Storage Model
+
+OpenClaw uses a dual-layer storage approach:
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| Long-term memory | Plain Markdown (`.md`) | Human-readable durable facts |
+| Session index | SQLite FTS + vector store | Fast search across notes and sessions |
+
+## Why Plain Markdown?
+
+The choice of Markdown as the primary storage format is intentional:
+
+1. **Human-readable** — board operators can inspect, edit, and debug agent memory directly
+2. **No database dependency** — files work with any editor, `grep`, `git`, or backup tool
+3. **Version control friendly** — memory files can be committed to git for history/rollback
+4. **Tool-agnostic** — any future LLM or tool can read the same files
+
+## Directory Structure
+
+```
+~/.openclaw/
+  ├── agents/
+  │   └── {agentId}/
+  │       ├── sessions/
+  │       │   └── {sessionId}.md ← per-session conversation transcript
+  │       └── agent/
+  │           └── auth-profiles.json ← platform auth credentials
+  ├── memory/
+  │   └── {agentId}.sqlite       ← retrieval index (FTS + embeddings)
+  └── workspace/
+      ├── MEMORY.md              ← long-term facts (always-on context)
+      ├── memory/
+      │   └── YYYY-MM-DD.md     ← daily notes (event timeline)
+      ├── AGENTS.md
+      ├── SOUL.md
+      └── USER.md
+```
+
+## MEMORY.md — Long-Term Facts
+
+`MEMORY.md` is loaded into every prompt. It contains durable facts the agent should always remember:
+
+```markdown
+# Memory
+
+## About Me
+- I am a customer support agent for Acme Corp
+- My timezone is UTC-5
+
+## Key Contacts
+- Alice (owner): alice@example.com
+- Bob (developer): bob@example.com
+
+## Important Rules
+- Never share user PII in public channels
+- Always escalate billing disputes to Alice
+```
+
+The agent (and the operator) can update this file directly. There is no migration or schema — it's just text.
+
+## Daily Notes — `memory/YYYY-MM-DD.md`
+
+Each day gets a fresh Markdown file:
+
+```markdown
+## 2026-04-02
+
+### Events
+- 09:00 Received support ticket from @user_123
+- 09:05 Resolved password reset issue
+- 11:30 Escalated billing dispute to Alice
+
+### Notes
+- User_456 seems confused about the new pricing — monitor
+```
+
+## Session Transcripts — `sessions/`
+
+Full conversation transcripts are stored per session. The Session History Loader reads recent sessions to provide context for the current conversation.
+
+## How Memory Is Stored
+
+OpenClaw's memory architecture separates the **source of truth** from the **retrieval index**:
+
+### 1. Source of Truth — Plain Markdown Files
+
+Durable memory is literally UTF-8 `.md` files on disk. No schema-required JSON or DB for primary memory content:
+
+- `MEMORY.md` — long-term curated memory
+- `memory/YYYY-MM-DD.md` — daily logs and notes
+- optionally, session logs and transcripts as Markdown too
+
+### 2. Retrieval Index — SQLite
+
+OpenClaw builds and maintains a SQLite index (FTS + embeddings/vector metadata depending on setup). This exists purely for **speed and search**, not as the human-editable source of truth.
+
+## How OpenClaw Retrieves Memory
+
+Retrieval follows a 2-step pattern:
+
+**Step 1: Find relevant snippets**
+- Semantic + keyword search over indexed memory (SQLite FTS + vector)
+- Returns candidate file paths + line ranges/snippets
+
+**Step 2: Read exact lines from Markdown files**
+- OpenClaw then reads the real `.md` files for grounded context
+- That content is injected into prompt context for the current turn
+
+In short: **stored as Markdown, retrieved via SQLite-assisted search + direct file reads.**
+
+### Official Retrieval API
+
+The official docs for the installed version explicitly define the retrieval path:
+
+| Tool | Purpose |
+|---|---|
+| `memory_search` | Searches `MEMORY.md` + `memory/**/*.md` snippets via the SQLite index |
+| `memory_get` | Reads exact Markdown file content by path and line range |
+
+Index storage lives at `~/.openclaw/memory/<agentId>.sqlite`.
+
+```
+1. search index (main.sqlite) for relevant chunks (semantic + keyword)
+2. return snippet refs (path + line range)
+3. read actual markdown file (MEMORY.md / memory/*.md) via memory_get
+```
+
+SQLite is the search accelerator; Markdown is the source of truth.
+
+## What Is (and Isn't) in the Memory System
+
+Memory is **selective by design** — only what you or automation explicitly write to memory files is treated as long-term recall.
+
+**In the memory system:**
+- `MEMORY.md` (durable facts)
+- `memory/YYYY-MM-DD.md` (daily notes)
+- their indexed chunks/embeddings in SQLite
+
+**Separate from memory:**
+- cron jobs (`~/.openclaw/cron/jobs.json`)
+- gateway/app config
+- auth profiles and tokens
+- normal chat runtime state/logs (not written to memory unless explicitly saved)
+
+## Context Rehydration on New Sessions
+
+When a new session starts, OpenClaw does **not** automatically remember every old chat line. Instead it rebuilds context from a few places:
+
+1. **Workspace files (always loaded)**
+   - `AGENTS.md`, `SOUL.md`, `USER.md`
+   - plus memory files (`MEMORY.md`, `memory/*.md`) depending on session type/rules
+
+2. **Recent session history (windowed)**
+   - Can load recent messages from the same session thread
+   - Not infinite history — there are limits and compaction
+
+3. **Memory retrieval (search → read)**
+   - If needed, runs semantic/keyword search over indexed memory
+   - Gets matching snippets + source lines
+   - Reads exact file lines to ground the answer
+
+4. **System + runtime context**
+   - Current tool state, cron events, channel metadata, etc.
+
+**How does it "know what you're talking about" in a fresh session?**
+
+- If it's in the recent chat window → direct recall
+- If it was written to memory files → retrieved via memory search
+- If it was said once long ago and never saved → can be lost
+
+This is why "write it to memory" matters — new sessions can rehydrate from files and index even after resets.
+
+## SQLite Index Schema
+
+The actual SQLite schema used by OpenClaw:
+
+```sql
+-- Metadata key-value store
+CREATE TABLE meta (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+-- Tracked source files
+CREATE TABLE files (
+  path TEXT PRIMARY KEY,
+  source TEXT NOT NULL DEFAULT 'memory',
+  hash TEXT NOT NULL,
+  mtime INTEGER NOT NULL,
+  size INTEGER NOT NULL
+);
+
+-- Indexed chunks with embeddings
+CREATE TABLE chunks (
+  id TEXT PRIMARY KEY,
+  path TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'memory',
+  start_line INTEGER NOT NULL,
+  end_line INTEGER NOT NULL,
+  hash TEXT NOT NULL,
+  model TEXT NOT NULL,
+  text TEXT NOT NULL,
+  embedding TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+-- Embedding cache (avoid recomputing embeddings for unchanged content)
+CREATE TABLE embedding_cache (
+  provider TEXT NOT NULL,
+  model TEXT NOT NULL,
+  provider_key TEXT NOT NULL,
+  hash TEXT NOT NULL,
+  embedding TEXT NOT NULL,
+  dims INTEGER,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (provider, model, provider_key, hash)
+);
+
+-- Full-text search virtual table (FTS5)
+CREATE VIRTUAL TABLE chunks_fts USING fts5(
+  text,
+  id UNINDEXED,
+  path UNINDEXED,
+  source UNINDEXED,
+  model UNINDEXED,
+  start_line UNINDEXED,
+  end_line UNINDEXED
+);
+
+CREATE INDEX idx_embedding_cache_updated_at ON embedding_cache(updated_at);
+CREATE INDEX idx_chunks_path ON chunks(path);
+CREATE INDEX idx_chunks_source ON chunks(source);
+```
+
+**Table roles:**
+
+| Table | Role |
+|---|---|
+| `meta` | Index-level metadata (schema version, last sync, etc.) |
+| `files` | Tracks which Markdown files are indexed — `hash`/`mtime`/`size` enable incremental re-indexing |
+| `chunks` | Individual indexed chunks — each has `path` + `start_line`/`end_line` so retrieval can point back to exact Markdown location |
+| `embedding_cache` | Reusable embeddings keyed by content hash — avoids recomputing when text hasn't changed |
+| `chunks_fts` | FTS5 virtual table providing keyword search over chunk text |
+| `chunks_fts_*` | Internal FTS5 storage (data, idx, content, docsize, config) |
+
+The `start_line` / `end_line` columns on `chunks` are what enable the retrieval pattern: search returns chunk IDs, then OpenClaw reads those exact line ranges from the original `.md` file.
+
+## Path Resolution & Configuration
+
+OpenClaw resolves storage paths in this priority order:
+
+1. **Explicit environment variables** (highest priority)
+2. **Values in config** (`openclaw.json`)
+3. **Built-in runtime defaults** (fallback)
+
+### Built-in Defaults
+
+| Path | Default |
+|---|---|
+| State root | `~/.openclaw` |
+| Workspace root | `~/.openclaw/workspace` |
+| Workspace files | `AGENTS.md`, `SOUL.md`, `USER.md`, `MEMORY.md`, `memory/YYYY-MM-DD.md` |
+| Memory SQLite index | `~/.openclaw/memory/{agentId}.sqlite` |
+
+### Environment Variable Overrides
+
+```bash
+# Relocate the entire .openclaw state folder
+OPENCLAW_STATE_DIR=/absolute/path/to/openclaw-state
+
+# Point at a custom config file
+OPENCLAW_CONFIG_PATH=/absolute/path/to/openclaw.json
+```
+
+### Config Overrides (`openclaw.json`)
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "workspace": "/srv/openclaw/workspace",
+      "memorySearch": {
+        "store": {
+          "path": "/srv/openclaw/memory/{agentId}.sqlite"
+        }
+      }
+    }
+  }
+}
+```
+
+The `{agentId}` token in the memory store path is substituted at runtime, so a single config can serve many agents with isolated indexes.
+
+## Storage Growth
+
+Since all data is plain files, storage is easy to manage:
+
+- Archive old sessions: `mv sessions/old-session.md archive/`
+- Inspect memory: `cat MEMORY.md` or open in any editor
+- Backup: `cp -r ~/.openclaw/agents/ backup/`
+- Migrate: just copy the directory

@@ -1,0 +1,157 @@
+---
+title: Progress
+description: Making sense of cohort movement, retention, reactivation, and churn.
+icon: ChartLine
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Progress
+
+This page turns the usage data into the operating story behind XO's product evolution: where the early workspace worked, where it failed to retain, and why OpenClaw became the v1 wedge.
+
+<Callout type="info">
+The signal we care about is not whether people try XO once. The signal is whether they come back, extend, pay, and tell others.
+</Callout>
+
+![XO launch cohort movement chart showing v0 Alpha XO Workspaces and v1 Beta XO Workspaces](/images/xo-launch.png)
+
+## v0: Alpha Workspace
+
+The first XO workspace was built for developers and dev-shop founders who wanted to ship and execute code faster. It gave them a hosted workspace, agent-ready environment, and a faster path from idea to execution.
+
+We saw traction. Users tried it, used it, and understood the value. But beyond the free trial, many did not extend or pay. That told us the product was interesting, but not yet necessary enough.
+
+![v0 Alpha Workspace cohort movement from September through January showing spikes, churn, and weak retention](/images/progress-v0-alpha-workspace.svg)
+
+## Monthly Breakdown
+
+| Period | What happened | Decision |
+|---|---|---|
+| **Sep-Oct** | v0 launched and created clear usage spikes. Developers tried the workspace and early traction was real. | Keep learning from active users. |
+| **Nov** | Usage dropped. The product did not create enough stickiness after the first trial. | Do not scale a weak retention loop. |
+| **Dec** | v0.5 improved stability and added feedback-driven features like repo cloning. | Ship fixes, but keep watching retention. |
+| **Jan** | We reduced marketing, BD, and funnel pressure to separate real product value from market noise. | Go back to product and rebuild around clearer value. |
+
+## v0 Learnings
+
+- Attention was easy to get, but not enough real value or impact was created for users.
+- Users did not know what to do next. They needed an easier way to set up and use the workspace.
+- Users did not care whether the product had an agent or model. Without training and setup, agents did not provide much additional value beyond the foundation models.
+- API credit cost was too high, and ChatGPT was much cheaper.
+
+## What Went Wrong
+
+- The agents were good, but not ready for long-running tasks. They were helpful at the beginning, but accuracy dropped as context grew.
+- Before the agent became productive, users had to spend 100-200 hours on setup. That created too much friction for long-term adoption.
+- Users still had to rely on ChatGPT or Claude, and setting up MCP required developer expertise.
+- Unless we reduce the cost of the product, we cannot get the feedback volume we need.
+
+## v1: Beta Workspace
+
+The second version of XO Workspaces launched with OpenClaw. This changed the product motion. Instead of asking users to understand the whole XO platform first, we solved an immediate problem: get OpenClaw running quickly and reliably.
+
+February 1 was the turning point. OpenClaw gave XO a sharper wedge, and the data started to shift from pure trial activity toward retained and reactivated usage.
+
+![Last three months cohort movement chart showing February, March, and April user movement](/images/progress-last-3-months.svg)
+
+## Monthly Breakdown
+
+| Period | What happened | Decision |
+|---|---|---|
+| **Feb** | v1 launched with OpenClaw. Demand was clear, but early churn was still present. | Stay close to users and fix the rough edges. |
+| **Mar** | Retained users grew meaningfully while churn became less severe. | Keep marketing and BD quiet so the product signal stays clean. |
+| **Apr** | Retention became the clearest positive signal, with lower visible churn. | Prepare focused scale-up measured by retained usage. |
+
+## v1 Learnings
+
+- A sharper wedge creates cleaner intent than a general workspace.
+- OpenClaw demand already existed; XO made it easier to act on that demand.
+- Retention improved when the product solved one immediate deployment problem.
+- Scale should follow retained usage, not top-of-funnel curiosity.
+
+## Current Signal
+
+![Last three months retained user chart showing retained users increasing from February to April](/images/progress-retention-3-months.svg)
+
+This is the shape we wanted to see before scaling spend: retained usage growing while churn gets quieter.
+
+## What Changed
+
+The honest read of why v0 didn't retain and v1 did: **the model market XO depends on was not actually here yet when we shipped v0.** The agentic era arrived between January and April 2026, and the clearest read of that arrival is what happened to Claude.
+
+### Anthropic went vertical
+
+<AnthropicArrTimelineChart title="Anthropic annualized revenue, Sep 2025 → May 2026 (XO product milestones overlaid)" />
+
+Anthropic's annualized revenue went from roughly $1B at the end of 2024 to **$30B by April 2026 and ~$44B by May 2026** — a curve Meritech analysts have called a shape no public software company has ever reproduced.
+
+The chart above lays the same data over the XO product timeline. v0 launched in September 2025 against a market that was at roughly $5B ARR — real, but not at the scale that would pull retention through. By the time v1 shipped in February 2026, the curve had already started bending sharply upward, and the next three months put Anthropic on a trajectory that more than tripled in 90 days.
+
+Sources: [Sacra](https://sacra.com/c/anthropic/), [PYMNTS](https://www.pymnts.com/artificial-intelligence-2/2026/anthropic-hits-30-billion-run-rate-as-enterprise-demand-accelerates/), [Investorplace](https://investorplace.com/hypergrowthinvesting/2026/04/anthropics-10000-revenue-growth-rate-could-make-this-the-ipo-of-2026/).
+
+### Claude Code is the leading wave
+
+<ClaudeCodeMomentumGrid title="Claude Code adoption — five readouts from the same wave" />
+
+The single product driving most of the recent acceleration is **Claude Code** — Anthropic's coding agent — which is the same category XO is the runtime for. Each tile above is a different angle on the same story: a developer agent went from niche to category-leading inside the window XO shipped v1.
+
+| Metric | Value | Source |
+|---|---|---|
+| **Claude Code annualized revenue, Feb 2026** | **$2.5B+**, doubled since start of 2026 | [Uncover Alpha](https://www.uncoveralpha.com/p/anthropics-claude-code-is-having) |
+| **Claude Code weekly active users** | Doubled since Jan 1 2026 | Same |
+| **Developer "most loved" tool** | **46% Claude Code** vs. 19% Cursor, 9% GitHub Copilot | [Anthropic Statistics](https://www.getpanto.ai/blog/anthropic-ai-statistics) |
+| **Share of global GitHub public commits involving Claude Code** | **~4%** | Same |
+| **Fortune 100 using Claude** | **70%** (8 of Fortune 10) | Same |
+| **Business customers** | **300,000+** | Same |
+| **Anthropic share of enterprise AI spend (vs. OpenAI)** | **~10% start of 2025 → 65%+ by Feb 2026** | Same |
+
+### The open agent ecosystem went vertical too
+
+<AgentRepoStarsChart title="Open long-running agent repos — GitHub stars, Sep 2025 → May 2026" />
+
+The Anthropic curve is one half of the story. The other half is what the **open-source long-running agent ecosystem** did at the same time. The same eight months that took Anthropic from $5B to $44B took the leading open agent repos from a quiet developer corner to some of the most-starred projects on GitHub.
+
+The headline movers:
+
+- **OpenClaw** — went from ~9K stars at the start of January 2026 to over **250K by early March**, surpassing React's all-time count and becoming the fastest open-source repo in history to that scale ([source](https://eu.36kr.com/en/p/3706534311571843)). This is the wedge XO sells against — every OpenClaw user is an OpenClaw runtime customer waiting to happen.
+- **Claw Code (Rust)** — emerged in March 2026 as a clean-room rewrite in Rust; passed **72K stars in days** and crossed **100K stars** faster than any repo before it ([source](https://www.24-7pressrelease.com/press-release/533389/claw-code-launches-open-source-ai-coding-agent-framework-with-72000-github-stars-in-first-days)).
+- **Hermes Agent (Nous Research)** — a self-improving long-running agent with native multi-model support (OpenRouter, NIM, Kimi, GLM, OpenAI, Hugging Face); ~**132K stars** as of May 2026 ([repo](https://github.com/NousResearch/hermes-agent)). Listed in [Partnership Strategy](/docs/partnership-strategy) as a strategic partner.
+- **OpenHands** (~70K stars) and **Cline** (~60K stars) — established peers in the OSS coding-agent space; not as explosive as OpenClaw but compounding steadily ([benchmarks](https://blueheadline.com/software-dev/self-hosted-ai-coding-assistants-benchmark/)).
+- **Aider** (~41K stars) and **Goose**, **Continue**, **OpenCode**, and the broader CLI-coding-agent universe ([directory](https://github.com/bradAGI/awesome-cli-coding-agents)) round out the long tail.
+
+### Why a starring spike fuels demand for agent infrastructure
+
+A GitHub star is interest. A user actually running the agent every day is workload. The shift from one to the other is exactly where XO sits. Three mechanisms turn this OSS boom into demand for the runtime layer:
+
+**1. Every starred repo is a deployment problem in waiting.** Long-running agents don't run on a developer's laptop for long — they need a workspace that stays alive, a process supervisor, model routing, secrets handling, observability, and the ability to come back to the same state tomorrow. Starring is free. Hosting yourself is hours of DevOps. The gap between the two is the XO product.
+
+**2. Open agents commoditize the agent layer and concentrate value in the runtime.** When the *agent* is free and forkable, the willingness-to-pay moves down the stack. Customers who would have paid Devin $500/month for a closed agent are now perfectly happy running OpenClaw or Claw Code — but they still need a place to run them. That place is the runtime. (See [Competitive Landscape](/docs/competitive-landscape) for the full structural read.)
+
+**3. The OSS ecosystem multiplies the wedge XO sells against.** Every new long-running agent repo that crosses 50K+ stars is another front door into XO without XO having to build the agent. OpenClaw was the wedge that made v1 retention work. Claw Code in Rust is the next one. Hermes is the third. The same workspace primitive serves all of them. The agent-template flywheel laid out in the [Plan](/docs/plan) and [What's Next](/docs/whats-next) is exactly this dynamic — and the curves above are what makes that flywheel real.
+
+<Callout type="info">
+  **The open agent ecosystem is now the single biggest demand-generation engine for the runtime layer.** When OpenClaw passed React's star count in 60 days, every one of those 250K+ developers became a candidate XO workspace customer — without XO doing any acquisition for it.
+</Callout>
+
+### Why this matters for XO's timing
+
+<MarketShiftBeforeAfterDiagram title="What flipped between the v0 era and the v1 era" />
+
+In late 2025, when v0 was in market, the developer-agent category Claude Code was about to define did not yet exist at scale. The models were good in benchmarks but inconsistent over long context. Inference was metered per token at API prices — too expensive to run an agent 24/7. The OAuth subscription path (Claude Pro $20, Max $100–$200, Team $30/user) wasn't yet the default — and without it, every agent workload hit retail API pricing, which is what showed up in v0 user feedback as "ChatGPT was much cheaper."
+
+By February 2026, all four of those flipped at the same time — long-context reliability, effective inference cost, coding-agent demand, and how you actually access Claude — visualized in the diagram above.
+
+**The wave was big enough that everyone caught it.** The XO v1 marker on the stars chart isn't a coincidence — Feb 2026 is the same month Anthropic's run-rate jumped from $9B to $14B, OpenClaw's stars went from ~12K to ~90K on their way to passing React, Cursor shipped Background Agents, Devin launched its $20 tier (down from $500), Factory.ai opened its Droid Computers to self-serve, and OpenAI Workspace Agents went into preview. The same set of underlying enablers — long-context model reliability, OAuth-bundled inference, OSS agent demand visible on GitHub — was readable to everyone. The ones who shipped *during* the wave caught it. The ones who shipped *before* it (us in v0) had to pause, re-architect, and ship into it on the second pass.
+
+What's distinctive about XO is *which layer* we caught it on. The agent products (Claude Code, Devin, Cursor agents, OpenClaw itself) caught the wave on the agent layer. The hyperscalers (AWS Bedrock AgentCore, Azure Foundry Hosted Agents, Vertex Agent Engine) caught it on the cloud-runtime layer for their own ecosystem. **XO caught it on the cross-ecosystem runtime layer** — the place where any agent can run on any model on any cloud. That positioning is only valuable when there are many agents to run; the OSS curve above is what makes it valuable. (See [Competitive Landscape](/docs/competitive-landscape) for the structural read.)
+
+<Callout type="info">
+  **v0 was not a wrong product. It was the right product shipped 6 months before the market it depends on existed.** v1 is the same bet on the same thesis — we just shipped the second time into a market that had finally arrived, and into the same wave that every other serious agent product caught.
+</Callout>
+
+The same curve that took Anthropic from $9B to $44B in five months — and OpenClaw from ~9K to 250K+ stars in 60 days — is the curve that turned XO's retention from soft to the cleanest signal we've had. **What changed wasn't us. What changed was the underlying market crossing into hockey-stick on every layer at the same time.**
+
+<Callout>
+  The Progress story is simple: v0 proved interest, v0 did not prove payment or retention, and v1 with OpenClaw is the first version showing a cleaner retention signal — because the model market *and* the open agent market that v0 was betting on both finally arrived in time for v1.
+</Callout>

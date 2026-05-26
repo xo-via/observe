@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>xo-cowork-api: Claude Code mode</title>
+<style>
+  :root {
+    --bg:        #0b0d0a;
+    --bg-soft:   #14181a;
+    --bg-card:   #1a1f1c;
+    --border:    #2a3329;
+    --text:      #e8efe6;
+    --muted:     #8a948a;
+    --brand:     #83d63a;
+    --brand-dim: #557d28;
+    --warn:      #f0a040;
+    --err:       #f06060;
+    --good:      #6ad682;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, pre, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+  code { background: var(--bg-soft); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); }
+  pre { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 16px; overflow-x: auto; position: relative; }
+  pre code { background: transparent; padding: 0; border: none; }
+  h1, h2, h3, h4 { margin: 0 0 12px; line-height: 1.25; }
+  h1 { font-size: 28px; letter-spacing: -0.01em; }
+  h2 { font-size: 22px; color: var(--brand); margin-top: 36px; }
+  h3 { font-size: 17px; margin-top: 24px; color: var(--text); }
+  h4 { font-size: 14px; margin-top: 18px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.05em; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 36px 28px 80px; }
+  header.hero { padding: 24px 0 8px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+  header.hero .eyebrow { color: var(--brand); font-weight: 600; font-size: 12px;
+    letter-spacing: 0.1em; text-transform: uppercase; }
+  header.hero h1 { margin-top: 6px; }
+  header.hero p { color: var(--muted); margin: 8px 0 0; max-width: 720px; }
+  nav.tabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 16px 0 20px;
+    border-bottom: 1px solid var(--border); }
+  nav.tabs button {
+    background: transparent; border: 0; color: var(--muted);
+    padding: 10px 14px; font-size: 14px; cursor: pointer;
+    border-bottom: 2px solid transparent; font-family: inherit;
+  }
+  nav.tabs button:hover { color: var(--text); }
+  nav.tabs button.active { color: var(--brand); border-color: var(--brand); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .card { background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px 20px; margin: 12px 0; }
+  .grid { display: grid; gap: 12px; }
+  .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
+    font-size: 14px; vertical-align: top; }
+  th { color: var(--brand); font-weight: 600; font-size: 12px; text-transform: uppercase;
+    letter-spacing: 0.05em; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+    background: var(--bg-soft); border: 1px solid var(--border); color: var(--muted);
+    text-transform: uppercase; }
+  .pill.get  { color: var(--good);  border-color: rgba(106,214,130,0.4); }
+  .pill.post { color: var(--brand); border-color: rgba(131,214,58,0.4); }
+  .pill.put  { color: var(--warn);  border-color: rgba(240,160,64,0.4); }
+  .pill.del  { color: var(--err);   border-color: rgba(240,96,96,0.4); }
+  .pill.sse  { color: #6ac4d6; border-color: rgba(106,196,214,0.4); }
+  .endpoint { font-family: ui-monospace, Menlo, monospace; font-size: 14px;
+    color: var(--text); }
+  details { background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 8px; margin: 8px 0; }
+  details summary { padding: 12px 16px; cursor: pointer; outline: none;
+    font-weight: 600; color: var(--text); user-select: none; }
+  details summary:hover { color: var(--brand); }
+  details[open] summary { border-bottom: 1px solid var(--border); color: var(--brand); }
+  details .body { padding: 14px 16px; }
+  .callout { border-left: 3px solid var(--brand); background: rgba(131,214,58,0.06);
+    padding: 12px 16px; margin: 16px 0; border-radius: 0 6px 6px 0; }
+  .callout.warn { border-color: var(--warn); background: rgba(240,160,64,0.06); }
+  .callout.err  { border-color: var(--err);  background: rgba(240,96,96,0.06); }
+  .callout strong { color: var(--brand); }
+  .callout.warn strong { color: var(--warn); }
+  .callout.err  strong { color: var(--err); }
+  .copy-btn { position: absolute; top: 8px; right: 8px;
+    background: var(--bg-card); border: 1px solid var(--border); color: var(--muted);
+    font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer;
+    font-family: inherit; }
+  .copy-btn:hover { color: var(--brand); border-color: var(--brand); }
+  .copy-btn.copied { color: var(--good); }
+  .ascii { color: var(--brand); }
+  .term { font-weight: 600; color: var(--brand); }
+  ul.clean { list-style: none; padding: 0; margin: 8px 0; }
+  ul.clean li { padding: 4px 0; padding-left: 16px; position: relative; }
+  ul.clean li::before { content: "▸"; color: var(--brand-dim); position: absolute; left: 0; }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
+  .small { font-size: 12px; color: var(--muted); }
+  .tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+  footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border);
+    color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header class="hero">
+  <div class="eyebrow">xo-cowork-api</div>
+  <h1>Claude Code mode: how it works</h1>
+  <p>An interactive guide to the claude_code adapter in xo-cowork-api. Covers terminology, runtime architecture, the chat dispatch flow, every endpoint your frontend will touch, and copy-paste curl recipes.</p>
+  <div class="tag-row">
+    <span class="pill">Base URL: http://localhost:5002</span>
+    <span class="pill">Auth: none locally</span>
+    <span class="pill">Stage: beta</span>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs" role="tablist">
+  <button class="active" data-tab="overview">Overview</button>
+  <button data-tab="terminology">Terminology</button>
+  <button data-tab="architecture">Architecture</button>
+  <button data-tab="flow">Turn flow</button>
+  <button data-tab="endpoints">Endpoints</button>
+  <button data-tab="recipes">Recipes</button>
+</nav>
+
+<!-- ============================== OVERVIEW ============================== -->
+<section class="panel active" id="overview" role="tabpanel">
+
+  <h2>What is "Claude Code mode"?</h2>
+  <p>The path in cowork-api where the user's local <code>claude</code> CLI runs each chat turn as a subprocess. cowork-api hands it a project folder to work in, a session id, the conversation prompt (optionally prefixed with a skill), and optional MCP servers to attach. It streams the output back over Server-Sent Events.</p>
+
+  <div class="grid cols-3">
+    <div class="card">
+      <h4>Trigger</h4>
+      <p><code>POST /api/chat/prompt</code> with <code>agent_name: "claude_code"</code>. On resume, omit it; the dispatcher reads the session's recorded backend.</p>
+    </div>
+    <div class="card">
+      <h4>Process</h4>
+      <p>cowork-api spawns the local <code>claude</code> binary per turn. <code>cwd</code> is <code>~/xo-projects/&lt;agent_id&gt;/</code>. Permission mode is <code>bypassPermissions</code> by default. The CLI uses your existing Claude login on the host machine.</p>
+    </div>
+    <div class="card">
+      <h4>Streaming</h4>
+      <p>Subprocess emits JSONL lines on stdout. The adapter parses and normalizes them into <code>text-delta</code>, <code>session-created</code>, <code>heartbeat</code>, and <code>done</code> SSE events. Frontend consumes via <code>EventSource</code>.</p>
+    </div>
+  </div>
+
+  <h2>What you get</h2>
+  <ul class="clean">
+    <li>The user's local Claude install, login, and on-disk tools do the work.</li>
+    <li>Per-turn <code>cwd</code> means file edits, reads, and commands stay scoped to one project.</li>
+    <li>Per-session MCP configs (Composio, Vercel, GitHub) wired at <code>--mcp-config</code>: no long-running gateway, no global tool pollution.</li>
+    <li>Claude-native skills via <code>/skill-name</code> prefix when a frontend passes <code>agent_type</code>.</li>
+  </ul>
+
+  <h2>Key invariants</h2>
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Default port</td><td><code>5002</code> (override with <code>$PORT</code>)</td></tr>
+    <tr><td>Default CLI path</td><td><code>$HOME/.local/bin/claude</code></td></tr>
+    <tr><td>Default cwd</td><td><code>~/xo-projects/&lt;agent_id&gt;/</code>; falls back to <code>AI_WORKSPACE_ROOT</code></td></tr>
+    <tr><td>Permission mode</td><td><code>bypassPermissions</code> (override via <code>CLAUDE_PERMISSION_MODE</code>)</td></tr>
+    <tr><td>Subprocess timeout</td><td><code>300s</code></td></tr>
+    <tr><td>Session record</td><td><code>~/xo-projects/&lt;agent_id&gt;/.xo/sessions/sessionslist.json</code></td></tr>
+    <tr><td>Skill source</td><td><code>.claude/skills/&lt;name&gt;/SKILL.md</code></td></tr>
+  </table>
+
+</section>
+
+<!-- ============================== TERMINOLOGY ============================== -->
+<section class="panel" id="terminology" role="tabpanel">
+
+  <h2>Project terminology</h2>
+  <p class="small">These show up everywhere. Get them right once and the rest of the API is easy.</p>
+
+  <h3>Projects: the unit Claude Code operates on</h3>
+
+  <div class="grid cols-2">
+
+    <div class="card">
+      <h3><span class="term">project</span> <span class="pill">core</span></h3>
+      <p>A folder under <code>~/xo-projects/&lt;id&gt;/</code>. Backend-agnostic by design: it is just a directory plus a small metadata sidecar. Claude Code launches against one project at a time and treats that directory as the subprocess <code>cwd</code>. Everything Claude Code reads, writes, or runs is rooted here.</p>
+      <p class="small">Scaffold via <code>POST /api/files/mkdir</code> with <code>scaffold:true</code>. List via <code>GET /api/agents</code> (each agent corresponds to a project folder).</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="term">XO project: what's inside</span></h3>
+      <p>A scaffolded project has a canonical layout. Top-level files are the <strong>operating contract</strong> Claude Code reads first; <code>.xo/</code> is the cowork-api side-state.</p>
+<pre><code>~/xo-projects/&lt;id&gt;/
+├── AGENTS.md         universal operating contract
+├── OBJECTIVES.md     north-star outcomes
+├── WORKSPACE.md      current state of play
+├── CLAUDE.md         one-line pointer to AGENTS.md
+└── .xo/
+    ├── project.json  {name, display_name, description, created_at}
+    ├── sessions/     sessionslist.json + compressed/ + index.md
+    ├── memory/       semantic / episodic / procedural / working
+    ├── artifacts/    drafts/ + final/
+    ├── state/        SOUL.md, STATUS.md, IDENTITY.md, USER.md
+    ├── skills/       user-built / learned
+    └── context/      config.json, cache.md
+</code></pre>
+      <p class="small">Scaffolding is idempotent: re-running fills in missing pieces, never clobbers. <code>.xo/</code> is owned by cowork-api's watcher; agents must not write to it directly.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="term">agent_id</span> <span class="pill">important</span></h3>
+      <p>The string that names a project. Used in three places:</p>
+      <ul class="clean">
+        <li>As the folder name: <code>~/xo-projects/&lt;agent_id&gt;/</code>.</li>
+        <li>As the subprocess <code>cwd</code> when Claude Code spawns.</li>
+        <li>As the session-index key in <code>~/xo-projects/&lt;agent_id&gt;/.xo/sessions/sessionslist.json</code>.</li>
+      </ul>
+      <h4>Naming rules</h4>
+      <p>Regex: <code>^[a-z0-9][a-z0-9_-]{0,63}$</code>. Lowercased on input. Invalid chars rewrite to <code>-</code>; leading/trailing dashes stripped; max 64 chars.</p>
+      <h4>Examples</h4>
+      <table>
+        <tr><th>Input</th><th>Stored as</th></tr>
+        <tr><td><code>blackhole</code></td><td><code>blackhole</code></td></tr>
+        <tr><td><code>my-research-2026</code></td><td><code>my-research-2026</code></td></tr>
+        <tr><td><code>Customer Site</code></td><td><code>customer-site</code></td></tr>
+        <tr><td><code>"" (empty)</code></td><td><code>main</code> (default sentinel)</td></tr>
+      </table>
+      <h4>Resolution from workspace path</h4>
+      <p>If you omit <code>agent_id</code> on a new turn but pass <code>workspace</code>:</p>
+<pre><code>workspace: /Users/me/xo-projects/blackhole/src
+  → agent_id auto-resolves to "blackhole"
+
+workspace: /Users/me/somewhere-else
+  → agent_id is null; turn still runs but no project-side metadata is written</code></pre>
+    </div>
+
+    <div class="card">
+      <h3><span class="term">xo-projects root</span></h3>
+      <p>Discovery first call: <code>GET /api/config/workspace</code> returns <code>{roots, default}</code>. The default points to <code>~/xo-projects</code> on a laptop and <code>/home/coder/xo-projects</code> in a Coder workspace. Never hard-code; container hosts differ.</p>
+      <p class="small">Override the root via <code>$XO_PROJECTS_ROOT</code> if you need a non-default location.</p>
+    </div>
+
+  </div>
+
+  <h3>Per-turn concepts</h3>
+
+  <div class="grid cols-2">
+
+    <div class="card">
+      <h3><span class="term">agent_type</span></h3>
+      <p>Optional skill name for the turn. cowork-api maps it to <code>/skill-name</code> and prefixes the user prompt with it. Example: <code>agent_type: "research"</code> becomes prompt prefix <code>/research</code>. The skill itself lives in <code>.claude/skills/research/SKILL.md</code> (workspace-level) or <code>~/xo-projects/&lt;id&gt;/.xo/skills/&lt;name&gt;/SKILL.md</code> (project-level).</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="term">skill</span></h3>
+      <p>A Claude-native skill: a folder containing <code>SKILL.md</code> defining behavior, allowed tools, and any embedded resources. Invoked by prefixing a prompt with <code>/&lt;name&gt;</code>. cowork-api auto-installs the bundled <code>xo-projects</code> skill into <code>~/.claude/skills/xo-projects/</code> on startup.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="term">session_id</span></h3>
+      <p>UUID identifying a logical conversation. cowork-api owns it; the Claude CLI's internal conversation id may be different. Generated synchronously by <code>/api/chat/prompt</code>: the response carries it back before tokens flow, so the frontend can navigate to <code>/c/&lt;session_id&gt;</code> immediately.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="term">stream_id</span></h3>
+      <p>Per-turn UUID returned by <code>/api/chat/prompt</code>. Used as the path param on <code>GET /api/chat/stream/{id}</code> and <code>POST /api/chat/abort</code>. Single use; lives in memory only. Lost on server restart.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="term">workspace</span></h3>
+      <p>Absolute project path. Alternative to <code>agent_id</code> when starting a new session: if <code>workspace</code> begins with <code>~/xo-projects/&lt;X&gt;/</code>, <code>agent_id</code> auto-resolves to <code>X</code> and the subprocess <code>cwd</code> is the full workspace path.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="term">MCP server</span></h3>
+      <p>An external tool server (Composio, Vercel, GitHub, the local <code>/mcp/cowork</code>). Claude Code consumes MCP servers via a per-session <code>--mcp-config</code> file written by the adapter at turn start. The frontend doesn't pick servers; the adapter selects based on which connectors the user has connected.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="term">dispatcher</span></h3>
+      <p>Internal cowork-api layer that owns the Claude Code chat flow. On <code>GET /api/chat/stream/{id}</code> it pops the reserved <code>stream_id</code>, spawns the <code>claude</code> subprocess with the right <code>cwd</code>, <code>--session-id</code>, and <code>--mcp-config</code>, parses the JSONL stdout, and emits SSE events.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="term">auth_state</span></h3>
+      <p>In-memory dict cowork-api uses to talk to upstream xo-swarm-api. Populated by the Clerk poll-token flow at <code>/xo-auth/consume</code> or by <code>$XO_API_KEY</code>. Frontends never see this token; it's used only for outbound calls.</p>
+    </div>
+
+  </div>
+
+</section>
+
+<!-- ============================== ARCHITECTURE ============================== -->
+<section class="panel" id="architecture" role="tabpanel">
+
+  <h2>Runtime architecture</h2>
+  <p>cowork-api is a thin broker around the local <code>claude</code> CLI:</p>
+
+  <pre><button class="copy-btn" data-target="arch1">Copy</button><code id="arch1">┌─────────────────┐       HTTP            ┌────────────────────────────────────────┐
+│                 │  POST /chat/prompt    │              xo-cowork-api             │
+│   Frontend      │ ────────────────────▶ │                                        │
+│  (browser, FE,  │  GET  /chat/stream    │   routers/cowork_agent/chat.py         │
+│  Tauri app)     │ ◀──────────────────── │      │                                 │
+│                 │       SSE             │      ▼                                 │
+└─────────────────┘                       │   dispatcher (claude_code)             │
+                                          │      │                                 │
+                                          │      ▼                                 │
+                                          │   ClaudeCodeClient                     │
+                                          │      │ spawns                          │
+                                          │      ▼                                 │
+                                          │   claude  CLI subprocess               │
+                                          │     cwd: ~/xo-projects/&lt;agent_id&gt;/     │
+                                          │     --session-id ...                   │
+                                          │     --mcp-config /tmp/mcp-xxxxxx.json  │
+                                          │     prompt: "/skill-name &lt;question&gt;"   │
+                                          │                                        │
+                                          │   Other concerns:                      │
+                                          │     /api/files/*    file IO            │
+                                          │     /api/sessions/* session list       │
+                                          │     /api/messages/* history            │
+                                          │     /api/agents/*   project listing    │
+                                          │     /api/connectors/* OAuth / keys     │
+                                          │     /mcp/cowork    local MCP server    │
+                                          └────────────────────────────────────────┘</code></pre>
+
+  <h3>What lives where on disk</h3>
+  <table>
+    <tr><th>Path</th><th>Owner</th><th>Contents</th></tr>
+    <tr><td><code>~/xo-projects/&lt;agent_id&gt;/</code></td><td>user</td><td>The project files Claude Code edits.</td></tr>
+    <tr><td><code>~/xo-projects/&lt;agent_id&gt;/AGENTS.md</code></td><td>scaffold</td><td>Operating contract Claude Code reads first.</td></tr>
+    <tr><td><code>~/xo-projects/&lt;agent_id&gt;/.xo/sessions/sessionslist.json</code></td><td>cowork-api</td><td>Session index for this project.</td></tr>
+    <tr><td><code>~/xo-projects/&lt;agent_id&gt;/.xo/project.json</code></td><td>cowork-api</td><td>Project metadata: id, display_name, description, created_at.</td></tr>
+    <tr><td><code>~/.claude/skills/&lt;name&gt;/SKILL.md</code></td><td>shared</td><td>Claude-native skills, invoked via <code>/name</code>.</td></tr>
+    <tr><td><code>&lt;repo&gt;/mcp-tokens.json</code></td><td>cowork-api</td><td>Stored OAuth / API-key creds per connector.</td></tr>
+    <tr><td><code>&lt;repo&gt;/data/composio_action_prefs.json</code></td><td>cowork-api</td><td>Install-wide per-action enable map for Composio toolkits.</td></tr>
+    <tr><td><code>/tmp/mcp-&lt;hash&gt;.json</code></td><td>adapter</td><td>Per-session <code>--mcp-config</code> handed to <code>claude</code>.</td></tr>
+    <tr><td><code>/tmp/xo-cowork-api.log</code></td><td>cowork-api.sh</td><td>Server stdout/stderr when started via the manager script.</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <strong>Watcher rule.</strong> The <code>.xo/</code> directory is owned by cowork-api's watcher service. Agents (including Claude Code) must not write into it directly. Treat it as read-only from the agent's side.
+  </div>
+
+  <h3>Auth model</h3>
+  <ul class="clean">
+    <li><strong>Inbound to cowork-api:</strong> no auth required at the routes you'll call as a frontend. The workspace is the trust boundary.</li>
+    <li><strong>Outbound to swarm:</strong> cowork-api carries a bearer token from <code>/xo-auth/consume</code> (Clerk poll-token flow) or <code>$XO_API_KEY</code>.</li>
+    <li><strong>Outbound to connectors:</strong> credentials live in <code>mcp-tokens.json</code>. Composio is the exception: Composio's hosted dashboard is the source of truth.</li>
+  </ul>
+
+</section>
+
+<!-- ============================== FLOW ============================== -->
+<section class="panel" id="flow" role="tabpanel">
+
+  <h2>The two-step turn</h2>
+  <p>Every chat turn is exactly two HTTP calls. The split lets the frontend navigate to <code>/c/&lt;session_id&gt;</code> before any tokens arrive.</p>
+
+  <pre><button class="copy-btn" data-target="flow1">Copy</button><code id="flow1">  Client                       cowork-api                          claude CLI
+    │                              │                                   │
+    │ POST /api/chat/prompt        │                                   │
+    │ {text, agent_name, agent_id} │                                   │
+    │ ───────────────────────────▶ │                                   │
+    │                              │ active_streams[stream_id] = info  │
+    │ {stream_id, session_id}      │                                   │
+    │ ◀─────────────────────────── │                                   │
+    │                              │                                   │
+    │ GET /api/chat/stream/&lt;id&gt;    │                                   │
+    │ ───────────────────────────▶ │ pop entry, spawn dispatcher       │
+    │                              │ ────────────────────────────────▶ │ subprocess
+    │                              │ ◀──────────────────────────────── │ JSONL stdout
+    │ event: session-created       │                                   │
+    │ ◀─────────────────────────── │                                   │
+    │ event: text-delta            │                                   │
+    │ ◀─────────────────────────── │                                   │
+    │ event: text-delta            │                                   │
+    │ ◀─────────────────────────── │                                   │
+    │ event: heartbeat (idle &gt;20s) │                                   │
+    │ ◀─────────────────────────── │                                   │
+    │ event: done                  │                                   │
+    │ ◀─────────────────────────── │                                   │
+    │ (server closes stream)       │                                   │</code></pre>
+
+  <h3>SSE event vocabulary</h3>
+  <table>
+    <tr><th>Event</th><th>Data</th><th>When</th></tr>
+    <tr><td><code>session-created</code></td><td><code>{session_id}</code></td><td>Once at the start of a new-session turn.</td></tr>
+    <tr><td><code>text-delta</code></td><td><code>{text}</code></td><td>Many. Accumulate into the assistant message.</td></tr>
+    <tr><td><code>heartbeat</code></td><td><code>{}</code></td><td>Every 20s of silence (Claude Code path). Keep-alive; do not render.</td></tr>
+    <tr><td><code>agent-error</code></td><td><code>{error_message}</code></td><td>Terminal. No <code>done</code> follows.</td></tr>
+    <tr><td><code>done</code></td><td><code>{finish_reason, session_id}</code></td><td>Once at the end of a successful turn. Server closes after.</td></tr>
+    <tr><td><code>error</code></td><td><code>{error_message}</code></td><td>Only for an unknown / expired <code>stream_id</code>.</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>Heartbeat</strong> is keep-alive only. Reset your dead-stream timer when you see one. Recommended client timeout: <strong>45s</strong> (about 2x the longest gap).
+  </div>
+
+  <h3>Reconnect within 600s</h3>
+  <p>If a client opens the stream, navigates away, and re-opens it within 600 seconds, the second <code>GET</code> on the same <code>stream_id</code> enters <strong>reconnect mode</strong>: it does not start a new turn. It waits for the original to finish (up to 300s), then emits <code>session-created</code> + <code>done</code>, both without any <code>text-delta</code>. The frontend should refetch via <code>GET /api/messages/{session_id}</code> to recover the tokens it missed.</p>
+
+</section>
+
+<!-- ============================== ENDPOINTS ============================== -->
+<section class="panel" id="endpoints" role="tabpanel">
+
+  <h2>Endpoints you'll call</h2>
+  <p class="small">Grouped by the order you'll typically use them. Click any endpoint to expand.</p>
+
+  <h3>1. Boot / discovery</h3>
+
+  <details>
+    <summary><span class="pill get">GET</span> <span class="endpoint">/api/config/workspace</span></summary>
+    <div class="body">
+      <p>Discover the projects root. <strong>Always call this on boot.</strong></p>
+      <pre><button class="copy-btn" data-target="cfg1">Copy</button><code id="cfg1">curl -s http://localhost:5002/api/config/workspace
+# {
+#   "roots":  { "default": "/Users/me/xo-projects" },
+#   "default": "default"
+# }</code></pre>
+      <p>Read <code>cfg.roots[cfg.default]</code> as your project root. Never hard-code <code>~/xo-projects</code>; containers use <code>/home/coder/xo-projects</code>.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="pill get">GET</span> <span class="endpoint">/api/agents</span></summary>
+    <div class="body">
+      <p>List projects under <code>~/xo-projects/</code>. Use to populate a project picker.</p>
+      <pre><button class="copy-btn" data-target="agents1">Copy</button><code id="agents1">curl -s http://localhost:5002/api/agents
+# {"agents": [{"id": "blackhole", "backend": "claude_code", ...}]}</code></pre>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="pill get">GET</span> <span class="endpoint">/api/models</span></summary>
+    <div class="body">
+      <p>List models the local <code>claude</code> CLI exposes. Surfaces what the UI can offer.</p>
+    </div>
+  </details>
+
+  <hr>
+
+  <h3>2. Chat</h3>
+
+  <details open>
+    <summary><span class="pill post">POST</span> <span class="endpoint">/api/chat/prompt</span></summary>
+    <div class="body">
+      <p>Reserve a turn. Returns <code>{stream_id, session_id}</code>.</p>
+      <pre><button class="copy-btn" data-target="prompt1">Copy</button><code id="prompt1">curl -s -X POST http://localhost:5002/api/chat/prompt \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text":       "Refactor the auth flow to use the new Clerk SDK",
+    "agent_name": "claude_code",
+    "agent_id":   "blackhole",
+    "agent_type": "research"
+  }'
+# {"stream_id": "8f3a...", "session_id": "9d4e..."}</code></pre>
+      <h4>Body fields</h4>
+      <table>
+        <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+        <tr><td><code>text</code></td><td>string</td><td>Required. Empty after trim returns 400.</td></tr>
+        <tr><td><code>session_id</code></td><td>string</td><td>Optional. Set to resume; omit for a new session.</td></tr>
+        <tr><td><code>agent_name</code></td><td>string</td><td>Set to <code>"claude_code"</code>. Auto-detected from the session record on resume, so you may omit it then.</td></tr>
+        <tr><td><code>agent_id</code></td><td>string</td><td>Project folder under <code>~/xo-projects/</code>. Becomes <code>cwd</code> for the claude subprocess.</td></tr>
+        <tr><td><code>agent_type</code></td><td>string</td><td>Skill name. Prompt is prefixed with <code>/&lt;skill-name&gt;</code>.</td></tr>
+        <tr><td><code>workspace</code></td><td>string</td><td>Absolute path. Alternative to <code>agent_id</code> for new sessions.</td></tr>
+      </table>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="pill sse">SSE</span> <span class="endpoint">/api/chat/stream/{stream_id}</span></summary>
+    <div class="body">
+      <p>Open the SSE stream for the reserved <code>stream_id</code>. Single use.</p>
+      <pre><button class="copy-btn" data-target="stream1">Copy</button><code id="stream1">curl -N http://localhost:5002/api/chat/stream/8f3a-...
+# id: 1
+# event: session-created
+# data: {"session_id":"9d4e..."}
+#
+# id: 2
+# event: text-delta
+# data: {"text":"Sure","session_id":"9d4e..."}
+# ...
+# id: N
+# event: done
+# data: {"finish_reason":"stop","session_id":"9d4e..."}</code></pre>
+      <p>From a browser, use <code>EventSource</code>:</p>
+      <pre><button class="copy-btn" data-target="stream2">Copy</button><code id="stream2">const es = new EventSource(`/api/chat/stream/${stream_id}`);
+es.addEventListener("session-created", e =&gt; {
+  const { session_id } = JSON.parse(e.data);
+  history.pushState(null, "", `/c/${session_id}`);
+});
+es.addEventListener("text-delta", e =&gt; {
+  const { text } = JSON.parse(e.data);
+  buffer += text;
+  render(buffer);
+});
+es.addEventListener("done", () =&gt; es.close());
+es.addEventListener("agent-error", e =&gt; {
+  const { error_message } = JSON.parse(e.data);
+  showError(error_message);
+  es.close();
+});</code></pre>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="pill post">POST</span> <span class="endpoint">/api/chat/abort</span></summary>
+    <div class="body">
+      <p>Drop an in-flight stream by id. Always returns <code>200</code>.</p>
+      <pre><button class="copy-btn" data-target="abort1">Copy</button><code id="abort1">curl -s -X POST http://localhost:5002/api/chat/abort \
+  -H "Content-Type: application/json" \
+  -d '{"stream_id":"8f3a-..."}'</code></pre>
+    </div>
+  </details>
+
+  <hr>
+
+  <h3>3. Sessions and messages</h3>
+
+  <details>
+    <summary><span class="pill get">GET</span> <span class="endpoint">/api/sessions</span></summary>
+    <div class="body">
+      <p>List Claude Code sessions. Use for the sidebar. Each row carries <code>session_id</code>, <code>agent_id</code> (project), title, and timestamps.</p>
+      <pre><button class="copy-btn" data-target="sess1">Copy</button><code id="sess1">curl -s "http://localhost:5002/api/sessions?limit=20"</code></pre>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="pill get">GET</span> <span class="endpoint">/api/messages/{session_id}</span></summary>
+    <div class="body">
+      <p>Read history for a session. Supports paging with <code>offset</code> and <code>limit</code>. <code>offset=-1</code> means "newest page" (the default).</p>
+      <pre><button class="copy-btn" data-target="msg1">Copy</button><code id="msg1">curl -s "http://localhost:5002/api/messages/9d4e...?limit=50"</code></pre>
+      <p>Each message has <code>role</code>, <code>content</code>, and a timestamp. Tool calls and tool results are surfaced inline.</p>
+    </div>
+  </details>
+
+  <hr>
+
+  <h3>4. Files (workspace IO)</h3>
+
+  <details>
+    <summary><span class="pill get">GET</span> <span class="endpoint">/api/files/list-directory</span></summary>
+    <div class="body">
+      <pre><button class="copy-btn" data-target="ls1">Copy</button><code id="ls1">curl -s "http://localhost:5002/api/files/list-directory?path=/Users/me/xo-projects/blackhole"</code></pre>
+      <p>Path is clamped to <code>$HOME</code>; outside returns 403.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="pill get">GET</span> <span class="endpoint">/api/files/content</span></summary>
+    <div class="body">
+      <p>Read a text file. Use <code>/api/files/content-binary</code> for binary.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="pill post">POST</span> <span class="endpoint">/api/files/save</span></summary>
+    <div class="body">
+      <p>Write a text file (also creates parent dirs).</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="pill post">POST</span> <span class="endpoint">/api/files/mkdir</span></summary>
+    <div class="body">
+      <p>Create a directory. Pass <code>scaffold:true</code> to bootstrap a new project under <code>~/xo-projects/&lt;id&gt;/</code>.</p>
+    </div>
+  </details>
+
+  <hr>
+
+  <h3>5. Connectors (MCP servers)</h3>
+
+  <details>
+    <summary><span class="pill get">GET</span> <span class="endpoint">/api/connectors/composio/toolkits</span> <span class="pill">early access</span></summary>
+    <div class="body">
+      <p>List Composio toolkits and per-user connection status. Requires <code>COMPOSIO_API_KEY</code> + per-toolkit <code>COMPOSIO_AUTH_CONFIG_*</code>.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="pill post">POST</span> <span class="endpoint">/api/connectors/composio/{toolkit}/connect</span> <span class="pill">early access</span></summary>
+    <div class="body">
+      <p>Kick off the OAuth or API-key flow. OAuth response: <code>{auth_url, connection_request_id}</code>.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="pill get">GET</span> <span class="endpoint">/api/connectors/{vercel,github,manus,gdrive,onedrive}/...</span></summary>
+    <div class="body">
+      <p>Each non-Composio connector has its own connect / status / disconnect / reconnect routes. See the <a href="frontend-connectors-api.md">connectors guide</a> for the full surface.</p>
+    </div>
+  </details>
+
+  <hr>
+
+  <h3>6. Local MCP mount</h3>
+
+  <details>
+    <summary><span class="pill sse">MCP</span> <span class="endpoint">/mcp/cowork</span></summary>
+    <div class="body">
+      <p>A Streamable-HTTP MCP server cowork-api exposes <strong>to itself and to the Claude Code adapter</strong>. Surfaces two meta-tools: <code>composio_list_tools</code> and <code>composio_execute</code>. Net effect: instead of carrying every Composio action of every connected toolkit, the gateway carries 2 tools that fetch / dispatch on demand.</p>
+      <p class="small">Not for direct frontend consumption. Requires an MCP-aware client that sends <code>Accept: text/event-stream</code>.</p>
+    </div>
+  </details>
+
+  <hr>
+
+  <h3>7. Server lifecycle</h3>
+
+  <details>
+    <summary><span class="pill get">GET</span> <span class="endpoint">/health</span></summary>
+    <div class="body">
+      <pre><button class="copy-btn" data-target="h1">Copy</button><code id="h1">curl -s http://localhost:5002/health</code></pre>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="pill post">POST</span> <span class="endpoint">/app/restart</span></summary>
+    <div class="body">
+      <p>Trigger a managed restart. Combine with <code>./cowork-api.sh restart</code> when running locally for a clean stop.</p>
+    </div>
+  </details>
+
+</section>
+
+<!-- ============================== RECIPES ============================== -->
+<section class="panel" id="recipes" role="tabpanel">
+
+  <h2>Copy-paste recipes</h2>
+  <p class="small">All recipes assume the server is up on <code>http://localhost:5002</code>.</p>
+
+  <h3>Recipe 1: render a chat UI</h3>
+  <pre><button class="copy-btn" data-target="r1">Copy</button><code id="r1">// 1. On boot, discover the projects root.
+const cfg = await fetch("/api/config/workspace").then(r =&gt; r.json());
+const projectsRoot = cfg.roots[cfg.default];
+
+// 2. Populate sidebar.
+const { sessions } = await fetch("/api/sessions?limit=50").then(r =&gt; r.json());
+
+// 3. When user picks a session, load history.
+async function loadSession(session_id) {
+  const { messages } = await fetch(`/api/messages/${session_id}`).then(r =&gt; r.json());
+  return messages;
+}
+
+// 4. On submit, reserve a turn.
+async function sendTurn({ text, session_id, agent_id, agent_type }) {
+  const r = await fetch("/api/chat/prompt", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({
+      text, session_id, agent_id, agent_type,
+      agent_name: "claude_code",
+    }),
+  });
+  if (!r.ok) throw new Error((await r.json()).detail);
+  return r.json();  // {stream_id, session_id}
+}
+
+// 5. Open the SSE stream.
+function openStream({ stream_id, onText, onDone, onError }) {
+  const es = new EventSource(`/api/chat/stream/${stream_id}`);
+  es.addEventListener("session-created", e =&gt;
+    onText({ kind: "session", data: JSON.parse(e.data) }));
+  es.addEventListener("text-delta", e =&gt;
+    onText({ kind: "delta", data: JSON.parse(e.data) }));
+  es.addEventListener("agent-error", e =&gt; {
+    onError(JSON.parse(e.data).error_message);
+    es.close();
+  });
+  es.addEventListener("done", () =&gt; { onDone(); es.close(); });
+  return () =&gt; es.close();
+}</code></pre>
+
+  <h3>Recipe 2: start a project, then chat about it</h3>
+  <pre><button class="copy-btn" data-target="r2">Copy</button><code id="r2"># 1. Scaffold a new project folder.
+curl -s -X POST http://localhost:5002/api/files/mkdir \
+  -H "Content-Type: application/json" \
+  -d '{"path":"/Users/me/xo-projects/blackhole","scaffold":true}'
+
+# 2. Open a Claude Code turn that operates inside it.
+RESP=$(curl -s -X POST http://localhost:5002/api/chat/prompt \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Bootstrap a Next.js 16 app here","agent_name":"claude_code","agent_id":"blackhole"}')
+STREAM_ID=$(echo "$RESP" | jq -r .stream_id)
+
+# 3. Tail the SSE stream.
+curl -N "http://localhost:5002/api/chat/stream/$STREAM_ID"</code></pre>
+
+  <h3>Recipe 3: connect Gmail (Composio, early access)</h3>
+  <pre><button class="copy-btn" data-target="r3">Copy</button><code id="r3"># Prereq: COMPOSIO_API_KEY and COMPOSIO_AUTH_CONFIG_GMAIL set in .env.
+
+curl -s -X POST http://localhost:5002/api/connectors/composio/gmail/connect \
+  -H "Content-Type: application/json" \
+  -d '{"auth_scheme":"OAUTH2"}'
+# {"auth_url":"https://connect.composio.dev/link/lk_...","connection_request_id":"ca_..."}
+
+# Open auth_url in a browser, sign in, accept scopes.
+# Composio redirects to /api/connectors/composio/callback, which postMessages
+# the opener and closes itself.
+
+curl -s "http://localhost:5002/api/connectors/composio/gmail/status?connection_request_id=ca_..."
+# {"status":"ACTIVE", "connected_account_id":"ca_..."}</code></pre>
+
+  <h3>Recipe 4: abort a runaway turn</h3>
+  <pre><button class="copy-btn" data-target="r4">Copy</button><code id="r4">curl -s -X POST http://localhost:5002/api/chat/abort \
+  -H "Content-Type: application/json" \
+  -d "{\"stream_id\":\"$STREAM_ID\"}"</code></pre>
+
+  <h3>Recipe 5: resume a session</h3>
+  <pre><button class="copy-btn" data-target="r5">Copy</button><code id="r5">curl -s -X POST http://localhost:5002/api/chat/prompt \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text":       "Now add unit tests for the new module",
+    "session_id": "9d4e..."
+  }'
+# agent_name auto-detected from the session record.
+# stream_id returned; tail /api/chat/stream/{stream_id} as before.</code></pre>
+
+</section>
+
+<footer>
+  <p>Generated from the live source at <code>/Users/surshar/Programming/XO/ClaudeWorkspace/xo-cowork-api</code>. For deeper reads, see <code>docs/frontend-chat-api.md</code>, <code>docs/frontend-connectors-api.md</code>, <code>docs/frontend-sessions-messages-api.md</code>.</p>
+</footer>
+
+</div>
+
+<script>
+  // Tabs.
+  const tabs = document.querySelectorAll('nav.tabs button');
+  const panels = document.querySelectorAll('.panel');
+  tabs.forEach(btn => btn.addEventListener('click', () => {
+    const target = btn.dataset.tab;
+    tabs.forEach(b => b.classList.toggle('active', b === btn));
+    panels.forEach(p => p.classList.toggle('active', p.id === target));
+    // Persist in the URL hash so refresh keeps the tab.
+    history.replaceState(null, '', '#' + target);
+  }));
+  // Restore tab from hash on load.
+  const hash = location.hash.replace('#','');
+  if (hash) {
+    const btn = document.querySelector(`nav.tabs button[data-tab="${hash}"]`);
+    if (btn) btn.click();
+  }
+
+  // Copy buttons.
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.target;
+      const text = document.getElementById(id).innerText;
+      try {
+        await navigator.clipboard.writeText(text);
+        const orig = btn.innerText;
+        btn.innerText = 'Copied';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.innerText = orig; btn.classList.remove('copied'); }, 1500);
+      } catch (e) {
+        btn.innerText = 'Press Ctrl+C';
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

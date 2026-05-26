@@ -1,0 +1,119 @@
+---
+title: Setup
+description: Deploy your XO Coworker workspace on XO in under 10 minutes.
+icon: Rocket
+---
+
+import { VideoEmbed } from '@/components/video-embed';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+XO Cowork is the chat-first AI agent workspace on XO. Create a project, configure your agent through the in-workspace onboarding wizard, and start chatting with per-project memory — no infrastructure to manage.
+
+## Setup Walkthrough
+
+<VideoEmbed id="772e6a1e0d144f6cbde09c16f63cc2ec" title="XO Cowork Setup on XO Builders" />
+
+## What You'll Need
+
+- An [XO account](https://beta.xo.builders)
+- *(Preferred)* a **model provider** — an Anthropic API key (recommended), an OpenAI API key, or an OpenRouter key
+- *(Preferred)* a **channel** — Discord, Telegram (from [@BotFather](https://t.me/botfather)), or Slack
+
+Both are optional at project creation — you can add them later in the in-workspace onboarding or from **Settings**.
+
+## Deploy XO Cowork
+
+<Steps>
+  <Step>
+    ### Create a New Project
+    Go to [beta.xo.builders](https://beta.xo.builders).
+
+    ![XO Builders dashboard](/images/xo-cowork-setup-01-new-project.jpeg)
+
+    Click **New Project** in the left sidebar. On the **XO Cowork** template card, click **Create Agent**.
+
+    ![Select the XO Cowork template](/images/xo-cowork-setup-02-template.jpeg)
+  </Step>
+  <Step>
+    ### Configure Project Details
+    Fill in the project creation form:
+
+    | Field | Value |
+    |---|---|
+    | **Project Name** | A unique name — e.g. `xo` |
+    | **AI Provider** | *(Optional)* Anthropic, OpenAI, or OpenRouter |
+    | **Notification Channel** | *(Optional)* Telegram, WhatsApp, or Slack |
+    | **Volume Size** | Default 2 GB is fine for most setups |
+
+    All fields except Project Name are optional — you can configure them later in the in-workspace onboarding.
+
+    ![XO Cowork creation form](/images/xo-cowork-setup-03-form.jpeg)
+
+    Click **Create Project**.
+  </Step>
+  <Step>
+    ### Wait for Startup
+    Your workspace takes about **5–6 minutes** to provision.
+
+    <Callout type="info">
+      When provisioning completes, a new browser tab opens at `xo-cowork--<project>--<user>.workspace.helloxo.nl/onboard` with the in-workspace setup wizard.
+    </Callout>
+  </Step>
+  <Step>
+    ### Name Your Workspace
+    In the **XO-Coworker Setup** wizard (step 1 of 5), enter the name that will appear throughout your workspace — this is what your agent will use.
+
+    ![Wizard step 1 — name your workspace](/images/xo-cowork-setup-04-company.jpeg)
+
+    Click **Continue**.
+  </Step>
+  <Step>
+    ### Add an AI Model
+    Select a provider and paste your API key. **Anthropic** is recommended.
+
+    ![Wizard step 2 — add an AI model](/images/xo-cowork-setup-05-ai-model.jpeg)
+
+    Click **Save Key**, then **Continue** (or **Skip for now**).
+  </Step>
+  <Step>
+    ### Connect Channels
+    Connect your assistant to **Discord**, **Telegram**, or **Slack** so messages flow to the apps your team already uses.
+
+    ![Wizard step 3 — connect channels](/images/xo-cowork-setup-06-channels.jpeg)
+
+    <Callout type="info">
+      After saving a channel, restart the Gateway from **Settings → Channels** to apply the changes.
+    </Callout>
+
+    Click **Continue** (or **Skip for now**).
+  </Step>
+  <Step>
+    ### Shape Your Agent
+    Four markdown files define your agent's identity, voice, workspace rules, and what it knows about you — **Agents**, **Soul**, **Identity**, and **User**. Tweak them now or leave the defaults; you can revisit them anytime.
+
+    ![Wizard step 4 — shape your agent](/images/xo-cowork-setup-07-shape-agent.jpeg)
+
+    Click **Continue** (or **Skip for now**).
+  </Step>
+  <Step>
+    ### Create Your First Project
+    Name your first project — e.g. `Helix`. This scaffolds a project folder with starter markdown files (`AGENTS.md`, `CLAUDE.md`, `OBJECTIVES.md`, `PLAN.md`, `PROGRESS.md`, `PROJECT.md`).
+
+    ![Wizard step 5 — create your first project](/images/xo-cowork-setup-08-first-project.jpeg)
+
+    Click **Create Project**.
+  </Step>
+  <Step>
+    ### Start Working
+    Your project opens with the file tree on the left and a chat panel on the right. Describe what you want to work on and the agent uses your project context to help.
+
+    ![XO Coworker project view](/images/xo-cowork-setup-09-project-view.jpeg)
+
+    Your agent is live. You can also reach it from any connected channel (Telegram, Discord, Slack).
+  </Step>
+</Steps>
+
+## Next Steps
+
+Add more projects from the **Projects** sidebar, customize the agent's `AGENTS.md` / Soul / Identity / User files, or hop into the [XO Cowork API](/more/xo-cowork-api/overview) reference to drive the workspace programmatically.

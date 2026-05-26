@@ -1,0 +1,30 @@
+---
+title: Overview
+description: Deep-dive research on Paperclip, OpenClaw, and Claude Coworks — covering file storage, memory, RBAC, and agent architecture.
+---
+
+# Agent Storage & Architecture Research
+
+This documentation covers a comprehensive research study on three multi-agent systems:
+
+| System | Core Technology | Storage Model | Isolation |
+|---|---|---|---|
+| [Paperclip](/docs/research/human/paperclip/memory/paperclip) | PostgreSQL + Local Disk / S3 | Relational + file-based | Process-level |
+| [OpenClaw](/docs/research/human/paperclip/memory/openclaw) | Markdown + SQLite FTS | Plain files + indexed notes | Host-level (no isolation) |
+| [Claude Coworks](/docs/research/human/paperclip/memory/coworks) | VZVirtualMachine + mounts | Project-scoped memory | Full VM isolation |
+| [WoterClip](/docs/research/human/paperclip/memory/woterclip) | Linear SaaS + local JSONL | Label-based state + append-only log | Host-level (no isolation) |
+
+## Research Scope
+
+- **File Storage** — how each system stores assets, documents, and data at rest
+- **Memory Architecture** — how agents persist and recall context across sessions
+- **RBAC** — role definitions, permission grants, and chain-of-command enforcement
+- **Agent Structure** — how agents are configured, woken up, and coordinated
+
+## Quick Navigation
+
+- [Paperclip — File Storage, Memory & RBAC](/docs/research/human/paperclip/memory/paperclip)
+- [OpenClaw — Hub-and-Spoke Agent Architecture](/docs/research/human/paperclip/memory/openclaw)
+- [Claude Coworks — VM-Isolated Agentic Workspace](/docs/research/human/paperclip/memory/coworks)
+- [WoterClip — Linear-Backed Persona Orchestration](/docs/research/human/paperclip/memory/woterclip)
+- [Full System Comparison](/docs/research/human/paperclip/memory/comparison)

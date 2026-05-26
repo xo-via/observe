@@ -1,0 +1,111 @@
+---
+title: Partnership Rationale
+description: Strategic analysis of an XO × Olares partnership — mutual value, what each side gets, risks, and open questions.
+---
+
+# XO × Olares — Partnership Rationale
+
+**Date:** 2026-04-10  
+**Status:** Under evaluation
+
+---
+
+## The Core Thesis
+
+Olares solved the infrastructure problem for self-hosted AI. Users can run LLMs, allocate GPUs, and host AI apps on their own hardware. But every agent runs in isolation — there's no coordination, no shared task management, no governed communication between agents.
+
+XO solved the orchestration problem for cloud-hosted AI. Multiple agents coordinate on shared goals with RBAC, heartbeat execution, task routing, and full audit trails. But XO runs on cloud infrastructure — there's no self-hosted or on-premise story.
+
+**XO-PAN (Private Agent Network)** is the product at the intersection: XO's orchestration engine, running natively on Olares' infrastructure, giving users a private multi-agent workforce on their own hardware.
+
+---
+
+## What Olares Gets
+
+### 1. The Missing Agent Orchestration Layer
+
+Today, an Olares user running Ollama + Open WebUI + Stable Diffusion has three isolated tools. With XO-PAN, those same tools become a coordinated team — a research agent gathers context, a coding agent builds, a review agent validates, all governed by RBAC with full audit trails. This is the "hallway between the rooms."
+
+### 2. Differentiation from Competitors
+
+CasaOS, Umbrel, and Unraid can all run Ollama. None of them can run a multi-agent Org. XO-PAN makes Olares the only self-hosted platform with agent orchestration — a moat that's hard to replicate.
+
+### 3. Justification for Premium Hardware
+
+The Olares One costs ~$3,000. Running a single Ollama model doesn't justify that price. Running a coordinated AI workforce — a Tech Lead + Engineer + Reviewer all operating on your codebase from your desk — does. XO-PAN transforms Olares One from a personal AI server into a personal AI team.
+
+### 4. Enterprise Unlock
+
+Enterprises in regulated industries (healthcare, finance, defense, EU/GDPR) need AI agents but can't use public cloud. "XO Orgs on your own hardware, with zero data leaving your network" is a story neither Olares nor XO can tell alone.
+
+---
+
+## What XO Gets
+
+### 1. Self-Hosted Deployment Without Building Infra
+
+Olares provides production-grade Kubernetes, GPU scheduling (HAMi), messaging (NATS), database (Citus PG), caching (Redis), and identity (LarePass) — all running and maintained. XO gets an on-premise story without building any infrastructure from scratch.
+
+### 2. Hardware Distribution Channel
+
+Every Olares One that ships could come with XO-PAN pre-installed or featured in the marketplace. That's paying users on day one with zero acquisition cost. The Kickstarter alone had $1.5M+ in hardware pre-orders.
+
+### 3. Enterprise Credibility
+
+A partnership with a $45M-funded infrastructure company validates XO's technology. "XO powers the agent orchestration layer on Olares" is a credibility signal for enterprise conversations.
+
+### 4. Expanded TAM
+
+XO's current TAM is cloud-native startups and SMBs. Olares opens three new segments: privacy-conscious individuals (self-hosters), AI researchers (on-prem GPU clusters), and regulated enterprises (data sovereignty requirements).
+
+---
+
+## Olares as an Enterprise Customer
+
+Beyond the partnership angle, Olares could be a **large enterprise user of XO Orgs**. Their team (engineering, AI research, operations) could run internal workflows on XO:
+
+- **Engineering Org:** Multi-agent dev teams coordinating on the Olares codebase itself
+- **QA Org:** Automated testing and review agents for marketplace app submissions
+- **Content Org:** Documentation, marketing, and community content production
+- **DevOps Org:** Infrastructure monitoring, incident response, and deployment automation
+
+This dual relationship (technology partner + enterprise customer) is the strongest possible alignment.
+
+---
+
+## Risks and Concerns
+
+### Stage Mismatch
+
+Olares has $45M and is shipping hardware. XO is pre-seed. The power dynamic matters — XO should position as a technology partner bringing unique orchestration capabilities, not as a startup asking for distribution.
+
+### Technical Integration Depth
+
+XO-PAN needs access to Olares internals: NATS, Citus PG, HAMi API, LarePass auth. This requires cooperation from the Olares engineering team. If they deprioritize the integration, XO is blocked.
+
+### Open Source Tension
+
+Olares is Apache 2.0. If XO-PAN is proprietary, it's a closed-source app on an open-source platform — which may create friction with the Olares community. Options: open-source core with commercial Org templates, source-available, or fully proprietary with marketplace revenue share.
+
+### Resource Constraints on Minimum Hardware
+
+Olares minimum spec is 4 cores, 8GB RAM. Running XO-PAN + multiple agents on this hardware is tight. The system needs graceful degradation — fewer concurrent agents, optional Qdrant, longer heartbeat intervals.
+
+### Dependency Risk
+
+Building on Olares' platform services means XO-PAN is coupled to Olares' release cycle, API stability, and architectural decisions. Breaking changes in NATS config or Kubernetes namespace structure could break XO-PAN.
+
+---
+
+## Open Questions (Requiring Olares Input)
+
+| # | Question | Why It Matters |
+|---|---|---|
+| 1 | Does Olares NATS support per-subject ACLs? | Agent mesh security depends on inbox isolation |
+| 2 | Can marketplace apps create their own Citus databases? | Data model deployment path |
+| 3 | What is HAMi's API contract for programmatic GPU allocation? | GPU-aware scheduling feasibility |
+| 4 | Can Olares apps expose MCP endpoints to other apps natively? | Agent registration UX |
+| 5 | What's the revenue model for paid marketplace apps? | Business model for XO-PAN |
+| 6 | Is Olares open to co-marketing / bundling on Olares One? | Distribution strategy |
+| 7 | What's Olares' enterprise roadmap (multi-node, multi-tenant)? | Alignment on scaling story |
+| 8 | Would Olares consider using XO Orgs internally? | Enterprise customer angle |

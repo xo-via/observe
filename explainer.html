@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>observe — a folder as a universe</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #020208;
+    --bg-2: #0a0a18;
+    --fg: #e5e7eb;
+    --mut: rgba(229, 231, 235, 0.55);
+    --dim: rgba(229, 231, 235, 0.32);
+    --line: rgba(255, 255, 255, 0.08);
+    --line-2: rgba(255, 255, 255, 0.14);
+    --card: rgba(255, 255, 255, 0.03);
+    --card-hi: rgba(255, 255, 255, 0.06);
+    --xo: #83d63a;
+    --folder: #a78bfa;
+    --html: #fb923c;
+    --md: #38bdf8;
+    --other: #cbd5e1;
+    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    line-height: 1.6;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Star field backdrop */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(167, 139, 250, 0.10), transparent 60%),
+      radial-gradient(ellipse at 50% 100%, rgba(56, 189, 248, 0.08), transparent 60%),
+      radial-gradient(circle at center, #0a0a18 0%, #020208 70%);
+    z-index: -2;
+  }
+
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,0.6), transparent 50%),
+      radial-gradient(1px 1px at 28% 72%, rgba(255,255,255,0.5), transparent 50%),
+      radial-gradient(1px 1px at 42% 31%, rgba(255,255,255,0.7), transparent 50%),
+      radial-gradient(1px 1px at 58% 85%, rgba(255,255,255,0.4), transparent 50%),
+      radial-gradient(1.2px 1.2px at 71% 22%, rgba(255,255,255,0.7), transparent 50%),
+      radial-gradient(1px 1px at 85% 64%, rgba(255,255,255,0.5), transparent 50%),
+      radial-gradient(0.8px 0.8px at 6% 54%, rgba(255,255,255,0.6), transparent 50%),
+      radial-gradient(1px 1px at 92% 12%, rgba(255,255,255,0.5), transparent 50%),
+      radial-gradient(0.8px 0.8px at 38% 95%, rgba(255,255,255,0.5), transparent 50%),
+      radial-gradient(1px 1px at 65% 48%, rgba(255,255,255,0.4), transparent 50%);
+    z-index: -1;
+    animation: twinkle 6s ease-in-out infinite alternate;
+  }
+  @keyframes twinkle {
+    from { opacity: 0.7; }
+    to   { opacity: 1.0; }
+  }
+
+  main {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 56px 28px 96px;
+  }
+
+  /* Brand row */
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 56px;
+    opacity: 0.9;
+  }
+  .brand svg { width: 30px; height: 30px; }
+  .brand span {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.7);
+  }
+
+  /* Hero */
+  .hero h1 {
+    font-size: clamp(40px, 6vw, 64px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 18px;
+    line-height: 1.05;
+    background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.55) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero .tag {
+    font-size: 19px;
+    color: var(--mut);
+    max-width: 640px;
+    margin: 0;
+  }
+  .hero .meta {
+    margin-top: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .pill {
+    padding: 4px 10px;
+    border: 1px solid var(--line-2);
+    border-radius: 999px;
+    color: rgba(255,255,255,0.75);
+    background: rgba(255,255,255,0.04);
+  }
+  .pill.green { color: var(--xo); border-color: rgba(131, 214, 58, 0.4); }
+
+  /* Section */
+  section { margin-top: 72px; }
+  h2 {
+    font-size: 13px;
+    font-family: var(--mono);
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--xo);
+    margin: 0 0 22px;
+  }
+  h3 {
+    font-size: 18px;
+    margin: 0 0 8px;
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+  p { margin: 0 0 14px; color: rgba(229,231,235,0.78); }
+  p.lead { font-size: 17px; color: rgba(229,231,235,0.88); }
+  strong { color: #fff; font-weight: 600; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    color: #cbd5e1;
+    background: rgba(255,255,255,0.06);
+    padding: 1.5px 6px;
+    border-radius: 4px;
+  }
+
+  /* Grid cards */
+  .grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, background 0.2s, transform 0.2s;
+  }
+  .card:hover {
+    border-color: var(--line-2);
+    background: var(--card-hi);
+  }
+  .card .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 10px;
+  }
+  .card p { margin-bottom: 0; font-size: 14px; }
+
+  /* Particle legend */
+  .legend {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+  .legend .card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .dot {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    position: relative;
+  }
+  .dot::after {
+    content: "";
+    position: absolute;
+    inset: 30%;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 6px rgba(255,255,255,0.9);
+  }
+  .dot.folder { background: radial-gradient(circle, rgba(167,139,250,0.9) 0%, rgba(167,139,250,0) 70%); }
+  .dot.html   { background: radial-gradient(circle, rgba(251,146,60,0.95) 0%, rgba(251,146,60,0) 70%); }
+  .dot.md     { background: radial-gradient(circle, rgba(56,189,248,0.95) 0%, rgba(56,189,248,0) 70%); }
+  .dot.other  { background: radial-gradient(circle, rgba(203,213,225,0.9) 0%, rgba(203,213,225,0) 70%); }
+
+  .legend .name {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: #fff;
+  }
+  .legend .desc {
+    font-size: 12px;
+    color: var(--mut);
+    margin-top: 2px;
+  }
+
+  /* Flow diagram */
+  .flow {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 1fr;
+  }
+  .flow-row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 18px;
+    align-items: start;
+    padding: 16px 18px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .flow-row .step {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--xo);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .flow-row .body { font-size: 14px; color: rgba(229,231,235,0.82); }
+  .flow-row .body code { font-size: 12px; }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th, td {
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  th {
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--dim);
+  }
+  td code { font-size: 12px; }
+  tr:last-child td { border-bottom: none; }
+
+  .file-tree {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.85;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 24px;
+    color: rgba(229,231,235,0.78);
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .file-tree .dir   { color: var(--folder); }
+  .file-tree .note  { color: var(--dim); font-style: italic; }
+
+  ul.spaced {
+    margin: 0;
+    padding-left: 18px;
+  }
+  ul.spaced li {
+    margin: 6px 0;
+    color: rgba(229,231,235,0.78);
+  }
+  ul.spaced li::marker { color: var(--xo); }
+
+  footer {
+    margin-top: 96px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--dim);
+    text-align: center;
+  }
+
+  /* Small responsive tweaks */
+  @media (max-width: 640px) {
+    main { padding: 36px 20px 64px; }
+    .flow-row { grid-template-columns: 1fr; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="brand">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" aria-hidden="true">
+      <polyline stroke="#fff" stroke-width="15.38" fill="none" stroke-miterlimit="10" points="36.99 165.84 118.47 247.31 31.16 334.61" />
+      <polyline stroke="#83d63a" stroke-width="15.38" fill="none" stroke-miterlimit="10" points="328.12 165.06 246.65 246.53 333.95 333.84" />
+      <polyline stroke="#83d63a" stroke-width="15.38" fill="none" stroke-miterlimit="10" points="380.51 165.06 461.99 246.53 374.68 333.84" />
+      <polyline stroke="#fff" stroke-width="15.38" fill="none" stroke-miterlimit="10" points="244.91 165.84 163.44 247.31 250.74 334.61" />
+    </svg>
+    <span>observe</span>
+  </div>
+
+  <header class="hero">
+    <h1>A folder as a universe.</h1>
+    <p class="tag">
+      Paste a path. Each top-level file and directory becomes a particle in a dark canvas sky.
+      If the folder lives in a git repo, a scrubber appears: drag through history and watch
+      particles morph between every commit that touched it.
+    </p>
+    <div class="meta">
+      <span class="pill">Next.js 15</span>
+      <span class="pill">React 19</span>
+      <span class="pill">TypeScript</span>
+      <span class="pill">Tailwind</span>
+      <span class="pill">d3-hierarchy</span>
+      <span class="pill">marked</span>
+      <span class="pill green">dev-only</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>What it does</h2>
+    <p class="lead">
+      Three loops, one screen. A scan reads the top level of a folder. A snapshot list
+      reads the commits that touched it. A canvas renders each entry as a glowing particle,
+      sized by how big it is, colored by what kind of thing it is. Choose a commit and the
+      whole field re-lays out to that point in time.
+    </p>
+  </section>
+
+  <section>
+    <h2>What you see</h2>
+    <div class="legend">
+      <div class="card">
+        <div class="dot folder"></div>
+        <div>
+          <div class="name">folder</div>
+          <div class="desc">purple halo. Click to zoom in and drop into it.</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="dot html"></div>
+        <div>
+          <div class="name">.html / .htm</div>
+          <div class="desc">orange halo. Click to render in a sandboxed iframe.</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="dot md"></div>
+        <div>
+          <div class="name">.md / .mdx</div>
+          <div class="desc">sky blue halo. Parsed via marked, themed dark.</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="dot other"></div>
+        <div>
+          <div class="name">everything else</div>
+          <div class="desc">slate halo. Visible, hoverable, but no preview.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Repo layout</h2>
+    <div class="file-tree"><span class="dir">observe/</span>
+├── <span class="dir">app/</span>
+│   ├── layout.tsx              <span class="note"># minimal root layout</span>
+│   ├── page.tsx                <span class="note"># client orchestrator: path + sha state</span>
+│   ├── globals.css             <span class="note"># tailwind + fullscreen body</span>
+│   └── <span class="dir">api/</span>
+│       ├── scan/route.ts       <span class="note"># list entries (fs or git ref)</span>
+│       ├── snapshots/route.ts  <span class="note"># up to 200 commits for the folder</span>
+│       └── file/route.ts       <span class="note"># md/html preview content</span>
+├── <span class="dir">components/</span>
+│   ├── Universe.tsx            <span class="note"># canvas particle system + camera</span>
+│   ├── Timeline.tsx            <span class="note"># commit scrubber</span>
+│   └── Preview.tsx             <span class="note"># md/html modal in sandboxed iframe</span>
+├── <span class="dir">public/</span>xo-logo.svg
+└── README.md</div>
+  </section>
+
+  <section>
+    <h2>How a click flows</h2>
+    <div class="flow">
+      <div class="flow-row">
+        <div class="step">1 · input</div>
+        <div class="body">User pastes a folder path into the pill at the top, presses <code>observe</code>. The home symbol <code>~</code> is expanded server-side.</div>
+      </div>
+      <div class="flow-row">
+        <div class="step">2 · scan</div>
+        <div class="body">
+          <code>POST /api/scan</code> stats the path. With no ref, it walks the filesystem and sums bytes recursively per top-level entry (cap 5000 entries/dir, symlinks skipped). With a ref, it asks git: <code>git ls-tree</code> at that commit, sizes from blob metadata.
+        </div>
+      </div>
+      <div class="flow-row">
+        <div class="step">3 · snapshots</div>
+        <div class="body">
+          <code>POST /api/snapshots</code> checks if the folder is inside a git repo. If yes, <code>git log -- .</code> returns up to 200 commits that touched it. If no, the timeline collapses to a single <code>live</code> tick.
+        </div>
+      </div>
+      <div class="flow-row">
+        <div class="step">4 · pack</div>
+        <div class="body">
+          <code>Universe.tsx</code> wraps entries in a d3-hierarchy and runs the <code>pack</code> layout to get a resting position and radius for each particle. Folders get a value floor and grow with item count; files use <code>log2(size)</code> so an empty file is still visible.
+        </div>
+      </div>
+      <div class="flow-row">
+        <div class="step">5 · animate</div>
+        <div class="body">
+          Each frame: lerp every particle toward its target position, radius, and opacity. Add a per-particle sine wobble (random phase, frequency, amplitude). Draw a radial halo gradient plus a tiny white core, composited with <code>lighter</code>.
+        </div>
+      </div>
+      <div class="flow-row">
+        <div class="step">6 · scrub</div>
+        <div class="body">
+          Drag the bottom timeline. Selecting a commit re-issues <code>/api/scan</code> with that <code>ref</code>. Surviving entries lerp to new positions, removed ones fade out, new ones spawn near the camera and ease in.
+        </div>
+      </div>
+      <div class="flow-row">
+        <div class="step">7 · enter</div>
+        <div class="body">
+          Click a folder particle and the camera zooms toward it. When zoom scale crosses a threshold, <code>onFolderOpen</code> fires, history is pushed, and a fresh scan loads the next level. A <code>back</code> chip in the corner walks the stack.
+        </div>
+      </div>
+      <div class="flow-row">
+        <div class="step">8 · preview</div>
+        <div class="body">
+          Click a <code>.md</code> or <code>.html</code> particle and <code>/api/file</code> returns the content (from disk or from <code>git show ref:path</code>). Markdown is parsed via <code>marked</code> and themed dark. HTML is passed through. Either way it renders inside an <code>iframe sandbox=""</code> so the host page stays safe.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The three API routes</h2>
+    <table>
+      <thead>
+        <tr><th>Route</th><th>Method</th><th>Input</th><th>Returns</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>/api/scan</code></td>
+          <td>POST</td>
+          <td><code>path, showHidden, ref?</code></td>
+          <td>Top-level entries with type, size, optional item count. With a ref, view comes from <code>git ls-tree</code> at that commit; without one, from the live filesystem.</td>
+        </tr>
+        <tr>
+          <td><code>/api/snapshots</code></td>
+          <td>POST</td>
+          <td><code>path</code></td>
+          <td><code>{ isGit, commits[] }</code>. Up to 200 commits via <code>git log -- .</code>, each with sha, short sha, ISO date, author, message.</td>
+        </tr>
+        <tr>
+          <td><code>/api/file</code></td>
+          <td>POST</td>
+          <td><code>root, path, ref?</code></td>
+          <td>Markdown rendered to themed HTML; HTML passed through. 1&nbsp;MB cap. Path must be inside the observed root.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>The three components</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="label">components/Universe.tsx</div>
+        <h3>Universe</h3>
+        <p>
+          A single canvas, a particle map, a camera. d3-hierarchy lays out resting positions and radii. Each frame lerps state and draws a radial halo plus a white core. Tracks hover and click in world coordinates, fires a folder-open event after the camera passes a zoom threshold.
+        </p>
+      </div>
+      <div class="card">
+        <div class="label">components/Timeline.tsx</div>
+        <h3>Timeline</h3>
+        <p>
+          A horizontal bar of ticks: oldest on the left, newest on the right. Click or drag to pick a commit; the selected dot grows and gets a soft white ring. Non-git folders collapse to a single <code>live</code> tick so the UI never disappears.
+        </p>
+      </div>
+      <div class="card">
+        <div class="label">components/Preview.tsx</div>
+        <h3>Preview</h3>
+        <p>
+          A modal overlay with a sandboxed iframe. Loads <code>/api/file</code>, displays markdown or html for the file at the currently selected ref. <code>esc</code> or backdrop click closes. Truncated files show an amber badge.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Why it feels like a universe</h2>
+    <ul class="spaced">
+      <li>Two-layer backdrop: a radial dark gradient plus a field of small <em>twinkling</em> stars that breathe on a slow sine.</li>
+      <li>Particles draw with <code>globalCompositeOperation = "lighter"</code> so overlapping halos add light instead of stacking opacity.</li>
+      <li>Every particle has its own sine wobble. The phase, frequency, and amplitude are randomized at spawn, so the field never sits still and never beats in unison.</li>
+      <li>Folders, html, md, and other each get their own halo-to-core ratio. Folders glow soft and wide; html and md keep a brighter core so they read as &quot;something you can open.&quot;</li>
+      <li>Entering a folder is a camera move, not a route change. The scene zooms in, new particles spawn from where you were looking, the camera glides back to center.</li>
+      <li>Scrubbing the timeline is not a redraw. It is a re-lerp. The same particle survives its own renames, growths, and deletions if its name is stable across commits.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Limits and posture</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="label">scan budget</div>
+        <p>5000 entries per directory while computing recursive folder sizes. Past that, the sum is clipped.</p>
+      </div>
+      <div class="card">
+        <div class="label">history depth</div>
+        <p>Up to 200 commits per folder. Older history is cropped so the scrubber stays usable.</p>
+      </div>
+      <div class="card">
+        <div class="label">preview cap</div>
+        <p>1&nbsp;MB per file. Larger files are truncated and the modal flags it.</p>
+      </div>
+      <div class="card">
+        <div class="label">symlinks</div>
+        <p>Not followed. Avoids loops and unbounded recursion through linked trees.</p>
+      </div>
+      <div class="card">
+        <div class="label">hidden files</div>
+        <p>Filtered by default. A checkbox in the input bar lets dotfiles through.</p>
+      </div>
+      <div class="card">
+        <div class="label">auth</div>
+        <p>None. The API routes read any path the server process can read. Keep this on localhost.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Run it</h2>
+    <div class="file-tree">cd xo/observe
+rm -rf node_modules .npm-cache   <span class="note"># only if a prior partial install left these behind</span>
+npm install
+npm run dev
+<span class="note"># then open http://localhost:3000</span></div>
+  </section>
+
+  <footer>
+    observe · part of the XO workspace · dev-only · keep on localhost
+  </footer>
+
+</main>
+</body>
+</html>

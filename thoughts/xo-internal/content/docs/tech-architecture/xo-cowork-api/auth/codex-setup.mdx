@@ -1,0 +1,144 @@
+---
+title: "Endpoints: Codex Setup"
+description: "OpenAI Codex OAuth setup via PKCE flow — /codex"
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+## Codex Setup Router
+
+**File:** `routers/codex_setup.py` · **Prefix:** `/codex` · **Auth:** None
+
+Handles OAuth token setup for OpenAI Codex using a pure-Python PKCE (Proof Key for Code Exchange) flow. Unlike the Claude setup which spawns a CLI subprocess, this router implements the entire OAuth 2.0 Authorization Code + PKCE flow directly in Python using `httpx`.
+
+**OAuth Constants:**
+
+| Constant | Value |
+|---|---|
+| Client ID | `app_EMoamEEZ73f0CkXaXp7hrann` |
+| Authorize URL | `https://auth.openai.com/oauth/authorize` |
+| Token URL | `https://auth.openai.com/oauth/token` |
+| Redirect URI | `http://localhost:1455/auth/callback` |
+| Scopes | `openid profile email offline_access` |
+
+### POST /codex/setup
+
+Start the Codex OAuth PKCE flow and stream progress via SSE.
+
+**Response:** `text/event-stream`
+
+**Flow:**
+1. Generates a PKCE `code_verifier` / `code_challenge` pair (S256)
+2. Creates a random state parameter and session ID
+3. Builds the OpenAI authorization URL with PKCE parameters
+4. Streams events to the client while waiting for the callback
+
+**Stream Events:**
+```
+Session:     data: {"type": "session", "session_id": "uuid"}
+Auth URL:    data: {"type": "auth_url", "url": "https://auth.openai.com/...", "state": "..."}
+Waiting:     data: {"type": "waiting", "message": "Open the URL, log in, then paste the redirect URL..."}
+Heartbeat:   : heartbeat                          (every 15 seconds)
+Completion:  data: {"type": "done", "status": "completed"}
+Error:       data: {"type": "error", "error": "Setup timed out"}
+```
+
+**Timeout:** Session expires after `CODEX_SETUP_TIMEOUT` seconds (default: 300).
+
+### POST /codex/setup/callback
+
+Complete the OAuth flow by exchanging the authorization code for tokens.
+
+**Request Body:**
+```json
+{
+  "code": "string",
+  "session_id": "string"
+}
+```
+
+The `code` field accepts multiple formats:
+
+| Format | Example |
+|---|---|
+| Full redirect URL | `http://localhost:1455/auth/callback?code=ABC&state=XYZ` |
+| Query string | `code=ABC&state=XYZ` |
+| Hash format | `ABC#XYZ` |
+| Bare code | `ABC` |
+
+**On success, this endpoint:**
+
+1. Validates the session and state parameter
+2. Exchanges the authorization code for tokens via OpenAI's token endpoint (using the PKCE `code_verifier`)
+3. Decodes the JWT access token to extract email and profile identity
+4. Writes credentials to `~/.openclaw/agents/main/agent/auth-profiles.json` (tokens) and `~/.openclaw/openclaw.json` (metadata)
+5. Persists `OPENAI_CODEX_ACCESS_TOKEN` to project `.env` and `~/.openclaw/.env`
+6. Injects the token into the running process environment
+
+**Response:**
+```json
+{
+  "ok": true,
+  "message": "Codex OAuth setup completed successfully",
+  "session_id": "uuid",
+  "email": "user@example.com",
+  "profile_name": "user@example.com",
+  "account_id": "...",
+  "expires_in": 3600,
+  "expires_at": 1234567890000,
+  "auth_store_path": "~/.openclaw/agents/main/agent/auth-profiles.json",
+  "config_path": "~/.openclaw/openclaw.json"
+}
+```
+
+**Errors:**
+
+| Status | Condition |
+|---|---|
+| 400 | Could not extract authorization code from provided value |
+| 400 | State mismatch between callback and session |
+| 409 | No active session with this ID |
+| 409 | Session already completed |
+| 502 | OpenAI token exchange failed |
+
+### GET /codex/setup/status/\{session_id\}
+
+Check the status of an active setup session.
+
+**Response (active):**
+```json
+{
+  "active": true,
+  "session_id": "uuid",
+  "status": "waiting",
+  "created_at": 1234567890.0,
+  "age_seconds": 42
+}
+```
+
+**Response (expired/completed):**
+```json
+{
+  "active": false,
+  "session_id": "uuid"
+}
+```
+
+## Credential Storage
+
+Credentials are persisted to multiple locations:
+
+| File | Contents |
+|---|---|
+| `~/.openclaw/agents/main/agent/auth-profiles.json` | OAuth tokens (access, refresh, expiry, email) |
+| `~/.openclaw/openclaw.json` | Auth metadata (provider, mode, email) |
+| Project `.env` | `OPENAI_CODEX_ACCESS_TOKEN` |
+| `~/.openclaw/.env` | `OPENAI_CODEX_ACCESS_TOKEN` |
+
+## Exported Utilities
+
+The module also exports functions used by other parts of the service:
+
+- **`resolve_codex_auth_identity(access_token, email_hint?)`** — Extracts email and profile name from a Codex JWT. Priority: JWT profile claim > email hint for email; email > base64(account_user_id) > user_id > iss|sub > "default" for profile name.
+- **`write_auth_credentials(profile_name, access, refresh, expires, email?)`** — Persists tokens to `~/.openclaw/` credential files.
+- **`refresh_access_token(refresh_token)`** — Refreshes an expired access token using the refresh token. Returns new access/refresh tokens and expiry.

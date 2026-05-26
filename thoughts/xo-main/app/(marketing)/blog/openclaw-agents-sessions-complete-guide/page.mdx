@@ -1,0 +1,542 @@
+import { BlogLayout } from "@/components/blog-layout";
+
+export const blog = {
+  author: { name: "XO Team", src: "/xo-logo.svg" },
+  date: "2026-02-02",
+  title: "OpenClaw Agents & Sessions: The Complete Architecture Guide",
+  description:
+    "A deep dive into how OpenClaw's multi-agent system works—routing, sessions, bindings, and isolation. Everything you need to build production-ready AI assistants.",
+  image:
+    "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?q=80&w=3000&auto=format&fit=crop",
+  category: "Technical",
+};
+
+export const metadata = {
+  title: blog.title,
+  description: blog.description,
+  openGraph: {
+    images: [blog.image],
+  },
+};
+
+export default (props) => <BlogLayout blog={blog} {...props} />;
+
+OpenClaw isn't just another AI chatbot wrapper. It's a **multi-agent gateway** that can host completely isolated AI "brains," each with its own workspace, memory, credentials, and tool permissions—all running on a single server.
+
+This guide breaks down the two core concepts that make OpenClaw powerful: **Agents** and **Sessions**.
+
+---
+
+## The Big Picture
+
+<div className="grid grid-cols-3 gap-4 my-8">
+  <div className="text-center p-6 bg-neutral-900 rounded-lg border border-neutral-800">
+    <div className="text-3xl font-bold text-sky-400">Agents</div>
+    <div className="text-sm text-neutral-400 mt-2">Isolated AI brains</div>
+  </div>
+  <div className="text-center p-6 bg-neutral-900 rounded-lg border border-neutral-800">
+    <div className="text-3xl font-bold text-emerald-400">Sessions</div>
+    <div className="text-sm text-neutral-400 mt-2">Conversation threads</div>
+  </div>
+  <div className="text-center p-6 bg-neutral-900 rounded-lg border border-neutral-800">
+    <div className="text-3xl font-bold text-violet-400">Bindings</div>
+    <div className="text-sm text-neutral-400 mt-2">Message routing rules</div>
+  </div>
+</div>
+
+Here's how they fit together:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         OpenClaw Gateway                        │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
+│  │   WhatsApp  │    │   Webchat   │    │  Telegram   │         │
+│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘         │
+│         │                  │                  │                 │
+│         └────────────┬─────┴──────────────────┘                 │
+│                      ▼                                          │
+│              ┌───────────────┐                                  │
+│              │   Bindings    │  ← Routes messages to agents     │
+│              └───────┬───────┘                                  │
+│                      │                                          │
+│         ┌────────────┼────────────┐                             │
+│         ▼            ▼            ▼                             │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐                  │
+│  │   main     │ │  public    │ │  worker    │  ← Agents        │
+│  │  (admin)   │ │ (default)  │ │ (subagent) │                  │
+│  └────────────┘ └────────────┘ └────────────┘                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## What is an Agent?
+
+<div className="my-8 p-5 bg-sky-950/30 border-l-4 border-sky-500 rounded-r-lg">
+  <div className="font-bold text-sky-400 mb-2">FULLY ISOLATED</div>
+  <div className="text-neutral-300">An agent is a complete AI "brain" with its own workspace, credentials, sessions, tool permissions, and memory. Think of agents as separate employees—each with their own desk, files, and access badges.</div>
+</div>
+
+Each agent has:
+
+| Component | Description |
+|-----------|-------------|
+| **Workspace** | Files, AGENTS.md, SOUL.md, USER.md, memory |
+| **Agent Dir** | Auth profiles, per-agent config |
+| **Session Store** | Chat history, session metadata |
+| **Model** | Which LLM to use |
+| **Tool Policy** | Which tools are allowed/denied |
+| **Sandbox** | Isolation settings |
+
+### Agent Configuration
+
+Agents are defined in `openclaw.json`:
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "model": { "primary": "anthropic/claude-opus-4-5" },
+      "workspace": "~/.openclaw/workspace"
+    },
+    "list": [
+      {
+        "id": "main",
+        "default": false,
+        "workspace": "~/.openclaw/workspace",
+        "sandbox": { "mode": "off" }
+      },
+      {
+        "id": "public",
+        "default": true,
+        "workspace": "~/.openclaw/workspace-public",
+        "tools": {
+          "allow": ["read", "web_search", "message"],
+          "deny": ["exec", "write", "gateway"]
+        }
+      }
+    ]
+  }
+}
+```
+
+### Key Isolation Properties
+
+<div className="grid grid-cols-2 gap-4 my-8">
+  <div className="p-5 rounded-xl bg-neutral-900/50 border border-neutral-800">
+    <h4 className="text-sky-400 font-semibold mb-2">🔐 Auth is Per-Agent</h4>
+    <p className="text-neutral-400 text-sm">Each agent reads from its own auth-profiles.json. Credentials are NOT shared between agents automatically.</p>
+  </div>
+  <div className="p-5 rounded-xl bg-neutral-900/50 border border-neutral-800">
+    <h4 className="text-emerald-400 font-semibold mb-2">📁 Workspaces are Separate</h4>
+    <p className="text-neutral-400 text-sm">Each agent has its own files, memory, persona (SOUL.md), and operating instructions (AGENTS.md).</p>
+  </div>
+  <div className="p-5 rounded-xl bg-neutral-900/50 border border-neutral-800">
+    <h4 className="text-violet-400 font-semibold mb-2">💬 Sessions are Per-Agent</h4>
+    <p className="text-neutral-400 text-sm">Chat history stays with the agent. Users talking to different agents have completely separate conversations.</p>
+  </div>
+  <div className="p-5 rounded-xl bg-neutral-900/50 border border-neutral-800">
+    <h4 className="text-amber-400 font-semibold mb-2">🛠️ Tools are Configurable</h4>
+    <p className="text-neutral-400 text-sm">Each agent can have different tool permissions. Admin agents might have exec access; public agents might be read-only.</p>
+  </div>
+</div>
+
+---
+
+## What is a Session?
+
+A **session** is a conversation thread. It contains:
+
+- **Session ID**: Unique identifier (UUID)
+- **Session Key**: Human-readable routing key
+- **Transcript**: JSONL file with all messages and tool calls
+- **Context**: The rolling window sent to the LLM
+- **Metadata**: Token counts, model, timestamps
+
+<div className="my-8 p-5 bg-emerald-950/30 border-l-4 border-emerald-500 rounded-r-lg">
+  <div className="font-bold text-emerald-400 mb-2">SESSION vs CONTEXT</div>
+  <div className="text-neutral-300"><strong>Session</strong> = full history (stored in JSONL). <strong>Context</strong> = what's actually sent to the LLM (limited by context window). When context fills up, OpenClaw can compact older messages into a summary.</div>
+</div>
+
+### Session Keys
+
+Session keys follow a pattern based on your `dmScope` setting:
+
+| dmScope | Session Key Pattern | Behavior |
+|---------|---------------------|----------|
+| `main` | `agent:<agentId>:main` | All DMs share one session |
+| `per-peer` | `agent:<agentId>:dm:<peerId>` | Isolate by sender |
+| `per-channel-peer` | `agent:<agentId>:<channel>:dm:<peerId>` | Isolate by channel + sender |
+
+**Groups always get isolated sessions:** `agent:<agentId>:<channel>:group:<groupId>`
+
+### Example Session Keys
+
+```
+agent:main:whatsapp:dm:alice        # Admin's WhatsApp DM
+agent:main:webchat:dm:alice         # Admin's webchat (same person, different channel)
+agent:public:whatsapp:dm:+15551234  # Random user's WhatsApp DM
+agent:public:telegram:group:123456  # A Telegram group
+```
+
+---
+
+## Bindings: The Routing Layer
+
+**Bindings** map incoming messages to agents. They use a **most-specific-wins** strategy.
+
+```json
+{
+  "bindings": [
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "whatsapp",
+        "peer": { "kind": "dm", "id": "+15551234567" }
+      }
+    },
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "webchat",
+        "peer": { "kind": "dm", "id": "+15551234567" }
+      }
+    }
+  ]
+}
+```
+
+### Binding Priority (highest to lowest)
+
+<div className="grid grid-cols-1 gap-2 my-8">
+  <div className="flex items-center gap-3 p-3 rounded-lg bg-neutral-900/50 border border-neutral-800">
+    <span className="w-8 h-8 rounded bg-sky-500/20 flex items-center justify-center text-sky-400 font-bold">1</span>
+    <span className="text-neutral-300"><strong>Peer match</strong> — exact DM/group/channel ID</span>
+  </div>
+  <div className="flex items-center gap-3 p-3 rounded-lg bg-neutral-900/50 border border-neutral-800">
+    <span className="w-8 h-8 rounded bg-sky-500/20 flex items-center justify-center text-sky-400 font-bold">2</span>
+    <span className="text-neutral-300"><strong>Guild ID</strong> — Discord servers</span>
+  </div>
+  <div className="flex items-center gap-3 p-3 rounded-lg bg-neutral-900/50 border border-neutral-800">
+    <span className="w-8 h-8 rounded bg-sky-500/20 flex items-center justify-center text-sky-400 font-bold">3</span>
+    <span className="text-neutral-300"><strong>Team ID</strong> — Slack workspaces</span>
+  </div>
+  <div className="flex items-center gap-3 p-3 rounded-lg bg-neutral-900/50 border border-neutral-800">
+    <span className="w-8 h-8 rounded bg-sky-500/20 flex items-center justify-center text-sky-400 font-bold">4</span>
+    <span className="text-neutral-300"><strong>Account ID</strong> — for multi-account channels</span>
+  </div>
+  <div className="flex items-center gap-3 p-3 rounded-lg bg-neutral-900/50 border border-neutral-800">
+    <span className="w-8 h-8 rounded bg-sky-500/20 flex items-center justify-center text-sky-400 font-bold">5</span>
+    <span className="text-neutral-300"><strong>Channel-level match</strong> — all traffic from a channel</span>
+  </div>
+  <div className="flex items-center gap-3 p-3 rounded-lg bg-neutral-900/50 border border-neutral-800">
+    <span className="w-8 h-8 rounded bg-neutral-700 flex items-center justify-center text-neutral-400 font-bold">6</span>
+    <span className="text-neutral-300"><strong>Default agent</strong> — fallback for unmatched messages</span>
+  </div>
+</div>
+
+---
+
+## Identity Links: Cross-Channel Continuity
+
+What if you want the **same person** to share a session across channels? Use **identity links**:
+
+```json
+{
+  "session": {
+    "identityLinks": {
+      "alice": [
+        "whatsapp:+15551234567",
+        "webchat:+15551234567"
+      ]
+    }
+  }
+}
+```
+
+Now when a message comes from `whatsapp:+15551234567`, the canonical ID becomes `alice`, so both WhatsApp and webchat use the same session.
+
+<div className="my-8 p-5 bg-violet-950/30 border-l-4 border-violet-500 rounded-r-lg">
+  <div className="font-bold text-violet-400 mb-2">SAME CONVERSATION, ANY DEVICE</div>
+  <div className="text-neutral-300">With identity links, you can start a conversation on WhatsApp and continue it on webchat seamlessly. The agent remembers everything across channels.</div>
+</div>
+
+---
+
+## Sandbox & Tool Restrictions
+
+OpenClaw supports **per-agent sandboxing** and tool policies for security:
+
+### Sandbox Modes
+
+| Mode | Description |
+|------|-------------|
+| `off` | No sandbox, full host access |
+| `non-main` | Sandbox non-main sessions only |
+| `all` | Sandbox all sessions |
+
+### Tool Policies
+
+Tools can be restricted at multiple levels:
+
+```json
+{
+  "agents": {
+    "list": [
+      {
+        "id": "public",
+        "tools": {
+          "allow": ["read", "web_search", "web_fetch"],
+          "deny": ["exec", "write", "edit", "gateway", "browser"]
+        },
+        "sandbox": {
+          "mode": "all",
+          "scope": "session"
+        }
+      }
+    ]
+  }
+}
+```
+
+### Tool Groups (Shortcuts)
+
+| Group | Tools Included |
+|-------|---------------|
+| `group:runtime` | exec, bash, process |
+| `group:fs` | read, write, edit, apply_patch |
+| `group:sessions` | sessions_list, sessions_history, sessions_send, sessions_spawn |
+| `group:memory` | memory_search, memory_get |
+| `group:ui` | browser, canvas |
+| `group:messaging` | message |
+
+---
+
+## Real-World Architecture Examples
+
+### Example 1: Personal Admin + Public Agent
+
+```json
+{
+  "agents": {
+    "list": [
+      {
+        "id": "main",
+        "default": false,
+        "workspace": "~/.openclaw/workspace",
+        "sandbox": { "mode": "off" }
+      },
+      {
+        "id": "public",
+        "default": true,
+        "workspace": "~/.openclaw/workspace-public",
+        "sandbox": { "mode": "all" },
+        "tools": {
+          "allow": ["read", "web_search", "message"]
+        }
+      }
+    ]
+  },
+  "bindings": [
+    {
+      "agentId": "main",
+      "match": { "channel": "whatsapp", "peer": { "kind": "dm", "id": "+1ADMINPHONE" } }
+    }
+  ]
+}
+```
+
+**Result:**
+- Your phone → `main` agent (full access)
+- Everyone else → `public` agent (restricted, sandboxed)
+
+### Example 2: Channel-Based Routing
+
+```json
+{
+  "agents": {
+    "list": [
+      {
+        "id": "fast",
+        "model": "anthropic/claude-sonnet-4",
+        "workspace": "~/.openclaw/workspace-fast"
+      },
+      {
+        "id": "deep",
+        "model": "anthropic/claude-opus-4-5",
+        "workspace": "~/.openclaw/workspace-deep"
+      }
+    ]
+  },
+  "bindings": [
+    { "agentId": "fast", "match": { "channel": "whatsapp" } },
+    { "agentId": "deep", "match": { "channel": "telegram" } }
+  ]
+}
+```
+
+**Result:**
+- WhatsApp → Fast Sonnet model for quick chats
+- Telegram → Opus model for deep work
+
+### Example 3: Multi-User Family Setup
+
+```json
+{
+  "agents": {
+    "list": [
+      { "id": "alex", "workspace": "~/.openclaw/workspace-alex" },
+      { "id": "mia", "workspace": "~/.openclaw/workspace-mia" }
+    ]
+  },
+  "bindings": [
+    { "agentId": "alex", "match": { "channel": "whatsapp", "peer": { "kind": "dm", "id": "+15551230001" } } },
+    { "agentId": "mia", "match": { "channel": "whatsapp", "peer": { "kind": "dm", "id": "+15551230002" } } }
+  ]
+}
+```
+
+**Result:**
+- Each family member gets their own isolated agent
+- Separate workspaces, memories, and personalities
+
+---
+
+## Session Lifecycle
+
+### Creation
+Sessions are created on-demand when a message arrives and no existing session matches.
+
+### Reset Policies
+
+| Policy | Description |
+|--------|-------------|
+| `daily` | Reset at a specific hour (default: 4 AM local) |
+| `idle` | Reset after N minutes of inactivity |
+| Combined | Whichever expires first |
+
+### Manual Reset Commands
+
+| Command | Effect |
+|---------|--------|
+| `/new` | Start fresh session |
+| `/new opus` | New session with different model |
+| `/model opus` | Switch model mid-session |
+| `/model default` | Reset to default model |
+| `/compact` | Summarize old context |
+| `/status` | Show session info |
+
+---
+
+## File Paths Reference
+
+```
+~/.openclaw/
+├── openclaw.json                 # Main config
+├── logs/openclaw.log             # Gateway logs
+├── credentials/whatsapp/         # WhatsApp auth
+├── agents/
+│   ├── main/
+│   │   ├── agent/auth-profiles.json
+│   │   └── sessions/
+│   │       ├── sessions.json
+│   │       └── <uuid>.jsonl
+│   └── public/
+│       └── ...
+├── workspace/                    # main agent workspace
+└── workspace-public/             # public agent workspace
+```
+
+### Workspace Files
+
+```
+~/.openclaw/workspace/
+├── AGENTS.md      # Operating instructions
+├── SOUL.md        # Persona, tone, boundaries
+├── USER.md        # Who the user is
+├── IDENTITY.md    # Agent name/vibe/emoji
+├── TOOLS.md       # Tool usage notes
+├── MEMORY.md      # Long-term memory
+└── memory/
+    └── YYYY-MM-DD.md  # Daily logs
+```
+
+---
+
+## Troubleshooting
+
+<div className="grid gap-4 my-8">
+  <div className="p-5 rounded-xl bg-neutral-900/50 border border-neutral-800">
+    <h4 className="text-sky-400 font-semibold mb-3">🔧 "Model not available" errors</h4>
+    <ul className="text-neutral-400 text-sm space-y-1 list-disc list-inside">
+      <li>Check agents.defaults.models only lists configured models</li>
+      <li>Verify auth profile exists for the provider</li>
+      <li>Run <code className="text-white bg-neutral-800 px-1.5 py-0.5 rounded">/model default</code> to reset session model override</li>
+    </ul>
+  </div>
+  
+  <div className="p-5 rounded-xl bg-neutral-900/50 border border-neutral-800">
+    <h4 className="text-emerald-400 font-semibold mb-3">🔀 Messages going to wrong agent</h4>
+    <ul className="text-neutral-400 text-sm space-y-1 list-disc list-inside">
+      <li>Check bindings order (most-specific first)</li>
+      <li>Verify peer ID format (E.164 for phone numbers: +1555...)</li>
+      <li>Check <code className="text-white bg-neutral-800 px-1.5 py-0.5 rounded">default: true</code> is set on fallback agent</li>
+    </ul>
+  </div>
+  
+  <div className="p-5 rounded-xl bg-neutral-900/50 border border-neutral-800">
+    <h4 className="text-violet-400 font-semibold mb-3">🔗 Sessions not sharing across channels</h4>
+    <ul className="text-neutral-400 text-sm space-y-1 list-disc list-inside">
+      <li>Enable identityLinks for the user</li>
+      <li>Set dmScope to per-channel-peer or per-peer</li>
+      <li>Verify channel prefixes match (e.g., whatsapp:+1...)</li>
+    </ul>
+  </div>
+</div>
+
+### Useful Commands
+
+```bash
+# List agents and bindings
+openclaw agents list --bindings
+
+# List active sessions
+openclaw sessions --active 60
+
+# Check gateway status
+openclaw status
+
+# View logs
+tail -f ~/.openclaw/logs/openclaw.log
+```
+
+---
+
+## Key Takeaways
+
+<div className="my-8 p-6 rounded-2xl bg-gradient-to-br from-sky-950/50 via-violet-950/30 to-emerald-950/30 border border-sky-800/50">
+  <div className="grid gap-4 md:grid-cols-3">
+    <div>
+      <h4 className="text-sky-400 font-bold mb-2">Agents = Isolation</h4>
+      <p className="text-neutral-300 text-sm">Separate workspaces, credentials, sessions, and tool permissions. One server, multiple brains.</p>
+    </div>
+    <div>
+      <h4 className="text-emerald-400 font-bold mb-2">Sessions = Continuity</h4>
+      <p className="text-neutral-300 text-sm">Persistent conversation threads with full history. Memory that survives across days and weeks.</p>
+    </div>
+    <div>
+      <h4 className="text-violet-400 font-bold mb-2">Bindings = Control</h4>
+      <p className="text-neutral-300 text-sm">Route messages to the right agent based on channel, peer, or any combination. Admins vs. public, fast vs. deep.</p>
+    </div>
+  </div>
+</div>
+
+OpenClaw's multi-agent architecture lets you build everything from a personal assistant to a full production AI service—with proper isolation, security, and control.
+
+**Ready to deploy?** Check out the [XO platform](https://beta.xo.builders) for managed OpenClaw hosting, or self-host with the [starter kit](https://github.com/sharmasuraj0123/openclaw-starterkit).
+
+---
+
+*For more technical deep-dives, see the [OpenClaw documentation](https://docs.openclaw.ai) or join the [Discord community](https://discord.com/invite/clawd).*

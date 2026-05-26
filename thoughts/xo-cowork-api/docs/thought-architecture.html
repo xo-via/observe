@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A thought: purpose, DNA, about, governance, time</title>
+<style>
+  :root {
+    --bg:       #0b0d0a;
+    --bg-soft:  #14181a;
+    --bg-card:  #1a1f1c;
+    --border:   #2a3329;
+    --text:     #e8efe6;
+    --muted:    #8a948a;
+    --brand:    #83d63a;
+
+    --active:   #83d63a;
+    --stable:   #6ac4d6;
+    --idle:     #d6c46a;
+    --stale:    #d6a060;
+    --dying:    #f08060;
+    --dead:     #8a948a;
+    --archived: #b09bd6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  code, pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+  code { background: var(--bg-soft); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); }
+  pre { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 20px; overflow-x: auto; white-space: pre; line-height: 1.4; }
+  h1, h2, h3 { margin: 0 0 12px; line-height: 1.25; }
+  h1 { font-size: 28px; letter-spacing: -0.01em; }
+  h2 { font-size: 22px; color: var(--brand); margin-top: 48px;
+    padding-top: 24px; border-top: 1px solid var(--border); }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 { font-size: 17px; margin-top: 20px; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 36px 28px 80px; }
+  header.hero { padding: 20px 0 28px; }
+  header.hero .eyebrow { color: var(--brand); font-weight: 600; font-size: 12px;
+    letter-spacing: 0.1em; text-transform: uppercase; }
+  header.hero .lede { color: var(--text); font-size: 17px; margin: 12px 0 0; max-width: 780px; }
+  header.hero .sub { color: var(--muted); margin: 6px 0 0; max-width: 780px; }
+
+  .card { background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 20px; margin: 12px 0; }
+  .grid { display: grid; gap: 14px; }
+  .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
+    font-size: 14px; vertical-align: top; }
+  th { color: var(--brand); font-weight: 600; font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.05em; }
+  td code { white-space: nowrap; }
+
+  .callout { border-left: 3px solid var(--brand); background: rgba(131,214,58,0.06);
+    padding: 14px 16px; margin: 16px 0; border-radius: 0 6px 6px 0; }
+  .callout strong { color: var(--brand); }
+
+  .quality-card { background: var(--bg-card); border: 1px solid var(--border);
+    border-left: 4px solid var(--brand); border-radius: 8px; padding: 14px 18px; }
+  .quality-card .label { color: var(--brand); font-weight: 700; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.08em; }
+  .quality-card .name { font-size: 16px; font-weight: 700; margin: 4px 0 6px; }
+  .quality-card .file { font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    color: var(--muted); }
+  .quality-card .what { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+
+  .state-grid { display: grid; gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); margin: 14px 0; }
+  .state { padding: 10px 12px; border-radius: 8px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-left-width: 4px; text-align: center; }
+  .state .name { font-weight: 700; font-size: 12px; margin-bottom: 3px;
+    text-transform: uppercase; letter-spacing: 0.05em; }
+  .state .when { font-size: 11px; color: var(--muted); }
+  .state.s-active   { border-left-color: var(--active); }   .state.s-active   .name { color: var(--active); }
+  .state.s-stable   { border-left-color: var(--stable); }   .state.s-stable   .name { color: var(--stable); }
+  .state.s-idle     { border-left-color: var(--idle); }     .state.s-idle     .name { color: var(--idle); }
+  .state.s-stale    { border-left-color: var(--stale); }    .state.s-stale    .name { color: var(--stale); }
+  .state.s-dying    { border-left-color: var(--dying); }    .state.s-dying    .name { color: var(--dying); }
+  .state.s-dead     { border-left-color: var(--dead); }     .state.s-dead     .name { color: var(--dead); }
+  .state.s-archived { border-left-color: var(--archived); } .state.s-archived .name { color: var(--archived); }
+
+  .small { font-size: 12px; color: var(--muted); }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
+  footer { margin-top: 60px; padding-top: 24px;
+    border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header class="hero">
+  <div class="eyebrow">The substrate</div>
+  <h1>A thought has four core qualities: purpose, DNA, about, governance. Space is the folder. Time is the layer on top.</h1>
+  <p class="lede">Every thought begins with a founder, a name, a purpose, and a contract for how it can evolve. It lives in a folder. Its DNA describes its shape. Its README explains its current self. Its governance rules say how it grows or dies.</p>
+  <p class="sub">The folder is space (what is). Time is captured separately, through state, activity, milestones, and governance rules.</p>
+</header>
+
+<!-- =============================================================== -->
+<h2>1. What every thought is born with</h2>
+
+<p>The minimum legal thought has these eleven pieces. Some live in <code>xo.json</code>, some are their own files.</p>
+
+<table>
+  <tr><th>Field</th><th>Where</th><th>What it is</th></tr>
+  <tr><td><strong>Founder</strong></td><td><code>xo.json</code></td><td>The person who created it. Immutable.</td></tr>
+  <tr><td><strong>Name</strong></td><td><code>xo.json</code></td><td>Human-readable label. May change.</td></tr>
+  <tr><td><strong>Purpose</strong></td><td><code>PURPOSE.md</code></td><td>Why this thought exists. The reason it was born.</td></tr>
+  <tr><td><strong>Parent</strong></td><td><code>xo.json</code></td><td>The parent thought it lives inside, or <code>null</code> if top-level.</td></tr>
+  <tr><td><strong>Lineage</strong></td><td><code>xo.json</code></td><td>Species history: forked_from, inspired_by, merged_from.</td></tr>
+  <tr><td><strong>Collaborators</strong></td><td><code>xo.json</code></td><td>Everyone (human or agent) who has contributed.</td></tr>
+  <tr><td><strong>Tags</strong></td><td><code>xo.json</code></td><td>Free-form labels for discovery and grouping.</td></tr>
+  <tr><td><strong>Lifespan</strong></td><td><code>xo.json</code></td><td>Temporal rules: max age, review cadence, auto-archive thresholds.</td></tr>
+  <tr><td><strong>Other thoughts</strong></td><td><code>xo.json</code></td><td>Related thoughts: <code>references</code>, <code>cited_by</code>, <code>depends_on</code>.</td></tr>
+  <tr><td><strong>Governance</strong></td><td><code>CONTRIBUTION.md</code></td><td>Contract: who can contribute, what requires review, lifespan rules, death policy.</td></tr>
+  <tr><td><strong>Explainer</strong></td><td><code>README.md</code></td><td>Current state of the thought, in plain language. Updated as it evolves.</td></tr>
+</table>
+
+<!-- =============================================================== -->
+<h2>2. The four core qualities</h2>
+
+<p>Every thought, regardless of how it grew, has exactly four kinds of file at its root. The rest is content.</p>
+
+<div class="grid cols-4">
+
+  <div class="quality-card" style="border-left-color: var(--active);">
+    <div class="label">Why</div>
+    <div class="name">Purpose</div>
+    <div class="file">PURPOSE.md</div>
+    <div class="what">The reason this thought exists. Written at birth. Rarely changes. If it ever does, that's a major event in the lineage.</div>
+  </div>
+
+  <div class="quality-card" style="border-left-color: var(--brand);">
+    <div class="label">What</div>
+    <div class="name">DNA</div>
+    <div class="file">xo.json</div>
+    <div class="what">Structured metadata describing the thought. Shape, owner, parent, children, lineage, collaborators, tags, lifespan, state. Read by tools.</div>
+  </div>
+
+  <div class="quality-card" style="border-left-color: var(--stable);">
+    <div class="label">Who I am now</div>
+    <div class="name">About</div>
+    <div class="file">README.md</div>
+    <div class="what">Current state in plain language. Reflects the most recent self. Updated as the thought evolves. Read by humans.</div>
+  </div>
+
+  <div class="quality-card" style="border-left-color: #b09bd6;">
+    <div class="label">How I grow</div>
+    <div class="name">Governance</div>
+    <div class="file">CONTRIBUTION.md</div>
+    <div class="what">Contract: who can contribute, what needs review, how decisions are made, how the thought handles time and death.</div>
+  </div>
+
+</div>
+
+<!-- =============================================================== -->
+<h2>3. The minimum thought, on disk</h2>
+
+<pre style="font-size: 12px;">
+~/xo-thoughts/&lt;id&gt;/
+├── xo.json             the DNA
+├── PURPOSE.md          why I exist
+├── README.md           current state
+├── CONTRIBUTION.md     governance contract
+├── TIMELINE.md         milestones (append-only)
+├── (content files)     the actual substance, grows over time
+└── .git/               git history (every change ever made)
+</pre>
+
+<p>Five files plus a git folder. That's the bedrock. Everything else is grown content.</p>
+
+<!-- =============================================================== -->
+<h2>4. Space vs Time (the question you asked)</h2>
+
+<div class="callout">
+  <strong>Space</strong> is the folder. What files exist, what shape, who's inside, what content is there. Static. Inspectable. The <code>xo.json</code> + files capture this perfectly.<br><br>
+  <strong>Time</strong> is not in the folder structure. Time has to be captured separately. Four mechanisms together do it.
+</div>
+
+<h3>The four time mechanisms</h3>
+
+<div class="grid cols-2">
+
+  <div class="card">
+    <h3 style="margin-top: 0; color: var(--brand);">1. State</h3>
+    <p>A discrete label for where the thought is in its life right now. Recorded in <code>xo.json.state.current</code>. Updated by a daemon based on rules.</p>
+    <p class="small">Examples: active, stable, idle, stale, dying, dead, archived.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top: 0; color: var(--brand);">2. Activity</h3>
+    <p>Quantitative time signals: how often it's touched, how many contributors, how recent. Computed from <code>git log</code>. Recorded in <code>xo.json.activity</code>.</p>
+    <p class="small">Examples: commits_last_7d, unique_authors_last_30d, age_days, idle_days, velocity.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top: 0; color: var(--brand);">3. Milestones</h3>
+    <p>The significant moments in the thought's life. Append-only to <code>TIMELINE.md</code>. Human-readable. Auto-emitted on major events (birth, first child, promotion, first PR, death).</p>
+    <p class="small">Examples: "born", "first sub-thought", "promoted to persona", "first identity PR", "marked stable".</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top: 0; color: var(--brand);">4. Governance rules</h3>
+    <p>Time-based rules written in <code>CONTRIBUTION.md</code>. Tells the system when to transition state, when to alert, when to die. Daemons read and enforce.</p>
+    <p class="small">Examples: "review every 30 days", "warn if idle 60+ days", "auto-archive after 90 days idle unless owner extends".</p>
+  </div>
+
+</div>
+
+<h3>How they work together</h3>
+
+<pre style="font-size: 12px; line-height: 1.4;">
+   ┌─────────────────────────────────────────────────────────────┐
+   │                                                             │
+   │   git log  ──────────────▶  ACTIVITY                        │
+   │   (raw events)              (commits/week, authors, idle)   │
+   │                                  │                          │
+   │                                  ▼                          │
+   │   CONTRIBUTION.md  ──────▶  RULES                           │
+   │   (governance contract)     ("idle 90d? auto-archive")      │
+   │                                  │                          │
+   │                                  ▼                          │
+   │                              STATE (in xo.json)             │
+   │   ─────────────────────────  active / stable /              │
+   │   updated by a daemon        idle / stale / dying / etc.    │
+   │                                  │                          │
+   │                                  ▼                          │
+   │   significant transitions   →  TIMELINE.md                  │
+   │   (born, promoted,             (append-only milestones)     │
+   │   marked-stable, archived)                                  │
+   │                                                             │
+   └─────────────────────────────────────────────────────────────┘
+</pre>
+
+<p>Together they answer: <strong>"What was this thought like a week ago?"</strong> (git checkout). <strong>"How fast is it changing right now?"</strong> (activity). <strong>"When did it become a persona?"</strong> (milestones). <strong>"Should it still be alive?"</strong> (governance rules applied to state + activity).</p>
+
+<!-- =============================================================== -->
+<h2>5. The state machine</h2>
+
+<div class="state-grid">
+  <div class="state s-active">   <div class="name">Active</div>   <div class="when">touched within 7 days</div></div>
+  <div class="state s-stable">   <div class="name">Stable</div>   <div class="when">complete; intentionally finished</div></div>
+  <div class="state s-idle">     <div class="name">Idle</div>     <div class="when">8 to 30 days</div></div>
+  <div class="state s-stale">    <div class="name">Stale</div>    <div class="when">31 to 60 days</div></div>
+  <div class="state s-dying">    <div class="name">Dying</div>    <div class="when">61 to 90 days, flagged</div></div>
+  <div class="state s-dead">     <div class="name">Dead</div>     <div class="when">90+ days, no response</div></div>
+  <div class="state s-archived"> <div class="name">Archived</div> <div class="when">moved to legacy; read-only</div></div>
+</div>
+
+<pre style="font-size: 12px; line-height: 1.4;">
+
+                  ┌─────────┐
+                  │ ACTIVE  │ ◀──────── (any commit resurrects to here)
+                  └────┬────┘
+                       │ owner marks complete
+                       ▼
+                  ┌─────────┐
+                  │ STABLE  │
+                  └─────────┘   ← stays here as long as referenced
+
+   ── decay path (default if not marked stable) ────────────────────
+
+                  ACTIVE
+                    │ no commit for 7 days
+                    ▼
+                  IDLE   (no warning; healthy pause)
+                    │ no commit for 30 days
+                    ▼
+                  STALE  (gentle warning to owner)
+                    │ no commit for 60 days
+                    ▼
+                  DYING  (loud warning; flagged for review)
+                    │ no commit + no response from owner for 90 days
+                    ▼
+                  DEAD
+                    │
+                    │ daemon archives based on governance rule
+                    ▼
+                  ARCHIVED  (state preserved, runtime stopped)
+
+   ── any state can be revived ────────────────────────────────────
+
+                  any state ──── commit ────▶ ACTIVE
+                  archived ──── owner unarchives ────▶ ACTIVE
+</pre>
+
+<p class="small">Thresholds (7, 30, 60, 90 days) are defaults declared in <code>CONTRIBUTION.md</code>. Per-thought overrides allowed. A thought can also opt out entirely (<code>"lifespan": { "never_decays": true }</code>) if it's a permanent fixture.</p>
+
+<!-- =============================================================== -->
+<h2>6. xo.json (now with time fields)</h2>
+
+<pre style="font-size: 12px;">
+{
+  "id":            "via",
+  "name":          "Via",
+  "founder":       "suraj",
+  "owner":         "suraj",
+  "form":          "persona",
+  "born":          "2026-05-21T08:00:00Z",
+
+  "parent":        null,
+  "children":      ["xyra", "ora"],
+  "lineage": {
+    "forked_from":  null,
+    "inspired_by":  ["thought:multi-voice-experiment-2026-04-30"],
+    "merged_from":  []
+  },
+  "collaborators": ["suraj", "claude (assistant)"],
+  "tags":          ["agent", "sales-tech", "multi-persona"],
+
+  "references":    ["thought:integrations-narrative-2026-05-15"],
+  "cited_by":      ["thought:product-roadmap-2026-q3"],
+
+  "lifespan": {
+    "never_decays":              false,
+    "review_cadence_days":       30,
+    "warn_after_idle_days":      60,
+    "auto_archive_after_days":   90
+  },
+
+  "state": {
+    "current":       "active",
+    "since":         "2026-05-21T08:00:00Z",
+    "last_touched":  "2026-05-21T11:30:00Z",
+    "age_days":      0,
+    "idle_days":     0
+  },
+
+  "activity": {
+    "commits_last_7d":         14,
+    "commits_last_30d":        47,
+    "unique_authors_last_30d": 3,
+    "velocity":                "high"
+  },
+
+  "shape": {
+    "size_bytes":         12453821,
+    "file_count":         234,
+    "subfolder_count":    18,
+    "structure_signature":"persona-v1"
+  }
+}
+</pre>
+
+<p>The <strong>state</strong> and <strong>activity</strong> blocks are refreshed by a daemon (or git hook). They're derived, not authoritative. The authoritative time data lives in <code>.git/</code>.</p>
+
+<!-- =============================================================== -->
+<h2>7. CONTRIBUTION.md (the governance contract)</h2>
+
+<p>This is where the thought declares its rules. Read by humans and the daemon.</p>
+
+<pre style="font-size: 12px;">
+# Via, contribution and governance
+
+## Who can contribute
+- Owner (suraj): full read/write
+- Sub-personas (xyra, ora): write to consensus/proposals/ only
+- All other thoughts: read-only (need fork to modify)
+
+## What requires review
+- IDENTITY.md changes: PR + unanimous consensus from sub-personas
+- SOUL.md changes: PR + unanimous consensus
+- Memory writes: simple majority
+- Skill graduation: simple majority
+
+## Lifespan
+- Review every 30 days (calendar event auto-created)
+- Warn owner if idle 60+ days
+- Auto-archive after 90 days idle, unless owner has extended via review
+- Owner can extend lifespan indefinitely by committing a review note
+
+## Death and resurrection
+- Archive moves folder to ~/xo-thoughts/_archive/via/
+- State preserved, runtime stopped
+- Lineage links remain valid (sub-personas point back here)
+- Owner can unarchive at any time; resets state to "active"
+
+## Form transitions
+- This thought is currently form: persona
+- Demotion to "stem" allowed only by owner with reason
+- Promotion to "legacy" allowed by daemon after archive
+</pre>
+
+<!-- =============================================================== -->
+<h2>8. Three thoughts in three states</h2>
+
+<div class="grid cols-3">
+
+  <div class="card" style="border-left: 4px solid var(--active);">
+    <h3 style="margin-top: 0; color: var(--active);">Active · Via</h3>
+    <pre style="font-size: 11px;">xo.json
+  state: active
+  age_days: 187
+  idle_days: 0
+  velocity: high
+  commits_last_7d: 14
+
+README.md
+  "I integrate Xyra and Ora.
+   Daily user conversations."
+
+form: persona
+collaborators: 5
+children: 2 (xyra, ora)</pre>
+    <p class="small">Healthy. Touched daily. Sub-personas evolving.</p>
+  </div>
+
+  <div class="card" style="border-left: 4px solid var(--stable);">
+    <h3 style="margin-top: 0; color: var(--stable);">Stable · auth-refactor-spec</h3>
+    <pre style="font-size: 11px;">xo.json
+  state: stable
+  age_days: 340
+  idle_days: 65
+  velocity: dormant
+
+README.md
+  "Auth refactor design,
+   approved + shipped 2026-04."
+
+form: doc
+cited_by: 3 thoughts
+state.since: "2026-04-15"</pre>
+    <p class="small">Finished work. Won't decay. Others still cite it.</p>
+  </div>
+
+  <div class="card" style="border-left: 4px solid var(--dying);">
+    <h3 style="margin-top: 0; color: var(--dying);">Dying · nudger-idea</h3>
+    <pre style="font-size: 11px;">xo.json
+  state: dying
+  age_days: 73
+  idle_days: 68
+  velocity: dormant
+
+README.md
+  "Calendar-aware deal
+   nudger. Just seed."
+
+form: seed
+warnings_sent: 2
+auto_archive_in: 22 days</pre>
+    <p class="small">No activity in 9 weeks. Owner has 22 days to revive or it archives.</p>
+  </div>
+
+</div>
+
+<!-- =============================================================== -->
+<h2>9. What this gives you</h2>
+
+<ul style="list-style: none; padding: 0;">
+  <li class="card" style="border-left: 3px solid var(--brand);"><strong>Every thought has a purpose, on day one.</strong> No anonymous folders. Always answerable: why does this exist?</li>
+  <li class="card" style="border-left: 3px solid var(--brand);"><strong>The folder tells you what is; the daemon tells you what's now.</strong> Space and time are cleanly separated. Inspecting a folder gives you state; inspecting state tells you where it is in life.</li>
+  <li class="card" style="border-left: 3px solid var(--brand);"><strong>Death is real but gentle.</strong> Decay is gradual (idle → stale → dying → dead → archived). Owner gets warnings. Reviving is one commit.</li>
+  <li class="card" style="border-left: 3px solid var(--brand);"><strong>Governance is per-thought.</strong> Every thought declares its own contract. A permanent fixture opts out of decay. A short-lived experiment opts into fast death.</li>
+  <li class="card" style="border-left: 3px solid var(--brand);"><strong>History is universal.</strong> Git captures every change. Milestones capture the meaningful ones. Both stay forever.</li>
+  <li class="card" style="border-left: 3px solid var(--brand);"><strong>The persona system fits inside.</strong> Via is a thought with <code>form: persona</code>. Her decay rules are "never_decays: true". Her sub-personas inherit the same shape.</li>
+</ul>
+
+<!-- =============================================================== -->
+<h2>10. Open questions</h2>
+
+<ul style="list-style: none; padding: 0;">
+  <li class="card" style="border-left: 3px solid var(--idle);"><strong>Who runs the daemon?</strong> A cowork-api background task that walks <code>~/xo-thoughts/</code> nightly? A git hook on every commit? Both?</li>
+  <li class="card" style="border-left: 3px solid var(--idle);"><strong>What counts as "touched"?</strong> Any commit by anyone? Or only commits that change content (not auto-updates to xo.json)? Probably: only human/agent-authored commits reset idle_days.</li>
+  <li class="card" style="border-left: 3px solid var(--idle);"><strong>How are warnings delivered?</strong> Email? Stream events? Persona observation events that wake the owner-persona? All of the above?</li>
+  <li class="card" style="border-left: 3px solid var(--idle);"><strong>Inherited lifespan.</strong> Does a sub-thought inherit the parent's lifespan rules by default, or does each one declare its own?</li>
+  <li class="card" style="border-left: 3px solid var(--idle);"><strong>Resurrection cost.</strong> If a dead thought is revived after a year, does it lose its history? (Git says no; xo.json could reset.) Should there be a record of how many times it died and came back?</li>
+  <li class="card" style="border-left: 3px solid var(--idle);"><strong>Citations and dead thoughts.</strong> If thought A cites archived thought B, what happens? Stale link? Auto-update? Force-restore B?</li>
+</ul>
+
+<footer>
+  The substrate. Folder + xo.json + PURPOSE + README + CONTRIBUTION + TIMELINE = a thought. Git history = the past. State + activity + governance = the present and future. The persona-architecture page describes one mature form (persona) sitting on top of this substrate.
+</footer>
+
+</div>
+</body>
+</html>

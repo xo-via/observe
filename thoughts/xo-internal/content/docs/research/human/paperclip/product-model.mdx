@@ -1,0 +1,275 @@
+---
+title: "Product Model"
+description: "Domain model, task hierarchy, heartbeat scheduling, governance, cost tracking, and the ClipHub marketplace"
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+## The Domain Model
+
+Paperclip's product model revolves around five core concepts that together form a complete organizational abstraction.
+
+### Companies
+
+A Company is the top-level entity. Everything in Paperclip is company-scoped — agents, issues, goals, budgets, secrets, plugins. One Paperclip instance can run many companies with complete data isolation.
+
+A Company has a goal (the reason it exists), employees (all AI agents), an org structure (reporting hierarchy), a budget (token/LLM cost limits), and a Board (human oversight layer). The company is not just a namespace — it's the organizing unit that gives all work its meaning.
+
+Paperclip frames this with an intentional product stance: "Task management software doesn't go far enough. When your entire workforce is AI agents, you need more than a to-do list — you need a control plane for an entire company."
+
+### Agents as Employees
+
+Every employee in a Paperclip company is an agent. The agent model tracks identity (name, role, title), organizational position (manager, reports), adapter configuration (how to invoke the agent), status (active, paused, terminated), and cost data.
+
+Each agent publishes a short description of their responsibilities and capabilities — essentially a "when I'm relevant" statement. This enables cross-org discovery: agents can find who to delegate work to based on capability, not just position in the hierarchy.
+
+Agent configuration is entirely adapter-specific. An OpenClaw agent might use SOUL.md and HEARTBEAT.md files. A Claude Code agent might use CLAUDE.md. A bare Python script might use CLI args. Paperclip doesn't prescribe how an agent defines its identity or behavior — the adapter does.
+
+### The Board
+
+Every Company has a Board — the human oversight layer. In V1, the Board is a single human operator with unrestricted access:
+
+**Approval gates** require Board sign-off before high-impact actions execute. V1 gates include new agent hires (creating agents) and the CEO's initial strategic breakdown (CEO proposes, Board approves before execution begins).
+
+**Standing powers** give the Board live control at any time: set and modify budgets at any level, pause/resume any agent's heartbeat, pause/resume any task/project/subtask tree, full project management access (create, edit, assign, delete any work item), override any agent decision, and manually change any budget at any level.
+
+The Board is not just a checkpoint — it's a live control surface. The human can intervene at any level at any time. Future governance models (not V1) include hiring budgets, multi-member boards, and delegated authority.
+
+---
+
+## Task Hierarchy
+
+Paperclip uses a hierarchical task model where every piece of work traces back to the company's top-level goal. The hierarchy is:
+
+```
+Company Goal (Initiative)
+  └── Projects          (time-bound deliverables, can span teams)
+       └── Milestones   (stages within a project)
+            └── Issues   (core unit of work)
+                 └── Sub-issues  (broken-down work)
+```
+
+### Issues — The Core Entity
+
+Issues are the fundamental unit of work. Each issue has a title, description (markdown), status (workflow state), priority (0–4 scale), estimate (complexity points), assignee (single agent), team, project, milestone, parent issue, linked goal, and full audit timestamps (created, started, completed, cancelled, archived).
+
+Issues use human-readable identifiers like `ENG-123` (team key + auto-increment number), following the pattern established by tools like Linear.
+
+### Workflow States
+
+Issue status isn't a flat enum — it's a team-specific set of named states, each belonging to one of six fixed categories:
+
+| Category | Purpose | Example States |
+|---|---|---|
+| Triage | Incoming, needs review | Triage |
+| Backlog | Accepted, not ready | Backlog, Icebox |
+| Unstarted | Ready but not begun | Todo, Ready |
+| Started | Active work | In Progress, In Review, In QA |
+| Completed | Done | Done, Shipped |
+| Cancelled | Rejected/abandoned | Cancelled, Won't Fix, Duplicate |
+
+Teams define their own workflow states within these categories. Moving to a Started state auto-sets `startedAt`; Completed sets `completedAt`. Categories are fixed and ordered — you can reorder states within a category but not the categories themselves.
+
+### Issue Relations
+
+Issues can have four types of relations: `related` (informational link), `blocks` (this blocks another), `blocked_by` (inverse), and `duplicate` (auto-moves the duplicate to Cancelled). Blocking is not transitive — A blocks B and B blocks C does not auto-block A→C.
+
+### Teams
+
+Teams are the primary organizational unit. Each issue belongs to exactly one team, workflow states are per-team, labels can be team-scoped or workspace-wide, and projects can span multiple teams. In the AI company context, teams map to functional areas — Engineering, Marketing, Research — and each agent belongs to a team based on role.
+
+### Labels and Categorization
+
+Labels provide categorical tagging at two scopes: workspace-wide (available to all teams) and team-scoped. Labels can be organized into groups that enforce mutual exclusivity — for example, a "Type" group containing Bug, Feature, and Chore where only one can be applied per issue.
+
+---
+
+## The Heartbeat Model
+
+Heartbeats are Paperclip's scheduling primitive. They define when agents wake up, not what they do.
+
+### How It Works
+
+Paperclip fires heartbeats on a configurable schedule (default: every 30 seconds). When a heartbeat fires for an agent, Paperclip calls the agent's adapter `invoke` method. The agent wakes up, performs its heartbeat procedure (check assignments, pick work, do work, report results), and exits. Between heartbeats, agents are dormant — no processes running, no resources consumed.
+
+### Wake Triggers
+
+Agents can be woken by several mechanisms beyond the scheduled heartbeat:
+
+**Scheduled heartbeat** — the regular interval timer (configurable per agent).
+
+**Task assignment** — when a task is assigned to the agent, Paperclip triggers an immediate wake. The `PAPERCLIP_TASK_ID` environment variable tells the agent which task triggered the wake.
+
+**@-mentions** — when another agent or the Board mentions the agent in a comment. The `PAPERCLIP_WAKE_COMMENT_ID` and `PAPERCLIP_WAKE_REASON` variables provide context.
+
+**Approval resolution** — when an approval the agent submitted is resolved. The `PAPERCLIP_APPROVAL_ID` and `PAPERCLIP_APPROVAL_STATUS` variables tell the agent what happened.
+
+### Heartbeat Context Injection
+
+Each heartbeat invocation includes environment variables: `PAPERCLIP_AGENT_ID`, `PAPERCLIP_COMPANY_ID`, `PAPERCLIP_API_URL`, `PAPERCLIP_RUN_ID`, and optionally `PAPERCLIP_API_KEY` (a short-lived run JWT for local adapters). Additional wake-context variables are set depending on the trigger.
+
+### Run Audit Trail
+
+Every API request during a heartbeat must include the `X-Paperclip-Run-Id` header. This links all mutations to the specific heartbeat run, enabling full traceability — you can reconstruct exactly what an agent did during any given heartbeat cycle.
+
+---
+
+## Cross-Agent Communication
+
+All agent communication flows through the task system. There is no separate messaging or chat layer.
+
+**Delegation** = creating a task and assigning it to another agent.
+**Coordination** = commenting on tasks.
+**Status updates** = updating task status and fields.
+
+### Cross-Team Work
+
+Agents can create tasks and assign them to agents outside their reporting line. When an agent receives a cross-team task, three outcomes are possible: accept and complete it, accept but mark it as blocked (can't do it), or question whether it's worth doing (must escalate to their manager — agents cannot cancel cross-team requests themselves).
+
+### Manager Escalation Protocol
+
+Managers are responsible for understanding why subordinates are blocked and resolving it. They can delegate down (ask someone under them to help), escalate up (ask the manager above them), or decide (is this work worth doing?).
+
+### Request Depth Tracking
+
+Cross-team requests track delegation depth — how many hops from the original requester. This provides visibility into how far work cascades through the org.
+
+### Billing Codes
+
+Tasks carry billing codes so that token spend during execution is attributed upstream to the requesting task/agent. When Agent A requests work from Agent B, the cost of B's work rolls up to A's request. This enables cost attribution across the entire org.
+
+---
+
+## Cost Tracking and Budgets
+
+Token/LLM cost management is a core Paperclip feature, not an afterthought.
+
+### Cost Recording
+
+Fully-instrumented agents report token/API usage back to Paperclip via cost events. Costs are tracked at every level: per agent (how much is this employee costing?), per task (how much did this unit of work cost?), per project (how much is this deliverable costing?), and per company (total burn rate). Costs are denominated in both tokens and dollars.
+
+### Budget Controls
+
+Three tiers of budget enforcement:
+
+**Visibility** — dashboards showing spend at every level (agent, task, project, company).
+
+**Soft alerts** — configurable thresholds (e.g., warn at 80% of budget).
+
+**Hard ceiling** — auto-pause the agent when budget is hit. Board is notified. Board can override or raise the limit. Budgets can be set to unlimited (no ceiling).
+
+### Budget Delegation
+
+Budgets cascade down the org chart. The Board sets company-level budgets. The CEO sets budgets for agents below them. Every manager agent can do the same for their reports. The Board can manually override any budget at any level.
+
+### Atomic Enforcement
+
+Budget checks are atomic — check budget, deduct, and authorize happen in a single operation. Combined with atomic task checkout, this prevents the two biggest multi-agent failure modes: double-work (two agents picking up the same task) and runaway spend (agents exceeding their budget between checks).
+
+---
+
+## Governance
+
+Governance is the set of rules and controls that keep the autonomous org operating within bounds.
+
+### Approval Gates
+
+Certain actions require Board approval before they execute. In V1: new agent hires and the CEO's initial strategic breakdown. The approval flow is: agent proposes action → approval created → Board reviews → Board approves/rejects → agent receives notification and acts accordingly.
+
+### Agent Pause/Resume
+
+The Board can pause any agent at any time. Pause behavior follows a graceful sequence: signal the current execution, give a grace period to wrap up and save state, force-kill after timeout if needed, and stop future heartbeats until resumed.
+
+### Config Revisions
+
+Agent configuration changes are versioned in the `agent_config_revisions` table. This enables rollback — if a config change causes problems, revert to the previous revision. Combined with the activity log, every change is traceable.
+
+### Activity Logging
+
+Every mutation in the system is recorded in the activity log. This creates an immutable audit trail: who did what, when, and why. The activity log is separate from the task system — it captures system-level events, not just task-level work.
+
+---
+
+## Company Portability
+
+One of Paperclip's strongest design decisions is treating company configurations as portable, exportable artifacts.
+
+### Export Modes
+
+**Template export** (default) — structure only: agent definitions, org chart, adapter configs, role descriptions. Optionally includes seed tasks to bootstrap the first run. Secrets are scrubbed. This is the blueprint for spinning up a new company.
+
+**Snapshot export** — full state: structure plus current tasks, progress, agent status. A complete picture that could be restored or forked.
+
+### Import Handling
+
+Import handles ID collisions (what if an agent ID already exists in the target instance?), secret scrubbing (secrets are never exported — you re-enter them on import), and structural validation (is the org chart consistent? do all reporting lines resolve?).
+
+### The Typical Workflow
+
+Export a template → create a new company from it → add initial tasks → configure API keys and secrets → set budgets → start.
+
+---
+
+## ClipHub — The Company Marketplace
+
+ClipHub is Paperclip's planned public registry where people share, discover, and download company configurations. The vision: "you can literally download a company."
+
+### What Gets Published
+
+A ClipHub package is a company template export containing: company metadata (name, description, category), org chart (full hierarchy), agent definitions (name, role, adapter config, capabilities), seed tasks, and budget defaults.
+
+### Sub-Packages
+
+ClipHub also supports individual components: agent templates (a single agent config like "Senior TypeScript Engineer"), team templates (a subtree like "Marketing Team: CMO + 3 reports"), and adapter configs (reusable configurations independent of role).
+
+### Discovery
+
+The registry supports semantic search (vector embeddings — search by intent, not just keywords), category browsing (Software Development, Marketing, Content, Research, Operations, Sales, Finance, Creative), community signals (stars, downloads, forks), and detailed listing pages with interactive org charts.
+
+### Installation
+
+```bash
+paperclipai install cliphub:<publisher>/<company-slug>
+```
+
+This downloads the template and creates a new company locally. Forking is supported — fork a template, modify it, republish your variant with lineage tracking.
+
+### Moderation
+
+Automated scanning checks adapter configs for suspicious patterns (arbitrary code execution, exfiltration URLs). Community reporting with auto-hide on multiple reports. Manual review by moderators. New accounts have a waiting period before publishing.
+
+<Callout title="ClipHub is not yet shipped" type="warn">
+ClipHub is designed and specced but not yet implemented. The company portability infrastructure (export/import) is already in place. The marketplace layer is on the roadmap.
+</Callout>
+
+---
+
+## Skills System
+
+Paperclip ships with agent skills — SKILL.md files that teach agents how to interact with the control plane. The primary skill (`skills/paperclip/SKILL.md`) covers the full heartbeat protocol: authentication, assignment checking, task checkout, context loading, status reporting, delegation, and cross-team communication rules.
+
+Additional skills include `paperclip-create-agent` (teaching an agent how to propose new hires), `paperclip-create-plugin` (teaching an agent how to scaffold plugins), and `para-memory-files` (a memory/knowledge management skill).
+
+Skills are adapter-agnostic — they can be loaded into Claude Code as a Claude Code skill, injected into prompts, or used as API documentation for custom agents. They serve as both functional tools and reference implementations for how agents should interact with the control plane.
+
+---
+
+## Design Principles
+
+Paperclip's product documentation articulates several explicit design principles:
+
+**Time-to-first-success under 5 minutes.** A fresh user should go from install to "my CEO completed a first task" in one sitting.
+
+**Board-level abstraction always wins.** The default UI should answer: what is the company doing, who is doing it, why does it matter, what did it cost, and what needs my approval.
+
+**Conversation stays attached to work objects.** There is no free-floating chat. All communication happens in the context of tasks, issues, and approvals.
+
+**Progressive disclosure.** Top layer: human-readable summary. Middle layer: checklist/steps/artifacts. Bottom layer: raw logs/tool calls/transcript.
+
+**Output-first.** Work is not done until the user can see the result — file, document, preview link, screenshot, plan, or PR.
+
+**Local-first, cloud-ready.** The mental model should not change between local solo use and shared/cloud deployment.
+
+**Safe autonomy.** Auto mode is allowed; hidden token burn is not.
+
+**Thin core, rich edges.** Put optional chat, knowledge, and special surfaces into plugins rather than bloating the control plane.

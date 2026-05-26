@@ -1,0 +1,160 @@
+---
+title: Market Opportunity
+description: The agent runtime layer is forming right now — market trends, where XO fits, who buys it, and why it's defensible.
+icon: Globe
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Market Opportunity
+
+The market XO is in is not "AI." It is not "agents." It is the **runtime layer underneath agents** — the place where they live, are managed, communicate, and are paid for. That layer did not exist as a category eighteen months ago. As of mid-2026 it is forming in real time, with hyperscalers, sandbox infra startups, and vertical agent products all converging from different angles.
+
+<Callout>
+  **The category being created in 2026 is "agent runtime."** XO's bet is to be the runtime that works across every agent, every model, and every cloud — before any single hyperscaler claims that ground for itself.
+</Callout>
+
+## Market trends
+
+Two trends define this market. Both are happening right now, on the same calendar window.
+
+### Agents are entering the workforce
+
+The trends documented in [Progress](/docs/progress) — Anthropic's $1B → $44B revenue curve in seventeen months, Claude Code reaching $2.5B+ ARR by February 2026, OpenClaw passing React's all-time GitHub star count in 60 days, the broader open long-running agent ecosystem inflecting in parallel — all point at the same conclusion when stacked together: **AI agents have crossed from "interesting demo" into "actual seat-replacing worker."** The market is no longer asking *whether* agents can do real work; it is asking how many seats they should occupy.
+
+<AgentWorkforceMomentumGrid title="Agents enter the workforce — six baseline numbers (2026)" />
+
+The shape of the change matters more than any single number. Inside-the-firewall agentic AI was 0% of decisions in 2024 and is forecast at 15% by 2028 — a four-year zero-to-meaningful transition, the same speed cloud went from experiment to default in the late 2000s and SaaS in the early 2010s. Each of those transitions created a new infrastructure category underneath. **This one creates the agent runtime category.** XO's specific bet on this curve: the unit of agent deployment compresses from "one agent doing a task" to "an AI Employee with memory" to "an Org of agents collaborating" to "an Autonomous Agency operating on its own" — all on the same one-click runtime. (See [What's Next](/docs/whats-next) for the four-phase product arc that maps directly onto these workforce-entry tiers.)
+
+### The next trillion users are agents
+
+Y Combinator made the structural call explicit in its **Summer 2026 Requests for Startups**. From the YC RFS "Software for Agents" mandate ([source](https://thenextweb.com/news/yc-summer-2026-rfs-hard-tech-pivot)):
+
+> *Rebuild every major software category for a world where the next trillion users are not people but AI agents.*
+
+<HumanVsAgentInternetStackDiagram title="The internet, twice — once for humans, once for agents" />
+
+What YC is naming is a quantitative shift in the user base of the internet itself. Today, the internet has roughly **5 billion human users**. The agent population, if Gartner and IDC's projections hold, ends 2026 with hundreds of millions of agents in production and is on a path to billions over the following few years — and unlike human users, agents work continuously, in parallel, across many tasks at once. **One agent generates more inference, more API calls, and more workspace-hours than the human who owns it.** That is the math behind IDC's "1000× inference demand by 2027" forecast.
+
+The diagram above is the structural implication. Each row on the right is a category that did not exist as a standalone product five years ago — and each one is being built right now. Cloud, payment, and identity infrastructure for the human internet built into trillion-dollar categories: Vercel, Stripe, Auth0, Cloudflare, npm. **The agent equivalents are forming in 2026, and the decisions about which providers anchor each layer are being made over the next 12–24 months.** XO is in the bottom row of the right column: the place where agents run.
+
+<Callout type="info">
+  **Together, these two trends make the runtime layer load-bearing.** Agents are graduating into the workforce, and the user base of the internet is about to become mostly non-human. The runtime is what makes both work. That is the demand signal XO is positioned against.
+</Callout>
+
+## Where XO fits in
+
+The market XO is in is the **runtime layer underneath agents** — the operational layer that turns "I want an agent that runs every day" into "an agent that runs every day, reliably, for a known cost, without taking a senior engineer to keep alive."
+
+For any business or individual relying on long-running agents, the choice the buyer is actually making — the moment they go from "I tried an agent" to "I run agents" — looks like this:
+
+<DiyVsManagedRuntimeDiagram title="What you carry yourself vs what XO absorbs" />
+
+Each row in the diagram is a problem that has to be solved for a long-running agent to be useful in production. Read across:
+
+- **Setup time** — DIY is 4–8 hours of Linux / Docker / sandbox config. XO is one click, 60 seconds, working agent.
+- **Monthly maintenance** — DIY is 1–2 hours of updates, log review, intermittent-failure debugging. XO is minutes per check-in.
+- **Per-incident time** — A bad Docker update or an API schema change is 2–6 hours of incident work for DIY. For XO it's vendor-handled.
+- **Effective monthly cost** — Compute plus operator time for DIY is $121–$240/month. XO is $14–$55/month all-inclusive.
+- **Runaway-cost protection** — DIY relies on manual quotas that are easy to misconfigure. XO has built-in budget enforcement at the workspace level.
+- **Observability** — DIY observability is self-built and often missing. XO traces every prompt, every model response, every tool call by default.
+- **Permission boundaries** — DIY tends to be manual and binary. XO is role-based, per-tool, per-agent.
+- **Multi-agent coordination** — DIY means building the message bus yourself. XO ships it as a native primitive ([Phase 1 of the Plan](/docs/plan)).
+
+**DIY means you solve all eight yourself, every time, for every agent.** Managed means a runtime platform absorbs them by default — and you get to focus on what the agent does, not how it stays alive.
+
+The cost of choosing wrong is not theoretical. **Gartner forecasts that over 40% of agentic AI projects will be cancelled by the end of 2027** ([Gartner, 2025-06-25](https://www.gartner.com/en/newsroom/press-releases/2025-06-25-gartner-predicts-over-40-percent-of-agentic-ai-projects-will-be-canceled-by-end-of-2027)) — and every cancellation cause Gartner names (escalating costs, inadequate risk controls, "Innovation Theater" prototypes that don't reach production) is a runtime-layer problem, not a model or agent problem.
+
+<Callout>
+  **XO's product is the move from the left column to the right column — done, not built.** That is the value, and it is the same shape for any business or individual relying on long-running agents.
+</Callout>
+
+## Who XO is for today
+
+The eight-row absorption in the previous section matters to very different buyers, but the operational burden is identical and the value delivered is the same shape.
+
+<CustomerSegmentGrid title="Six segments. Same runtime layer. Same value." />
+
+Every segment in the grid above shares one underlying job: **they want output from agents, but they do not want to manage servers, tokens, reliability, setup, monitoring, or workspace operations.** XO is the layer that stands between them and that operational burden.
+
+The wedge today is the top-left two segments — solo founders and SMBs — because that is where agent demand is most concentrated and procurement friction is lowest. The expansion path runs through the bottom row — enterprise innovation teams converting agent pilots into production contracts, and white-label partners (Pharos, EVM, Multi-Gen — see [Partners](/docs/partners)) extending the platform into customer bases XO doesn't sell into directly. The dev shops and small funds in the middle row are the bridge: they pay early, they generate concrete case studies, and they introduce XO into accounts that later upgrade to enterprise. (See [Customers](/docs/customers) for the full segment-by-segment read and [Distribution](/docs/distributions) for how the channels light up phase by phase.)
+
+### And the future buyer is the agent itself
+
+Every segment in the grid above is **a human or a team buying for their own use**. That is the customer base of 2026. The customer base over the next ten years includes a population that does not exist on the grid yet — **the agents themselves**.
+
+YC's framing of "the next trillion users are agents" (see [The next trillion users are agents](#the-next-trillion-users-are-agents) above) is not a metaphor — it is the natural endpoint of the trajectory the workforce-entry data describes. As agents move from "task helpers" to "AI Employees" to "Orgs" to "Autonomous Agencies" (the four-phase product arc in [What's Next](/docs/whats-next)), the agents themselves start needing the same things their human owners need today: a workspace, a budget, a credential, an identity, the ability to spawn a sub-agent, the ability to pay for a tool call, the ability to coordinate with another agent in another org. **The runtime layer that serves humans buying for agents today is the same runtime layer that serves agents buying for themselves tomorrow.**
+
+That is why XO's product surface — workspaces, identity, budgets, multi-agent primitives, MCP — is built deliberately to scale across both. The customer in 2026 is the human; the customer in 2030 includes the agent. **One platform, one runtime, both eras.**
+
+<Callout type="info">
+  **The market XO is in is not segment-specific, and not even species-specific.** The DIY column above hurts the solo founder, the SMB, and the enterprise innovation team today; tomorrow it hurts the agents that those buyers spawned and that now need a runtime of their own. One product, one runtime, six buyer profiles today, a trillion agent-users on the horizon.
+</Callout>
+
+## Growth drivers
+
+Six compounding tailwinds — three from the supply side, three from the demand side — converge on the agent runtime layer. They don't add, they multiply.
+
+<GrowthDriversForcesDiagram title="Six forces compounding into the agent runtime category" />
+
+### Concrete moves already in motion
+
+Every hyperscaler and major model lab has now shipped, or is shipping, an agent-runtime offering. The category is being defined right now.
+
+| Move | When | What it means |
+|---|---|---|
+| AWS Bedrock AgentCore compute pricing GA | March 2026 | Hyperscaler runtime answer is in market — at hyperscaler-locked pricing. |
+| Azure AI Foundry Hosted Agents preview | Spring 2026 | Microsoft is matching AWS, fighting for the same enterprise. |
+| Vertex AI Agent Engine + ADK GA | 2026 | Google has chosen its cross-framework runtime story. |
+| OpenAI Workspace Agents preview | Spring 2026 | Model lab is moving up into the runtime layer. |
+| Cloudflare Sandbox SDK GA | April 2026 | Edge has joined the runtime category. |
+| MCP donated to the Linux Foundation Agentic AI Foundation | 2026 | The plumbing standard is now neutral. |
+| Sandbox-infra startups (E2B, Daytona, Modal, Runloop, Northflank) all funded and adding orchestration | Ongoing | Bottom-up players are moving up the stack. |
+
+**Read the table together: every cloud provider and every model lab is racing to lower the barrier to running agents at scale — because they expect the workload to land, and they're choosing not to be the bottleneck.** That race is the clearest signal that heavy agentic workloads are about to be the default, and the runtime layer is the place those workloads have to land.
+
+## Why XO is uniquely positioned
+
+<PositioningPillarsMatrix title="Three pillars — XO is the only row with a checkmark on all three" />
+
+Read the matrix top to bottom. Vertical agent products miss all three pillars; hyperscaler runtimes give partial credit on two and fail on portability; sandbox-infra SDKs get the first two right but ship a developer SDK instead of a product. **Only the XO row checks all three.**
+
+### 1. Open, not locked
+
+Locked products (Devin, Replit Agent, Cursor agents, Cosine, Manus, Factory.ai) ship the agent and runtime as one closed appliance. Users can't modify the agent, can't swap the model, can't bring their own tools, and have limited visibility into what the agent does. Agents still need a place to land and work — a workspace the user can see into, inspect, and own. XO is that place.
+
+### 2. No framework dependence
+
+Agent-locked products require trusting *that* agent. Hyperscaler runtimes require trusting *that* cloud. XO requires neither. Users pick the agents they already trust — OpenClaw, Claude Code, Codex, Hermes, custom — and XO runs them on the same surface. The trust decision stays at the agent layer where it belongs, and the bar to adopting XO drops to "will it run the agent I picked." Yes.
+
+### 3. Lightweight, composable, launches anywhere
+
+Sandbox-infra (E2B, Daytona, Modal, Vercel Sandbox, Cloudflare, Runloop) is agnostic but ships an SDK, not a product. Hyperscaler runtimes ship a product but drag their entire cloud stack with them. XO is the only one that ships both — the same three-layer architecture (see [Technology](/docs/technology)) spins up in 60 seconds, runs any agent, and deploys on XO Cloud, customer cloud, on-prem, or air-gapped without forking the platform.
+
+(Full breakdown of every player on this map: [Competitive Landscape](/docs/competitive-landscape).)
+
+<Callout>
+  **Open, framework-agnostic, lightweight enough to run anywhere.** Three pillars, one empty quadrant, one defensible position.
+</Callout>
+
+## What we have to be right about
+
+Honest read of the market assumptions this opportunity rests on. Each one is a real risk; each one comes with a structural hedge that the way XO is built protects against asymmetrically.
+
+<RisksAndHedgesDiagram title="Four assumptions, four risks, four structural hedges" />
+
+**Agents have to keep getting better.** The whole thesis assumes the model + agent capability curve continues. If long-running agent reliability stalls, the addressable workload narrows. The hedge is that XO is agent- and model-agnostic — every improvement anywhere in the ecosystem accrues to XO regardless of which lab makes it.
+
+**The runtime layer has to stay distinct from the agent layer.** If a single agent product wins so completely that "agent" and "runtime" collapse into one purchase (e.g., everyone just buys Devin and uses Devin's own runtime), the cross-ecosystem position weakens. The hedge is that the OSS agent ecosystem is fragmenting, not consolidating, and enterprises explicitly want optionality.
+
+**The cross-cloud position has to stay valuable.** If one hyperscaler captures so much of the agent market that buyers stop caring about portability, the Switzerland frame loses force. The current data goes the other way — every hyperscaler is shipping its own agent runtime, none is dominant, and enterprise buyers are explicitly raising vendor-lock concerns.
+
+**Solo / SMB demand has to convert into enterprise pipeline.** The wedge cohort has to seed the larger contracts that make the long-term economics work. The early signal here is encouraging — partner deals (Pharos, EVM, Multi-Gen) and Marketplace pipeline are already validating the path — but Phase 2's [Distribution](/docs/distribution-phase-2) work is what turns wedge into pipeline at scale.
+
+<Callout type="info">
+  **Re-read this page in 90 days.** The agent runtime category is moving fast enough that any market frame written today is partly stale by next quarter. The thesis stays the same; the numbers and competitive moves keep sharpening.
+</Callout>
+
+<Callout>
+  → [Competitive Landscape](/docs/competitive-landscape) for who else is in this market · [Plan](/docs/plan) and [What's Next](/docs/whats-next) for the product arc that captures it · [Distribution](/docs/distributions) for how the channels light up · [Customers](/docs/customers) for the segment-by-segment read
+</Callout>

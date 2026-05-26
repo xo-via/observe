@@ -1,0 +1,189 @@
+---
+title: Data Model
+description: "XO-PAN database schema — agents, tasks, execution, audit. Adapted from Paperclip, deployed to Olares Citus PostgreSQL."
+---
+
+# Data Model
+
+XO-PAN reuses Paperclip's schema, deployed to Olares' **Citus PostgreSQL** cluster. The key tables and their XO-PAN mappings are organized into four groups: core entities, work hierarchy, execution & audit, and communication.
+
+---
+
+## Core Entities
+
+```sql
+-- An Olares instance = one company (the "Org")
+CREATE TABLE companies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,              -- e.g. "My Home Lab" or "Acme Corp"
+  prefix TEXT UNIQUE NOT NULL,     -- e.g. "PAN" for issue keys
+  require_board_approval_for_new_agents BOOLEAN DEFAULT true,
+  settings JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Human operators (via LarePass identity)
+CREATE TABLE company_memberships (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES companies(id),
+  larepass_user_id TEXT NOT NULL,  -- LarePass identity (replaces Clerk userId)
+  membership_role TEXT NOT NULL,   -- 'owner' | 'member'
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(company_id, larepass_user_id)
+);
+
+-- Registered agents
+CREATE TABLE agents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES companies(id),
+  name TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'general',
+  -- roles: ceo | manager | engineer | researcher | qa | general
+  reports_to UUID REFERENCES agents(id),
+  adapter_type TEXT NOT NULL,
+  -- adapters: 'mcp' | 'ollama' | 'claude_local' | 'process' | 'http'
+  adapter_config JSONB NOT NULL,    -- endpoint, model, cwd, timeouts, etc.
+  capabilities TEXT[],              -- indexed for capability matching
+  permissions JSONB DEFAULT '{}',   -- canCreateAgents, canApproveHires, etc.
+  status TEXT DEFAULT 'active',     -- active | paused | pending_approval
+  budget_monthly_cents INTEGER,
+  spent_monthly_cents INTEGER DEFAULT 0,
+  resource_requirements JSONB,      -- gpu, vram, memory constraints
+  last_heartbeat_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Fine-grained permission grants
+CREATE TABLE principal_permission_grants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES companies(id),
+  permission_key TEXT NOT NULL,
+  principal_type TEXT NOT NULL,     -- 'agent' | 'user'
+  principal_id UUID NOT NULL,
+  granted_by_user_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+**Entity Mapping:**
+
+| Paperclip Concept | XO-PAN Equivalent |
+|---|---|
+| Company | An Olares instance (single-tenant) or an Org within it (multi-tenant) |
+| Board User | Human operator authenticated via LarePass |
+| Agent | Any AI app registered to the network (Ollama model, Claude Code, OpenClaw, custom) |
+| `adapter_type` | How XO-PAN communicates with the agent (MCP, HTTP, process, etc.) |
+
+---
+
+## Work Hierarchy
+
+```sql
+CREATE TABLE goals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES companies(id),
+  title TEXT NOT NULL,
+  description TEXT,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE projects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES companies(id),
+  goal_id UUID REFERENCES goals(id),
+  name TEXT NOT NULL,
+  status TEXT DEFAULT 'planned',
+  -- statuses: planned | in_progress | paused | completed | cancelled
+  workspace_config JSONB,          -- cwd, repoUrl, branch
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE issues (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES companies(id),
+  project_id UUID REFERENCES projects(id),
+  parent_id UUID REFERENCES issues(id),
+  goal_id UUID REFERENCES goals(id),
+  key TEXT NOT NULL,                -- e.g. "PAN-42"
+  title TEXT NOT NULL,
+  description TEXT,
+  status TEXT DEFAULT 'backlog',
+  -- statuses: backlog | todo | in_progress | done | blocked | cancelled
+  assignee_agent_id UUID REFERENCES agents(id),
+  checkout_run_id UUID,
+  execution_locked_at TIMESTAMPTZ,
+  labels TEXT[],
+  priority INTEGER DEFAULT 3,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+**Hierarchy:** Goals → Projects → Issues → Sub-Issues (via `parent_id`). Agents are company-scoped and can be assigned issues from any project.
+
+---
+
+## Execution & Audit
+
+```sql
+CREATE TABLE heartbeat_runs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID REFERENCES agents(id),
+  company_id UUID REFERENCES companies(id),
+  invocation_source TEXT NOT NULL,
+  -- sources: assignment | issue_comment_mentioned | scheduled | system
+  status TEXT DEFAULT 'running',
+  -- statuses: running | completed | failed | timed_out
+  context_snapshot JSONB,
+  usage_json JSONB,                 -- tokens, costs
+  result_json JSONB,
+  started_at TIMESTAMPTZ DEFAULT now(),
+  completed_at TIMESTAMPTZ,
+  log_path TEXT                     -- path to NDJSON run log on disk
+);
+
+CREATE TABLE agent_wakeup_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID REFERENCES agents(id),
+  reason TEXT NOT NULL,
+  trigger_issue_id UUID REFERENCES issues(id),
+  trigger_comment_id UUID,
+  coalesced BOOLEAN DEFAULT false,
+  processed BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE agent_runtime_state (
+  agent_id UUID PRIMARY KEY REFERENCES agents(id),
+  total_input_tokens BIGINT DEFAULT 0,
+  total_output_tokens BIGINT DEFAULT 0,
+  total_cost_cents INTEGER DEFAULT 0,
+  last_error TEXT,
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+Each heartbeat run produces an NDJSON transcript at a path on disk (referenced by `log_path`). These files are the primary audit trail and are never auto-deleted.
+
+---
+
+## Agent Communication Log
+
+```sql
+-- Persisted record of agent-to-agent messages
+-- NATS messages are ephemeral; this table is the audit copy
+CREATE TABLE agent_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES companies(id),
+  from_agent_id UUID REFERENCES agents(id),
+  to_agent_id UUID REFERENCES agents(id),  -- NULL for broadcasts
+  subject TEXT NOT NULL,                    -- NATS subject
+  message_type TEXT NOT NULL,
+  -- types: task_assignment | context_update | status_change | escalation | query
+  payload JSONB NOT NULL,
+  issue_id UUID REFERENCES issues(id),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+Every message published on the NATS agent mesh is also persisted here for audit and debugging. The `payload` column stores the full message body.

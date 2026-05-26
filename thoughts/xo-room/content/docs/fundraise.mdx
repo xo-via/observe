@@ -1,0 +1,208 @@
+---
+title: Fundraise
+description: Small angel SAFE, use of funds, and 6-8 month execution plan.
+icon: Rocket
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Fundraise
+
+<Callout>
+  XO is raising a small **$500K angel round on a SAFE** to fund the next 6-8 months of focused product, reliability, and early go-to-market work.
+</Callout>
+
+This round is intentionally simple. It is not a large institutional seed, and it is not built around a long speculative roadmap. The goal is to buy enough time to turn the early OpenClaw/v1 signal into stronger retention, clearer usage data, a more reliable product, and a repeatable path to revenue.
+
+## Round Snapshot
+
+| Detail | Value |
+|---|---|
+| **Round type** | Small angel round |
+| **Target raise** | $500,000 |
+| **Instrument** | SAFE |
+| **Runway target** | 6-8 months |
+| **Primary use** | Product reliability, agent infrastructure, usage visibility, and focused GTM |
+| **Round detail shared here** | Kept intentionally light; valuation and other SAFE-specific terms are handled directly with investors |
+
+<Callout type="info">
+  The investor story is simple: this capital is not for broad paid marketing. It is for proving that XO can retain users, create organic pull, and make agent workforces operationally reliable.
+</Callout>
+
+## KPI Targets
+
+These are the operating targets the round is meant to make credible.
+
+| KPI | Target |
+|---|---:|
+| **Active agents** | **50,000** |
+| **Monthly token flow** | **10T tokens** |
+| **MSA contract value** | **$2M** |
+| **Users** | **100,000** |
+
+## Use of Funds
+
+The clearest way to read the spend plan is by the same categories used in the month-by-month budget below. The gross operating model is **$840K** through November; partner infra grants and AI credits can offset **$360K**, bringing modeled cash spend to **$480K** before other unmodeled expenses. A separate **$200K AI model token-grant** pool gives XO additional token capacity beyond the shown model.
+
+![XO $500K SAFE use of funds by category](/images/fundraise-use-of-funds.svg)
+
+Every category maps back to one question: **does XO have enough usage, infrastructure, support, and growth capacity to reach the KPI targets?**
+
+| Category | Gross Modeled Spend | Share of Gross Spend | Cash After Partner Offset | Share of Cash Spend | What It Funds | Why It Matters |
+|---|---:|---:|---:|---:|---|---|
+| **Payroll** | **$160K** | **19.0%** | **$160K** | **33.3%** | Core team execution across product, infrastructure, GTM, and support | Keeps the team lean while maintaining execution speed |
+| **Operations: Onboarding, Support** | **$60K** | **7.1%** | **$60K** | **12.5%** | User onboarding, setup help, support, docs, templates, and activation workflows | Helps convert growth into retained, successful users |
+| **Infrastructure** | **$180K** | **21.4%** | **$0K if grants cover full modeled amount** | **0.0%** | Workspaces, compute, hosting, reliability, observability, and scale capacity | Needed to support active agents and higher workspace load |
+| **AI Subscriptions & Credits** | **$180K** | **21.4%** | **$0K if credits cover full modeled amount** | **0.0%** | Model access, usage credits, token flow, testing, and agent workloads | Needed to support the 10T monthly token-flow target |
+| **Marketing & Growth** | **$260K** | **31.0%** | **$260K** | **54.2%** | Launches, OpenClaw community growth, referrals, free credits, founder-led GTM, and funnel experiments | Funds the path to 100,000 users and stronger organic growth |
+| **Total** | **$840K** | **100.0%** | **$480K after $360K partner offset** | **100.0%** |  |  |
+
+<Callout type="info">
+  The $500K SAFE is not the total operating budget. It becomes enough for the modeled plan only if partner infra grants and AI credits reduce cash spend by the expected $360K, with AI model token grants adding extra non-cash token capacity.
+</Callout>
+
+## Category Narrative
+
+### Product & engineering
+
+The operating model keeps payroll controlled, but the highest-priority use of the team is still product and engineering. XO has early evidence that users want agent workspaces, especially through OpenClaw, but the product needs to become more stable, observable, and repeatable before the company scales growth.
+
+The engineering focus is:
+
+- Get Connect Claude working again for OpenClaw.
+- Add the ability to connect to models on Hermes.
+- Improve hard reset and restart flows for agents.
+- Update models, channels, and identity from CLI commands.
+- Update the Cowork API script and coder workspace cleanly.
+- Define the agent architecture and how it evolves.
+- Make it easy to turn an XO Agent into an employee-like worker.
+- Complete idempotency so agents recover from crashes at the same location.
+
+### Infrastructure, observability & data
+
+Infrastructure ramps to **$50K/month** by November as active agents, workspace usage, and reliability needs increase. This is both a reliability requirement and a business requirement.
+
+The capital here funds:
+
+- Workspace compute and runtime capacity.
+- Total token usage collection.
+- Token collection in Claude Code and other templates.
+- Logging and monitoring for background agent activity.
+- PostHog for error tracking, product analytics, and usage visibility.
+- Cost controls across models, workspaces, and agent sessions.
+
+If partner infrastructure grants cover the modeled **$180K**, the cash burden of this category can be reduced to zero through November.
+
+### Focused GTM & community
+
+Marketing & Growth is still the largest cash category at **$260K** after reallocating $40K into payroll. That spend should not be treated as broad vanity marketing. It should stay tied to the communities and channels where product value is already showing up.
+
+The priority is:
+
+- OpenClaw-led growth.
+- Organic word of mouth.
+- Referral credits for users who invite others.
+- Founder-led conversations with active users and early B2B prospects.
+- Launch support when the product signal justifies it.
+- Funnel experiments tied to retained users, active agents, and token flow.
+
+The goal is not raw top-of-funnel growth. The goal is to learn which users retain, why they retain, and what makes them invite others.
+
+### AI subscriptions & credits
+
+AI subscriptions and credits ramp to **$50K/month** by November as token flow and agent workloads increase.
+
+This covers model access, usage credits, agent testing, token-heavy workflows, and user activation. If partner AI credits cover the modeled **$180K**, the cash burden of this category can be reduced to zero through November. A separate **$200K AI model token-grant** pool would give XO more room for token-heavy usage above the current plan.
+
+This spend has to support the **10T monthly token-flow** target while giving the team enough usage data to understand what agent work is actually valuable.
+
+### Customer success, docs & templates
+
+Operations stays constant at **$10K/month**. This is the layer that helps convert spend into retained users.
+
+This category funds:
+
+- Better setup documentation.
+- More reliable templates.
+- A Cowork API OpenAPI client so users can try the backend.
+- Improved support for early OpenClaw, Claude Code, Codex, and workspace users.
+- Cleaner launch paths that reduce or remove the need for users to bring their own API keys.
+- Activation help for early power users.
+
+For XO, onboarding is part of the product. If users need the team to explain every step manually, the product is not ready to scale.
+
+### What the spend has to prove
+
+The spend is justified if it moves XO toward **50,000 active agents**, **10T monthly token flow**, **$2M in MSA contract value**, and **100,000 users** while improving retention and reliability.
+
+## Month-by-Month Deployment
+
+The month-by-month plan below shows the visible operating buckets from **June through November**. Payroll steps up by $10K/month from August through November after reducing Marketing & Growth by $40K. Operations stays constant, then infrastructure and AI credits ramp with usage, and Marketing & Growth remains the flexible growth bucket.
+
+<Callout type="warn">
+  This chart only includes the categories listed below. It does not yet account for every company expense, including legal/accounting, taxes, payment processing, emergency reserve, one-off vendors, travel, recruiting, and other unexpected operating expenses. Actual total burn will be higher than the shown monthly expense.
+</Callout>
+
+![XO $500K SAFE month-by-month spend plan](/images/fundraise-spend-plan.svg)
+
+| Month | Payroll | Operations: Onboarding, Support | Infra | AI Subscriptions & Credits | Marketing & Growth | Total Monthly Expense Shown |
+|---|---:|---:|---:|---:|---:|---:|
+| **June** | **$20K** | **$10K** | **$10K** | **$10K** | **$50K** | **$100K** |
+| **July** | **$20K** | **$10K** | **$18K** | **$18K** | **$25K** | **$91K** |
+| **August** | **$30K** | **$10K** | **$26K** | **$26K** | **$25K** | **$117K** |
+| **September** | **$30K** | **$10K** | **$34K** | **$34K** | **$40K** | **$148K** |
+| **October** | **$30K** | **$10K** | **$42K** | **$42K** | **$55K** | **$179K** |
+| **November** | **$30K** | **$10K** | **$50K** | **$50K** | **$65K** | **$205K** |
+| **Total shown** | **$160K** | **$60K** | **$180K** | **$180K** | **$260K** | **$840K** |
+
+## Partner Grants & Credits
+
+If XO secures **$200K in infrastructure grants**, **$200K in AI credits**, and **$200K in AI model token grants** from partners, the modeled cash need drops materially. The reduction inside the shown June-November model is still **$360K**, because the current model includes $180K of infrastructure cost and $180K of AI subscription/credit cost. The additional model token grants create extra non-cash capacity for token flow above the shown plan.
+
+| Partner Support | Available | Applied to June-November Model | Remaining Partner Capacity |
+|---|---:|---:|---:|
+| **Infrastructure grants** | **$200K** | **$180K** | **$20K** |
+| **AI credits** | **$200K** | **$180K** | **$20K** |
+| **AI model token grants** | **$200K** | **$0K in shown model** | **$200K** |
+| **Total partner support** | **$600K** | **$360K** | **$240K** |
+
+| Spend View | Amount |
+|---|---:|
+| **Gross modeled spend** | **$840K** |
+| **Less: infra grants applied** | **-$180K** |
+| **Less: AI credits applied** | **-$180K** |
+| **Net modeled cash spend** | **$480K** |
+| **Remaining from $500K round before other expenses** | **$20K** |
+| **Additional partner capacity after shown model** | **$240K** |
+
+<Callout type="info">
+  Partner credits make the $500K angel round much more efficient: the same $840K operating ramp can be supported with roughly $480K of cash spend through November, before unmodeled expenses. The extra AI model token grants give XO additional usage headroom without immediately increasing cash burn.
+</Callout>
+
+## Runway on Monthly Spending
+
+This runway view uses the shown monthly expenses above, then applies the partner infra grants and AI credits to estimate cash burn. The $500K round is still the angel raise target, **not a hard cap on the operating plan**, but with partner coverage the shown model stays within the round through November before unmodeled expenses. The AI model token grants are not applied to the shown runway table yet because they are reserved for token usage above the current budget.
+
+| Month | Gross Monthly Expense | Partner Offset | Cash Expense After Credits | Cumulative Cash Spend | Position vs. $500K Round |
+|---|---:|---:|---:|---:|---:|
+| **June** | **$100K** | **-$20K** | **$80K** | **$80K** | **$420K remaining** |
+| **July** | **$91K** | **-$36K** | **$55K** | **$135K** | **$365K remaining** |
+| **August** | **$117K** | **-$52K** | **$65K** | **$200K** | **$300K remaining** |
+| **September** | **$148K** | **-$68K** | **$80K** | **$280K** | **$220K remaining** |
+| **October** | **$179K** | **-$84K** | **$95K** | **$375K** | **$125K remaining** |
+| **November** | **$205K** | **-$100K** | **$105K** | **$480K** | **$20K remaining** |
+
+## What This Round Should Prove
+
+By the end of this runway, XO should be able to show:
+
+- Retention is improving across the strongest user segment.
+- Organic and referral growth is starting to compound.
+- Users can launch and recover agents without heavy manual support.
+- The team can see token usage, agent activity, errors, and cost drivers.
+- OpenClaw and related templates create a credible wedge into the market.
+- XO has a sharper answer to which customers are willing to pay and why.
+
+<Callout>
+  The round is successful if XO exits this period with stronger retention, clearer usage data, and a product reliable enough to justify the next stage of capital or revenue growth.
+</Callout>

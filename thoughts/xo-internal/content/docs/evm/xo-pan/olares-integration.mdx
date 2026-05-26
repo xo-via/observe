@@ -1,0 +1,146 @@
+---
+title: Olares Integration
+description: "How XO-PAN connects to Olares infrastructure — Kubernetes namespaces, NATS, Citus PostgreSQL, HAMi GPU scheduler, LarePass auth, and the app marketplace."
+---
+
+# Olares Integration Points
+
+XO-PAN is designed to be a native Olares citizen — it consumes Olares' existing infrastructure services rather than duplicating them. This page documents each integration point.
+
+---
+
+## Kubernetes Namespace
+
+XO-PAN deploys into `user-system-\{username\}` alongside the user's other apps. The deployment consists of:
+
+```yaml
+# XO-PAN Kubernetes resources within Olares user namespace
+StatefulSet:
+  - xo-pan-gateway        # FastAPI — Gateway + Orchestration Engine
+  
+# Olares shared services (already running, no deployment needed):
+  - nats                   # os-platform namespace, accessible via cluster DNS
+  - citus-postgresql       # os-platform namespace
+  - redis                  # os-platform namespace
+```
+
+XO-PAN runs as a **single StatefulSet** to minimize resource overhead. The Gateway, Registry, Orchestration Engine, and Scheduler are co-located in one process (FastAPI with background tasks). This is appropriate for single-node deployments. For multi-node (enterprise), these can be split into separate deployments.
+
+---
+
+## NATS Integration
+
+Olares runs NATS in the `os-platform` namespace. XO-PAN connects as a client:
+
+```
+NATS URL: nats://nats.os-platform.svc.cluster.local:4222
+```
+
+**Subject authorization:** XO-PAN creates NATS accounts per agent, restricting each agent to:
+
+- **Subscribe:** `xo.agent.{ownId}.inbox`, `xo.agent.{ownId}.wakeup`, `xo.task.*.updates` (filtered by assigned tasks)
+- **Publish:** `xo.task.{assignedIssueId}.updates`, `xo.network.heartbeat`
+
+This prevents Agent A from reading Agent B's inbox — enforced at the NATS level.
+
+**Open question:** Does Olares' NATS deployment support per-subject ACLs natively, or do we need a proxy layer?
+
+---
+
+## Citus PostgreSQL
+
+Olares runs Citus PostgreSQL in `os-platform`. XO-PAN creates its own database within the cluster:
+
+```
+Host: citus-postgresql.os-platform.svc.cluster.local
+Database: xo_pan
+```
+
+All tables from the [Data Model](/docs/evm/xo-pan/data-model) live in this database. Citus distribution keys can be set on `company_id` for future multi-tenant scaling.
+
+**Open question:** Can marketplace apps create their own databases within the Citus cluster, or must they use a provisioned one?
+
+---
+
+## HAMi GPU Scheduler
+
+When the Orchestration Engine schedules a heartbeat run for a GPU-requiring agent, it requests GPU resources via HAMi's API:
+
+```
+Scheduler → HAMi API:
+  Request: { agentId, vramRequired: 8192MB, durationEstimate: "10m" }
+  Response: { granted: true, gpuId: 0, vramAllocated: 8192MB }
+  
+Scheduler → Agent Wakeup:
+  Includes GPU allocation in context_snapshot so the agent knows which GPU to use
+```
+
+If GPU is unavailable, the wakeup is queued with a `gpu_pending` status and retried on next scheduler cycle.
+
+**HAMi allocation modes relevant to XO-PAN:**
+
+| Mode | When to Use |
+|---|---|
+| **Memory-slicing** | Multiple agents need concurrent GPU access (e.g., CEO + Engineer both running Ollama models). Slice the RTX 5090's 24GB into 8GB per agent. |
+| **Time-slicing** | Agents with bursty GPU needs. Share the full GPU across agents with time-based scheduling. |
+| **Exclusive** | A single agent needs the full GPU (e.g., model training or large inference). |
+
+**Open question:** What is HAMi's API contract for programmatic GPU allocation from within an app? Is it a Kubernetes CRD, REST API, or something else?
+
+---
+
+## LarePass Authentication
+
+Human users authenticate via LarePass (Olares' cross-app SSO). The mapping:
+
+```
+LarePass User → company_memberships.larepass_user_id
+LarePass JWT  → validated by Gateway on every REST/SSE request
+```
+
+Agent-to-agent auth uses API keys issued at registration. These keys are stored encrypted in Citus PG and validated by the Gateway.
+
+**Why not Clerk:** XO's cloud platform uses Clerk for identity. XO-PAN on Olares uses LarePass instead because:
+
+1. Clerk requires internet access — violates NF5 (zero external network calls)
+2. Duplicating identity systems creates confusion for users
+3. LarePass provides SSO across all Olares apps — XO-PAN should be a first-class citizen
+
+**Trade-off:** Lose Clerk's webhook-based metadata sync. Need to build a LarePass adapter for the RBAC system.
+
+---
+
+## Olares App Marketplace
+
+XO-PAN is distributed as an **Olares Market application**. The app manifest:
+
+```yaml
+# OlaresManifest.yaml (simplified)
+metadata:
+  name: xo-private-agent-network
+  title: "XO Agent Network"
+  description: "Private multi-agent orchestration for your AI workforce"
+  category: AI
+  version: 1.0.0
+
+permission:
+  appData: true
+  sysData:
+    - group: service.nats
+      dataType: event
+      ops: ["create", "read"]
+    - group: service.postgresql
+      dataType: database
+      ops: ["create", "read", "update", "delete"]
+    - group: api.hami
+      dataType: gpu
+      ops: ["read", "create"]
+
+middleware:
+  postgresql:
+    database: xo_pan
+  nats: {}
+  redis: {}
+```
+
+Users install XO-PAN from the Olares Market with one click. The manifest declares required permissions (NATS, PostgreSQL, GPU access), and Olares provisions the middleware automatically.

@@ -1,0 +1,459 @@
+---
+title: Files API
+icon: Archive
+description: Upload, list, read, write, and create directories. Includes the project scaffold flow.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+The files API operates directly on the workspace filesystem, clamped to `$HOME`. Use it for editor flows, attachments, and project creation.
+
+## Endpoint summary
+
+| Verb | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/files/upload` | Multipart upload (max 100 MB), sha256 dedupe. |
+| `POST` | `/api/files/list-directory` | List immediate children of a directory. |
+| `POST` | `/api/files/content` | Read text content of a file. |
+| `POST` | `/api/files/content-binary` | Stream binary content as a download response. |
+| `POST` | `/api/files/save` | Write text content to a file (creates parents). |
+| `POST` | `/api/files/mkdir` | Create a directory; with `scaffold:true`, build a canonical xo-project tree. |
+
+<Callout type="warn">
+Every endpoint that takes a `path` field is **clamped to `$HOME`**. Anything that resolves outside returns `403 Access denied`. The single exception is the `workspace` form field on `/api/files/upload`.
+</Callout>
+
+## 1. POST /api/files/upload
+
+Multipart file upload. Stores the file in either the explicit `workspace` directory or `~/uploads/` as a fallback.
+
+### Request
+
+`Content-Type: multipart/form-data`
+
+| Form field | Type | Required | Notes |
+|---|---|---|---|
+| `file` | `UploadFile` | yes | Max 100 MB after read; larger triggers 413. |
+| `workspace` | `str` | no | Absolute destination directory. If empty, defaults to `~/uploads/`. Created if missing. |
+
+### Behavior
+
+```
+1. Read up to (100 MB + 1 byte) of the upload.
+   if size > 100 MB → 413 Payload Too Large.
+2. Compute sha256 of the bytes.
+3. dest_dir = workspace or ~/uploads/
+4. dest_dir.mkdir(parents=True, exist_ok=True)
+5. dest = dest_dir / file.filename   (or "upload" if filename missing)
+6. If dest exists:
+     existing_hash = sha256(dest.read_bytes())
+     if existing_hash == content_hash:
+         silently overwrite with the new bytes (idempotent)
+     else:
+         dest = dest_dir / f"{stem}_{content_hash[:8]}{suffix}"   (auto-rename)
+7. dest.write_bytes(content)
+```
+
+### Response (200 OK)
+
+```jsonc
+{
+  "file_id":      "9f86d081884c7d65",            // first 16 chars of sha256
+  "name":         "report.pdf",                  // dest.name (may include hash suffix)
+  "path":         "/Users/me/uploads/report.pdf",
+  "size":         48329,                         // bytes
+  "mime_type":    "application/pdf",
+  "source":       "uploaded",
+  "content_hash": "9f86d081884c7d654f5b..."     // full sha256 hex
+}
+```
+
+`mime_type` resolution order: explicit `Content-Type` from the multipart part, then `mimetypes.guess_type(filename)`, then `"application/octet-stream"`.
+
+### Errors
+
+| Code | Body |
+|---|---|
+| 413 | `{ "detail": "File exceeds 100 MB limit" }` |
+
+### Frontend example
+
+```typescript
+async function uploadFile(file: File, workspace?: string) {
+  const fd = new FormData();
+  fd.append("file", file);
+  if (workspace) fd.append("workspace", workspace);
+
+  const res = await fetch(`${BASE}/api/files/upload`, { method: "POST", body: fd });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json() as Promise<{
+    file_id: string;
+    name: string;
+    path: string;
+    size: number;
+    mime_type: string;
+    source: "uploaded";
+    content_hash: string;
+  }>;
+}
+```
+
+### Idiosyncrasies
+
+- **No content-type validation.** Any multipart body is accepted.
+- **Same hash, silent overwrite.** Idempotent re-uploads of identical bytes leave a single file.
+- **Different hash, same name, auto-rename.** New file gets `<stem>_<8hash><suffix>`.
+- **`workspace` not clamped.** Unique to this endpoint; everything else clamps to `$HOME`.
+
+## 2. POST /api/files/list-directory
+
+List the immediate children of a directory.
+
+### Request
+
+```jsonc
+{
+  "path": "/Users/me/xo-projects/blackhole"   // optional. If omitted/empty, lists $HOME.
+}
+```
+
+### Response (200 OK)
+
+```jsonc
+{
+  "path":   "/Users/me/xo-projects/blackhole",
+  "parent": "/Users/me/xo-projects",            // null when path == $HOME
+  "dirs":  [
+    { "name": ".xo",     "path": "/Users/me/xo-projects/blackhole/.xo" },
+    { "name": "memory",  "path": "/Users/me/xo-projects/blackhole/memory" }
+  ],
+  "files": [
+    { "name": "AGENTS.md",     "path": "/Users/me/xo-projects/blackhole/AGENTS.md" },
+    { "name": "PROGRESS.md",   "path": "/Users/me/xo-projects/blackhole/PROGRESS.md" }
+  ]
+}
+```
+
+Sort order: directories first, then files, both case-insensitive alphabetical. `PermissionError` on any single child is silently swallowed (returns whatever was readable).
+
+### Errors
+
+| Code | Body | Cause |
+|---|---|---|
+| 403 | `{ "detail": "Access denied" }` | Path resolves outside `$HOME` |
+| 404 | `{ "detail": "Not a directory" }` | Path is a file, missing, or anything other than a directory |
+
+### What's not included
+
+No file size, mtime, mime, or symlink target. If you need those, do a follow-up `/api/files/content-binary` or read metadata client-side via the absolute path. There is no recursive listing: call repeatedly per subdirectory.
+
+## 3. POST /api/files/content (text read)
+
+Read a file as UTF-8 text.
+
+### Request
+
+```jsonc
+{ "path": "/Users/me/xo-projects/blackhole/PLAN.md" }
+```
+
+### Behavior
+
+Reads with `read_text(errors="replace")` so binary garbage doesn't crash the route. You'll get `U+FFFD` replacement characters for non-UTF8 bytes. Use `content-binary` for known-binary paths.
+
+### Response (200 OK)
+
+```jsonc
+{
+  "content": "# PLAN.md\n\n## Horizon\n\nDays, not weeks…",
+  "path":    "/Users/me/xo-projects/blackhole/PLAN.md"
+}
+```
+
+### Errors
+
+| Code | Body | Cause |
+|---|---|---|
+| 400 | `{ "detail": "Missing path" }` | `path` field missing or empty |
+| 403 | `{ "detail": "Access denied" }` | Path outside `$HOME` |
+| 404 | `{ "detail": "File not found" }` | Path doesn't exist or isn't a file |
+| 500 | `{ "detail": "<exception>" }` | I/O error during read |
+
+## 4. POST /api/files/content-binary
+
+Stream a file as a downloadable binary response.
+
+### Request
+
+```jsonc
+{ "path": "/Users/me/Downloads/photo.jpg" }
+```
+
+### Response (200 OK)
+
+The body is the raw file bytes. Headers include:
+
+```
+Content-Type: <inferred from extension; falls back to application/octet-stream>
+Content-Disposition: attachment; filename="photo.jpg"
+Content-Length: <size>
+```
+
+This is a FastAPI `FileResponse`. It streams in 64 KB chunks rather than loading the whole file into memory.
+
+### Frontend example
+
+```typescript
+async function downloadBinary(path: string): Promise<Blob> {
+  const res = await fetch(`${BASE}/api/files/content-binary`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Unknown" }));
+    throw new Error(err.detail);
+  }
+  return res.blob();
+}
+
+// Preview an image
+const blob = await downloadBinary("/Users/me/Downloads/photo.jpg");
+imgEl.src = URL.createObjectURL(blob);
+```
+
+## 5. POST /api/files/save (text write)
+
+Write a UTF-8 string to a file. Creates parent directories. **Always overwrites** if the file exists.
+
+### Request
+
+```jsonc
+{
+  "path":    "/Users/me/xo-projects/blackhole/PROGRESS.md",   // required, absolute, under $HOME
+  "content": "# PROGRESS.md\n\n2026-05-10: initial …"         // required, MUST be a string
+}
+```
+
+### Behavior
+
+```python
+target = Path(path).resolve()                 # home-clamp
+target.parent.mkdir(parents=True, exist_ok=True)
+target.write_bytes(content.encode("utf-8"))
+```
+
+No backup, no atomic-rename, no conflict detection, no append mode. If two clients call `/save` on the same path concurrently, the last writer wins.
+
+### Response (200 OK)
+
+```jsonc
+{
+  "path":  "/Users/me/xo-projects/blackhole/PROGRESS.md",
+  "bytes": 248
+}
+```
+
+### Errors
+
+| Code | Body | Cause |
+|---|---|---|
+| 400 | `{ "detail": "Missing path" }` | No `path` |
+| 400 | `{ "detail": "Missing content" }` | `content` is `null` or `undefined` |
+| 400 | `{ "detail": "Content must be a string" }` | `content` is not a `str` (e.g., a number, an object) |
+| 403 | `{ "detail": "Access denied" }` | Outside `$HOME` |
+| 500 | `{ "detail": "<exception>" }` | Disk write error |
+
+### When to use this vs `/api/files/upload`
+
+| Use `save` | Use `upload` |
+|---|---|
+| Known target path inside `$HOME` | User-selected file from `<input type="file">` |
+| Editor-style flows (markdown, code, config) | Arbitrary attachments / binary content |
+| You already have content as a string | Multipart browser upload |
+| You want parent dirs auto-created | You want sha256 dedup + auto-rename |
+
+`save` does not return a hash, dedups nothing, and will not auto-rename. It's a write-through.
+
+## 6. POST /api/files/mkdir
+
+Create a directory. With `scaffold: true`, the target must be a direct child of `~/xo-projects/` and the canonical project tree is materialized from the bundled `project_template/` directory.
+
+### Request
+
+```jsonc
+{
+  // REQUIRED
+  "path":         "/Users/me/xo-projects/blackhole",   // absolute, under $HOME
+
+  // OPTIONAL
+  "scaffold":     true,                                // default false
+                                                        // when true: must be direct child of
+                                                        // xo_projects_root() (XO_PROJECTS_ROOT env
+                                                        // var, default ~/xo-projects)
+  "display_name": "Blackhole",                         // only with scaffold:true; seeds .xo/project.json
+  "description":  "Internal research project",         // only with scaffold:true; seeds .xo/project.json
+
+  "files": [                                           // optional list of absolute paths
+    "/Users/me/Downloads/spec.md",                     //   to copy into the new directory
+    "/Users/me/Downloads/diagram.png"                   //   (preserves mtime/perms via shutil.copy2)
+  ]
+}
+```
+
+### Validation order
+
+```
+1. path exists already → 409 Already exists.
+2. path resolves outside $HOME → 403 Access denied.
+3. If scaffold:true:
+       target.parent.resolve() must exactly equal xo_projects_root()
+       Otherwise → 400 with detail explaining the constraint.
+4. Every entry in `files`:
+       - must resolve under $HOME → else 403
+       - must exist and be a file → else 404
+   Validation runs BEFORE any directory is created. If any fails, nothing is mutated on disk.
+```
+
+### Behavior, scaffold: false (default)
+
+```python
+target.mkdir(parents=True, exist_ok=False)
+for src in files:
+    if not (target / src.name).exists():
+        shutil.copy2(src, target / src.name)
+```
+
+### Behavior, scaffold: true
+
+This is the project-creation flow. It runs `services.cowork_agent.project_layout.scaffold_project()`:
+
+```
+1. project_dir = xo_projects_root() / normalize_agent_id(target.name)
+2. project_dir.mkdir(parents=True, exist_ok=True)
+3. Recursively copy every file from project_template/ → project_dir/.
+   Skips ".git". NEVER overwrites existing files (idempotent).
+4. Ensure project_dir/.xo/sessions/ exists.
+5. Ensure project_dir/.xo/sessions/sessionslist.json exists (empty {} if new).
+6. Read or create project_dir/.xo/project.json:
+     {
+       "$schema":      "./schema/project.schema.json",
+       "schema":       1,
+       "_template":    true,
+       "name":         "<normalize_agent_id(target.name)>",
+       "display_name": "<display_name or target.name>",
+       "description":  "<description or ''>",
+       "created_at":   "2026-05-10T12:34:56+00:00"
+     }
+   The `_template: true` flag stays. Finalizing it is the (future) watcher service's job.
+7. Copy each entry from `files` into project_dir/, skipping name collisions
+   with the just-scaffolded files (won't overwrite AGENTS.md etc.).
+```
+
+The full scaffolded tree:
+
+```
+~/xo-projects/<id>/
+├── AGENTS.md                             operating contract: read first by agents
+├── CLAUDE.md                             single line: "@AGENTS.md"
+├── PROJECT.md                            scope/audience/stack: [TEMPLATE] markers
+├── OBJECTIVES.md                         OKRs: [TEMPLATE] markers
+├── PLAN.md                               current plan: [TEMPLATE] markers
+├── PROGRESS.md                           append-only narrative: [TEMPLATE] markers
+├── memory/
+│   ├── semantic/
+│   │   ├── preferences.md
+│   │   ├── project-facts.md
+│   │   └── constraints.md
+│   ├── episodic/README.md
+│   ├── procedural/README.md
+│   └── working/.gitkeep
+└── .xo/
+    ├── project.json                      identity: pid, name, display_name, _template:true
+    ├── todos.json                        empty schema
+    ├── stats.json                        empty schema
+    ├── timeline.jsonl                    empty
+    ├── activity.json                     empty schema
+    ├── sync.json                         empty schema
+    ├── peers.json                        empty schema
+    └── sessions/sessionslist.json        {}  (system-required, not in template)
+```
+
+### Response
+
+```jsonc
+// non-scaffold
+{
+  "path":   "/Users/me/some-folder",
+  "name":   "some-folder",
+  "copied": ["spec.md", "diagram.png"]   // basenames of files successfully copied
+}
+
+// scaffold
+{
+  "path":   "/Users/me/xo-projects/blackhole",
+  "name":   "blackhole",                 // normalized (lowercased, dashed)
+  "copied": []                           // existing scaffold files are NOT in this list
+}
+```
+
+When `scaffold:true` and the target name needed normalization, the actual path on disk uses the normalized form. The `path` in the response is the resolved actual path, not the `path` you sent.
+
+### Errors
+
+| Code | Body | Cause |
+|---|---|---|
+| 400 | `{ "detail": "Missing path" }` | No `path` |
+| 400 | `{ "detail": "scaffold:true requires path to be a direct child of /Users/me/xo-projects; got /elsewhere/foo" }` | Scaffold path not under projects root |
+| 403 | `{ "detail": "Access denied" }` | Path outside `$HOME` |
+| 403 | `{ "detail": "Access denied: /etc/secret" }` | One of `files` outside `$HOME` |
+| 404 | `{ "detail": "File not found: /Users/me/missing.md" }` | One of `files` doesn't exist |
+| 409 | `{ "detail": "Already exists" }` | Target path already exists |
+| 500 | `{ "detail": "<exception>" }` | I/O error |
+
+## Project-creation idiom
+
+Always discover the projects root first; do not hardcode `~/xo-projects/`.
+
+```typescript
+// Step 1: discover the projects root
+const cfg = await fetch(`${BASE}/api/config/workspace`).then(r => r.json());
+//   → { roots: { openclaw: "/Users/me/xo-projects" }, default: "openclaw" }
+const projectsRoot = cfg.roots[cfg.default];
+
+// Step 2: create the project with scaffold
+const res = await fetch(`${BASE}/api/files/mkdir`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    path:          `${projectsRoot}/blackhole`,
+    scaffold:      true,
+    display_name:  "Blackhole",
+    description:   "Internal research on event-horizon stuff",
+  }),
+});
+
+if (!res.ok) {
+  const err = await res.json();
+  if (res.status === 409) {
+    // project exists, navigate to it
+  } else {
+    throw new Error(err.detail);
+  }
+}
+
+const { path } = await res.json();
+//   → /Users/me/xo-projects/blackhole
+//   project is fully scaffolded; navigate the user there
+```
+
+## Capability matrix
+
+| Endpoint | Path required | Body type | Home-clamped | Idempotent | Side effects |
+|---|---|---|---|---|---|
+| `/api/files/upload` | no (workspace optional) | `multipart/form-data` | partial (`workspace` not clamped) | yes (sha256 dedup) | writes to filesystem |
+| `/api/files/list-directory` | optional | JSON | yes | yes | none |
+| `/api/files/content` | yes | JSON | yes | yes | none |
+| `/api/files/content-binary` | yes | JSON | yes | yes | none |
+| `/api/files/save` | yes | JSON | yes | no (overwrites) | writes to filesystem |
+| `/api/files/mkdir` | yes | JSON | yes | partial (409 on existing) | creates dir + scaffolds + copies |

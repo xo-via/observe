@@ -1,0 +1,101 @@
+---
+title: System Comparison
+description: Side-by-side comparison of Paperclip, OpenClaw, Claude Coworks, and WoterClip across storage, memory, RBAC, isolation, and agent architecture.
+---
+
+# System Comparison
+
+## Who Is Each System For?
+
+| System | Primary Use Case | Audience |
+|---|---|---|
+| **Paperclip** | Multi-agent company orchestration | Engineering teams, enterprise AI workflows |
+| **OpenClaw** | Personal AI assistant on messaging platforms | Individual developers, home users |
+| **Claude Coworks** | Secure agentic file work via desktop | Knowledge workers, non-developers |
+| **WoterClip** | Linear-integrated agent with persona routing | Developers who live in Linear |
+
+---
+
+## Storage
+
+| Aspect | Paperclip | OpenClaw | Claude Coworks | WoterClip |
+|---|---|---|---|---|
+| Primary store | PostgreSQL (relational) | Plain Markdown files | VM-local filesystem | Linear SaaS API |
+| Binary assets | Local disk or S3 | Alongside Markdown | Within VM mounts | N/A |
+| Search | PostgreSQL FT + JSONB | SQLite FTS + vector | Context window only | Linear API search |
+| Versioning | `document_revisions` table | Git (optional) | Session history | Linear comment history |
+| Backup | Auto hourly SQL dumps | Manual file copy | Manual | Linear cloud (SaaS) |
+| Scalability | S3 + PostgreSQL (horizontal) | Single machine | Single user/machine | Linear workspace limit |
+
+**Design philosophy:** Paperclip puts all state in one auditable, queryable database. OpenClaw treats the filesystem as the database — simple, transparent, portable. Coworks keeps files local with agents isolated in VMs. WoterClip uses Linear as the database — leveraging what the team already has.
+
+---
+
+## Memory
+
+| Aspect | Paperclip | OpenClaw | Claude Coworks | WoterClip |
+|---|---|---|---|---|
+| Model | PARA method (3 layers) | Markdown daily notes | Project-scoped context | Linear labels + local files |
+| Long-term facts | YAML atomic facts in `life/` | `MEMORY.md` (always-loaded) | Project custom instructions | Linear issue/label state |
+| Short-term context | Daily notes (`memory/YYYY-MM-DD.md`) | Daily notes (same pattern) | Conversation history | `heartbeat-log.jsonl` |
+| Recall precision | High (YAML + QMD pattern) | Medium (FTS search) | Low (context window) | Low (free-text comments) |
+| Cross-session | Yes (PARA persists) | Yes (files persist) | Yes (VM state persists) | Yes (Linear persists) |
+| Cross-project | Yes (agent PARA shared) | Yes (same agent dir) | No (isolated per project) | No (one workspace) |
+
+---
+
+## RBAC
+
+| Aspect | Paperclip | OpenClaw | Claude Coworks | WoterClip |
+|---|---|---|---|---|
+| Model | Full role hierarchy + permission grants | None | User account + project isolation | Label-based routing (no auth) |
+| Multi-user | Yes (company memberships) | No | No | No |
+| Permission granularity | Per-permission-key grants | N/A | Per-project folder mounts | N/A |
+| Approval workflows | Yes (hiring, governance) | No | No | No |
+| Audit trail | Full (`principal_permission_grants`) | None | Clerk auth logs only | None |
+| Budget controls | Per-agent + per-company limits | None | None | None |
+
+Paperclip is the only system with real RBAC — every agent has a role and every action has an authorized actor. OpenClaw and WoterClip rely on single-user trust. Coworks protects via approval-gated writes but has no role system.
+
+---
+
+## Isolation
+
+| Aspect | Paperclip | OpenClaw | Claude Coworks | WoterClip |
+|---|---|---|---|---|
+| Level | Process-level workspaces | None (host access) | Full VM | None (host access) |
+| Technology | Workspace dir scoping | None | VZVirtualMachine + bubblewrap + seccomp | None |
+| Data exfiltration risk | Low | High | Very low (VM boundary) | High |
+| Lateral movement risk | Low (per-agent workspaces) | High | Very low | High |
+
+Coworks has the strongest isolation via three independent layers (VM, namespace sandbox, syscall filter). Paperclip provides workspace scoping suitable for trusted environments. OpenClaw and WoterClip run with full host access.
+
+---
+
+## Agent Model & Multi-Agent
+
+| Aspect | Paperclip | OpenClaw | Claude Coworks | WoterClip |
+|---|---|---|---|---|
+| Execution | Heartbeat runs (periodic) | Event-driven daemon (always-on) | Agentic loop in VM | Heartbeat + persona switching |
+| Multi-agent | Native — first-class | Possible — ad-hoc | Single agent only | Single process, multiple personas |
+| Hierarchy | `reports_to` tree in DB | None (flat namespace) | N/A | Label-routed personas |
+| Task delegation | `issues.parent_id` + assignee | Manual API calls | N/A | N/A |
+| Coordination | Checkout lock (exclusive) | None | None | None |
+| Agent-to-agent comms | Issue comments + @-mentions | Messaging channels | N/A | N/A |
+| Budget tracking | Per-agent token + cost limits | None | None | None |
+
+Paperclip models agents as employees with roles, managers, and structured work queues. OpenClaw treats agents as independent bots with human-routed work. Coworks focuses on deep single-agent collaboration. WoterClip routes work through personas within a single process.
+
+---
+
+## Decision Guide
+
+| Need | Best Choice |
+|---|---|
+| Multiple AI agents with hierarchy and oversight | Paperclip |
+| 24/7 messaging bot across platforms | OpenClaw |
+| Secure file work, no code required | Coworks |
+| Compliance and audit trail | Paperclip |
+| Simplest personal setup | OpenClaw |
+| Maximum security for sensitive docs | Coworks |
+| Linear-native dev workflow | WoterClip |

@@ -1,0 +1,229 @@
+---
+title: Architecture
+description: "XO-PAN six-layer architecture and component deep dives — registry, mesh, orchestration, gateway, and dashboard."
+---
+
+# Architecture
+
+## High-Level Architecture
+
+XO-PAN is organized into six layers, each with a clear responsibility boundary. The top five layers are XO-PAN components; the bottom layer is Olares infrastructure that XO-PAN consumes.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                        HUMAN LAYER                                │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │               XO Network Dashboard                         │  │
+│  │   Agent Registry • Task Board • Audit Logs • Org Templates │  │
+│  │   Budget Controls • Knowledge Base Browser • RBAC Config   │  │
+│  └──────────────────────┬─────────────────────────────────────┘  │
+├─────────────────────────┼────────────────────────────────────────┤
+│                     GATEWAY LAYER                                 │
+│  ┌──────────────────────┴─────────────────────────────────────┐  │
+│  │               XO Network Gateway                            │  │
+│  │          REST API • MCP Interface • SSE Stream              │  │
+│  │        Auth (LarePass JWT) • Rate Limiting • Routing        │  │
+│  └──────┬──────────────┬──────────────────┬───────────────────┘  │
+├─────────┼──────────────┼──────────────────┼──────────────────────┤
+│         │         ORCHESTRATION LAYER      │                      │
+│  ┌──────┴──────┐ ┌─────┴──────────┐ ┌─────┴──────────────────┐  │
+│  │  Heartbeat  │ │  Task Router   │ │   Goal Decomposition   │  │
+│  │  Scheduler  │ │  & Checkout    │ │   & Delegation Engine  │  │
+│  │             │ │  Protocol      │ │                        │  │
+│  └──────┬──────┘ └───────┬────────┘ └────────┬───────────────┘  │
+├─────────┼────────────────┼───────────────────┼───────────────────┤
+│         │           MESH LAYER               │                    │
+│  ┌──────┴────────────────┴───────────────────┴───────────────┐   │
+│  │                    XO Agent Mesh                           │   │
+│  │   NATS Subjects (agent.{id}.inbox, task.{id}.updates)     │   │
+│  │   Context Sharing • Event Broadcasting • Wakeup Triggers  │   │
+│  └──────────────────────┬────────────────────────────────────┘   │
+├─────────────────────────┼────────────────────────────────────────┤
+│                    REGISTRY LAYER                                 │
+│  ┌──────────────────────┴────────────────────────────────────┐   │
+│  │                  XO Agent Registry                         │   │
+│  │   Agent Identity • Capabilities Index • Health Monitor     │   │
+│  │   RBAC Store • Budget Ledger • Adapter Configs             │   │
+│  └──────────────────────┬────────────────────────────────────┘   │
+├─────────────────────────┼────────────────────────────────────────┤
+│                 OLARES PLATFORM LAYER                             │
+│  ┌──────────┐ ┌────────┐ ┌──────┐ ┌────────┐ ┌───────────────┐  │
+│  │ Citus PG │ │  NATS  │ │Redis │ │LarePass│ │ HAMi GPU Sched│  │
+│  │ (state)  │ │ (msgs) │ │(cache│ │ (auth) │ │ (GPU alloc)   │  │
+│  └──────────┘ └────────┘ └──────┘ └────────┘ └───────────────┘  │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │              Kubernetes (user-system-\{username\})            │  │
+│  └────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Component Deep Dives
+
+### XO Agent Registry
+
+The registry is the source of truth for every agent in the network. It stores identity, capabilities, health status, RBAC configuration, and adapter metadata.
+
+**Responsibilities:**
+- Agent registration and de-registration
+- Capability indexing (what each agent can do)
+- Health monitoring (heartbeat liveness checks)
+- RBAC enforcement (role hierarchy, permissions, chain of command)
+- Budget tracking (per-agent monthly spend, auto-pause at threshold)
+
+**Design Decision — Reuse Paperclip's data model directly.**
+The Paperclip schema (`agents`, `agent_runtime_state`, `principal_permission_grants`, `companies`, `company_memberships`) maps 1:1 to this use case. An Olares instance = a Paperclip Company. The human operator = Board user. Installed AI apps = Agents with adapters.
+
+**Agent Registration Flow:**
+
+```
+┌─────────────┐       ┌──────────────┐       ┌──────────────┐
+│  Ollama App  │──MCP──│  XO Gateway  │──SQL──│  Citus PG    │
+│  (on Olares) │       │  /register   │       │  agents table │
+└─────────────┘       └──────┬───────┘       └──────────────┘
+                             │
+                        ┌────┴────┐
+                        │  NATS   │
+                        │ publish │
+                        │ agent.  │
+                        │ joined  │
+                        └─────────┘
+```
+
+An agent registers by calling the Gateway's MCP `register_agent` tool (or REST `POST /api/agents/register`) with:
+
+```json
+{
+  "name": "ollama-codellama",
+  "adapterType": "mcp",
+  "capabilities": ["code-generation", "code-review", "explanation"],
+  "mcpEndpoint": "http://ollama-svc:11434/mcp",
+  "resourceRequirements": {
+    "gpu": true,
+    "vramMinMB": 8192,
+    "modelId": "codellama:34b"
+  }
+}
+```
+
+The registry assigns an agent UUID, creates the `agents` row with role `general` (default), and publishes an `agent.joined` event on NATS so the dashboard and other agents are notified.
+
+---
+
+### XO Agent Mesh (Communication Layer)
+
+The mesh handles all agent-to-agent and system-to-agent communication. It runs on **Olares' existing NATS cluster** — no additional message broker.
+
+**NATS Subject Hierarchy:**
+
+```
+xo.agent.{agentId}.inbox          ← direct messages to an agent
+xo.agent.{agentId}.wakeup         ← wakeup triggers (assignment, mention, scheduled)
+xo.task.{issueId}.updates         ← task progress events (status changes, comments)
+xo.project.{projectId}.events     ← project-level events (new issues, completions)
+xo.network.broadcast              ← system-wide announcements (agent joined/left, policy changes)
+xo.network.heartbeat              ← liveness pings from all active agents
+```
+
+**Why NATS (not HTTP polling or WebSockets between agents):**
+- Olares already runs a NATS cluster in `os-platform` — zero additional infrastructure
+- NATS subjects provide natural topic-based routing
+- Request-reply pattern supports synchronous agent queries ("who can review Python code?")
+- JetStream persistence for guaranteed delivery of task assignments (agents may be asleep)
+- Subject-based authorization aligns with RBAC (agent X can only subscribe to its own inbox)
+
+**Context Sharing via NATS:**
+
+When Agent A needs to pass context to Agent B (e.g., a research agent sharing findings with a coding agent), it publishes to `xo.task.{issueId}.updates`:
+
+```json
+{
+  "type": "context_update",
+  "fromAgent": "researcher-01",
+  "issueId": "PAN-42",
+  "payload": {
+    "summary": "API rate limits are 100 req/min, auth uses Bearer tokens",
+    "artifacts": ["research/api-analysis.md"],
+    "knowledgeBaseRef": "kb://project-alpha/api-docs"
+  }
+}
+```
+
+The coding agent's next heartbeat run picks this up from its inbox and has full context without re-doing the research.
+
+---
+
+### XO Orchestration Engine
+
+The brain of the network. It decides **which agent works on what, when, and in what order**.
+
+**Heartbeat Scheduler** — Adapts Paperclip's heartbeat model for Olares. Instead of executing agents as local CLI processes, it triggers agent containers via their Kubernetes service endpoints or MCP interfaces.
+
+```
+Scheduler Loop (runs every 30s):
+  1. Check agent_wakeup_requests table for pending wakeups
+  2. Coalesce multiple triggers for same agent
+  3. For each wakeup:
+     a. Verify agent health (NATS heartbeat within last 60s)
+     b. Check budget (skip if > 100% monthly cap)
+     c. If GPU required, request allocation from HAMi
+     d. Send wakeup via NATS xo.agent.{id}.wakeup
+     e. Create heartbeat_runs row (status: running)
+  4. Check for timed-out runs (> agent.timeoutSec) → mark failed, release checkout
+```
+
+**Task Router** — Routes incoming work to the best available agent based on capabilities, current load, and RBAC permissions.
+
+```
+Route(issue):
+  1. Extract required capabilities from issue labels/description
+  2. Query registry: agents WHERE capabilities OVERLAP required AND status = 'active'
+  3. Filter by RBAC: agent must have permission to work on this project
+  4. Filter by budget: agent must have remaining budget
+  5. Rank by: (a) capability match score, (b) current load (active checkouts), (c) GPU availability
+  6. Assign to top-ranked agent → create wakeup request
+```
+
+**Goal Decomposition Engine** — Takes high-level goals and breaks them into projects and issues that can be distributed across agents. This is where CEO/manager agents operate — they don't do implementation work, they decompose and delegate.
+
+---
+
+### XO Network Gateway
+
+Single entry point for all external communication with the network.
+
+| Interface | Protocol | Purpose |
+|---|---|---|
+| REST API | HTTP/JSON | Dashboard, admin operations, external integrations |
+| MCP Server | MCP (stdio/SSE) | Agent registration, tool invocation, capability queries |
+| SSE Stream | HTTP SSE | Real-time dashboard updates (agent status, task progress, logs) |
+
+**Auth Model — LarePass Integration:**
+
+```
+Agent Request → Gateway → Extract LarePass JWT → Validate against Olares LLDAP
+                                                → Map to XO company_membership or agent identity
+                                                → Enforce RBAC permissions
+                                                → Route to internal service
+```
+
+For agent-to-gateway auth (automated, no human), the registry issues **API keys** (stored encrypted in Citus PG) that agents include in their NATS messages and REST calls. This mirrors Paperclip's existing `agent_api_keys` mechanism.
+
+---
+
+### XO Network Dashboard
+
+A web application served within Olares' app framework. Provides human oversight over the entire agent network.
+
+**Views:**
+
+- **Agent Registry** — All registered agents with status, capabilities, adapter type, budget usage
+- **Task Board** — Kanban-style view of all issues across projects (backlog → in_progress → done)
+- **Live Activity Feed** — SSE-powered real-time stream of heartbeat runs, task transitions, agent communications
+- **Org Templates** — One-click deployment of pre-configured multi-agent teams
+- **Audit Log** — Searchable NDJSON run logs per agent, per run
+- **RBAC Configuration** — Role assignments, chain of command visualization, permission grants
+- **GPU Dashboard** — Current GPU allocation across agents (from HAMi API)
+
+**Tech Stack:** Vue 3 (aligns with Olares' frontend ecosystem — their apps are Go + Vue) or React (aligns with XO's existing dashboard). Trade-off to be decided — see [Trade-Offs](/docs/evm/xo-pan/trade-offs).

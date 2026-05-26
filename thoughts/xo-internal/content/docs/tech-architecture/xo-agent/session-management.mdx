@@ -1,0 +1,127 @@
+---
+title: Session Management
+description: "ClaudeSDKClient lifecycle, concurrency control, and multi-turn conversation persistence"
+---
+
+## Overview
+
+The `SessionManager` class manages the lifecycle of `ClaudeSDKClient` instances for interactive chat. Each chat conversation maps 1:1 to a backend session, which holds a persistent client that maintains full conversation history across turns.
+
+## SessionManager Class
+
+**File:** `session_manager.py`
+
+### Internal State
+
+| Attribute | Type | Description |
+|---|---|---|
+| `_sessions` | `dict[str, ClaudeSDKClient]` | Maps session_id to connected client |
+| `_locks` | `dict[str, asyncio.Lock]` | Per-session mutex for query serialization |
+
+### Default Agent Configuration
+
+```python
+ClaudeAgentOptions(
+    system_prompt="You are a helpful AI assistant. Respond in markdown when appropriate.",
+    model="claude-sonnet-4-20250514",
+    permission_mode="default",
+    allowed_tools=[],
+    max_turns=1,
+)
+```
+
+| Option | Value | Rationale |
+|---|---|---|
+| `system_prompt` | Helpful assistant, markdown-aware | General-purpose chat persona |
+| `model` | claude-sonnet-4-20250514 | Latest Sonnet for speed + quality balance |
+| `permission_mode` | `"default"` | Standard tool permissions — no auto-approval |
+| `max_turns` | `1` | Single agentic turn per query (user-driven pacing) |
+
+### Methods
+
+| Method | Returns | Description |
+|---|---|---|
+| `create_session(session_id)` | `ClaudeSDKClient` | Creates client, connects, stores with lock |
+| `get_session(session_id)` | `ClaudeSDKClient \| None` | Retrieves existing client |
+| `get_lock(session_id)` | `asyncio.Lock \| None` | Gets the per-session concurrency lock |
+| `delete_session(session_id)` | `bool` | Disconnects client, removes from memory |
+| `list_sessions()` | `list[str]` | Returns all active session IDs |
+| `cleanup_all()` | `None` | Disconnects all sessions (shutdown hook) |
+
+### Idempotent Creation
+
+`create_session` is idempotent — if a session already exists, it returns the existing client:
+
+```python
+async def create_session(self, session_id: str) -> ClaudeSDKClient:
+    if session_id in self._sessions:
+        return self._sessions[session_id]
+    # ... create new client
+```
+
+## Concurrency Model
+
+Each session has its own `asyncio.Lock`. The WebSocket handler acquires this lock before processing a query:
+
+```python
+async with lock:
+    await client.query(content)
+    async for message in client.receive_response():
+        # stream tokens to WebSocket
+```
+
+This ensures:
+- **No concurrent queries** on the same session (ClaudeSDKClient doesn't support parallel queries)
+- **Different sessions run independently** (separate locks, separate event loops)
+- **Interrupts bypass the lock** — `client.interrupt()` is called outside the lock for immediate responsiveness
+
+```
+Session A: [Lock A] → client_a.query() → client_a.receive_response()
+Session B: [Lock B] → client_b.query() → client_b.receive_response()
+                                          (fully independent)
+```
+
+## Session Lifecycle
+
+```
+POST /sessions
+    │
+    ▼
+SessionManager.create_session()
+    ├── ClaudeSDKClient(options)
+    ├── client.connect()         ← CLI process starts
+    └── Store in _sessions + _locks
+    │
+    ▼
+WS /ws/{session_id}
+    ├── client.query(prompt)     ← Each user message
+    ├── client.receive_response() ← Stream tokens back
+    └── (repeat per message — context preserved)
+    │
+    ▼
+DELETE /sessions/{session_id}
+    │
+    ▼
+SessionManager.delete_session()
+    ├── client.disconnect()      ← CLI process terminates
+    └── Remove from _sessions + _locks
+```
+
+## Multi-Turn Conversations
+
+The `ClaudeSDKClient` maintains session state internally. Each `client.query()` call has access to the full conversation history — the frontend doesn't need to resend previous messages.
+
+This is the key advantage of using `ClaudeSDKClient` over the stateless `query()` function: the backend client remembers everything within the session lifecycle.
+
+## Resource Considerations
+
+Each session holds:
+- One `ClaudeSDKClient` instance (Python object)
+- One Claude Code CLI subprocess (system process)
+- One `asyncio.Lock` (lightweight)
+- Conversation history in memory (grows with each turn)
+
+For production with many concurrent users, consider:
+- Session timeout/eviction (sessions that haven't been used for X minutes)
+- Maximum concurrent sessions limit
+- Session persistence to disk (currently in-memory only)

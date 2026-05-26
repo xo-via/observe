@@ -1,0 +1,729 @@
+---
+title: Hermes Agent
+description: Research and onboarding guide for Hermes — a full-stack AI agent platform and OpenClaw competitor.
+---
+
+# Hermes Agent — Research & Onboarding Guide
+
+> Installation: `/home/coder/.hermes/` | Version: 0.10.0+ | Config version: 21
+
+---
+
+## What Is Hermes?
+
+Hermes is a full-stack AI agent platform — a direct competitor to OpenClaw. It wraps Claude (and 30+ other providers) with:
+
+- A persistent messaging gateway (Telegram, Discord, WhatsApp, Slack, Signal, Email, SMS, and 11 more)
+- An OpenAI-compatible HTTP API at `:8642`
+- A React web dashboard at `:9119`
+- A stdio MCP server for Claude Code / other tools to call INTO Hermes
+- A rich skill system (24 categories, markdown-based procedural memory)
+- Persistent SQLite-backed sessions + markdown memory
+- Multi-credential pooling with automatic failover
+
+The current install at `/home/coder/.hermes/` was **migrated from OpenClaw** on 2026-04-20.
+
+---
+
+## File Structure
+
+```
+~/.hermes/
+├── config.yaml              # Master settings (359 lines, 44 top-level keys)
+├── .env                     # API keys, bot tokens, secrets (17 vars)
+├── auth.json                # OAuth tokens + credential pool (structured)
+├── SOUL.md                  # Agent personality override (loaded each message)
+├── state.db                 # SQLite: sessions, memory, cron, evidence
+├── hermes-agent/            # Source code (Python CLI + React frontend)
+│   ├── cli.py               # Interactive TUI (prompt_toolkit)
+│   ├── run_agent.py         # Agent executor (tool-calling loop)
+│   ├── mcp_serve.py         # MCP server (stdio-based)
+│   ├── agent/               # Core modules: adapters, memory, prompt, caching
+│   ├── hermes_cli/          # Commands, config loader, web server, gateway
+│   └── gateway/platforms/   # Per-platform channel implementations
+├── skills/                  # 24 skill category directories
+├── sessions/                # JSON session cache (one file per session)
+├── memories/USER.md         # User profile + memory context (markdown)
+├── cron/                    # Scheduled job definitions
+├── logs/                    # agent.log, errors.log
+├── hooks/                   # Custom lifecycle scripts
+├── migration/openclaw/      # Archive of migrated OpenClaw data
+└── bin/                     # tirith (security scanner)
+```
+
+---
+
+## Configuration System
+
+### Three Files, One Config
+
+Unlike OpenClaw's single `openclaw.json`, Hermes splits config across:
+
+| File | What Goes Here | Format |
+|------|---------------|--------|
+| `config.yaml` | All settings (model, display, channels, tools, limits) | YAML |
+| `.env` | Secrets, tokens, API keys | Shell env vars |
+| `auth.json` | OAuth tokens + multi-key credential pool | JSON |
+
+**Priority:** `env var > config.yaml > built-in default`
+
+### config.yaml — All 44 Top-Level Keys
+
+```yaml
+# ── Model & Providers ──────────────────────────────────────────────────────
+model:
+  default: claude-opus-4-6
+  provider: anthropic
+  # base_url: https://custom.endpoint/v1    # optional
+  # api_key: sk-...                         # prefer .env
+
+providers:
+  custom_endpoints:
+    - name: "My LM Studio"
+      base_url: http://localhost:8000/v1
+      provider_key: custom:llm-studio
+      api_key: lm-studio
+      model: mistral-7b
+
+fallback_providers:                         # Auto-failover chain
+  - provider: openrouter
+    model: anthropic/claude-sonnet-4
+
+credential_pool_strategies:
+  anthropic: round_robin                    # fill_first | round_robin | random | least_used
+  openrouter: least_used
+
+# ── Agent Behaviour ────────────────────────────────────────────────────────
+agent:
+  max_turns: 90
+  gateway_timeout: 1800                    # seconds
+  reasoning_effort: medium                 # low | medium | high
+  personalities: { ... }                   # 14 built-in + custom
+
+# ── Terminal Backend ───────────────────────────────────────────────────────
+terminal:
+  backend: local                           # local | docker | ssh | modal | daytona
+  # docker_image: nikolaik/python-nodejs:python3.11-nodejs20
+  # ssh_host: user@remote
+
+# ── Display ────────────────────────────────────────────────────────────────
+display:
+  personality: kawaii
+  compact: false
+  streaming: true
+  inline_diffs: true
+  dashboard: { theme: default }            # default | midnight | ember | mono | cyberpunk | rose
+
+# ── Memory ─────────────────────────────────────────────────────────────────
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  memory_char_limit: 2200
+  user_char_limit: 1375
+  provider: ''                             # '' = builtin, 'honcho' = external
+  nudge_interval: 10                       # Remind to save every N turns
+  flush_min_turns: 6
+
+# ── Context Compression ────────────────────────────────────────────────────
+compression:
+  enabled: true
+  threshold: 0.5
+  target_ratio: 0.2
+
+# ── Approvals ──────────────────────────────────────────────────────────────
+approvals:
+  mode: manual                             # manual | deny | cron
+  timeout: 300
+
+# ── Security ───────────────────────────────────────────────────────────────
+security:
+  redact_secrets: true
+  tirith_enabled: true                     # Static analysis scanner
+
+command_allowlist:
+  - git
+  - npm
+  - python3
+  # ... restricted shell commands
+
+# ── Sessions ───────────────────────────────────────────────────────────────
+session_reset:
+  mode: both                               # both | idle | at_hour
+  idle_minutes: 120
+  at_hour: 3
+
+# ── Channels (per-platform) ────────────────────────────────────────────────
+discord:
+  require_mention: true
+  free_response_channels: ""
+  auto_thread: true
+  reactions: true
+  channel_prompts: {}                      # { "channel-id": "system prompt" }
+
+telegram:
+  channel_prompts: {}
+
+slack:
+  channel_prompts: {}
+
+# ── Other ──────────────────────────────────────────────────────────────────
+skills:
+  external_dirs: []
+  creation_nudge_interval: 50
+
+timezone: UTC
+logging:
+  level: INFO
+  file_size_mb: 10
+
+_config_version: 21
+```
+
+### .env — All 17 Variables
+
+```bash
+# Terminal backends
+TERMINAL_MODAL_IMAGE=nikolaik/python-nodejs:python3.11-nodejs20
+TERMINAL_TIMEOUT=60
+TERMINAL_LIFETIME_SECONDS=300
+
+# Browser
+BROWSERBASE_PROXIES=true
+BROWSERBASE_ADVANCED_STEALTH=false
+BROWSER_SESSION_TIMEOUT=300
+BROWSER_INACTIVITY_TIMEOUT=120
+
+# Debug flags
+WEB_TOOLS_DEBUG=false
+VISION_TOOLS_DEBUG=false
+MOA_TOOLS_DEBUG=false
+IMAGE_TOOLS_DEBUG=false
+
+# Platform tokens
+TELEGRAM_BOT_TOKEN=
+WHATSAPP_ALLOWED_USERS=*
+
+# API keys (set these)
+HERMES_MAX_ITERATIONS=90
+ANTHROPIC_TOKEN=
+ANTHROPIC_API_KEY=
+```
+
+### auth.json — Credential Pool Structure
+
+```json
+{
+  "version": 1,
+  "credential_pool": {
+    "anthropic": [
+      {
+        "id": "0e5dae",
+        "label": "CLAUDE_CODE_OAUTH_TOKEN",
+        "auth_type": "oauth",
+        "priority": 0,
+        "source": "env:CLAUDE_CODE_OAUTH_TOKEN",
+        "access_token": "...",
+        "refresh_token": "...",
+        "expires_at_ms": 1776720349370,
+        "last_status": null,
+        "request_count": 0
+      }
+    ]
+  }
+}
+```
+
+Features: multiple keys per provider, priority ordering, exhaustion tracking (429 → 1h cooldown), request counting, least-used routing.
+
+---
+
+## Web Dashboard
+
+**Start:** `hermes dashboard [--port 9119]`
+**Default URL:** `http://127.0.0.1:9119`
+**Framework:** FastAPI + Uvicorn + React/Vite SPA
+
+**Security:** Ephemeral per-process session tokens injected into the SPA. CORS locked to localhost. HMAC validation on all `/api/*` routes.
+
+### What It Shows
+
+| Section | What You Can Do |
+|---------|----------------|
+| Sessions | Browse conversation history, search, view messages |
+| Config | Live-edit `config.yaml` with schema validation |
+| Env Vars | View/reveal `.env` secrets (rate-limited) |
+| Auth / Providers | OAuth login flows, key status |
+| Skills | Enable/disable per-skill toggles |
+| Cron | Schedule editor, trigger/pause/resume jobs |
+| Tools | Toolset configuration |
+| Analytics | Token usage, cost tracking |
+| Logs | Filtered log viewer |
+
+### Public Endpoints (no auth needed)
+
+`/api/status`, `/api/config/defaults`, `/api/config/schema`, `/api/model/info`, `/api/dashboard/themes`, `/api/dashboard/plugins`
+
+---
+
+## HTTP / MCP APIs
+
+### OpenAI-Compatible API (port 8642)
+
+Same format as OpenClaw `:18789`. The xo-cowork bridge can call either with no changes.
+
+```
+POST   /v1/chat/completions              # Stateless chat (X-Hermes-Session-Id for continuity)
+POST   /v1/responses                    # Stateful Responses API
+GET    /v1/responses/{id}
+DELETE /v1/responses/{id}
+GET    /v1/models
+POST   /v1/runs                         # Async run (returns 202)
+GET    /v1/runs/{run_id}/events         # SSE stream of lifecycle events
+GET    /health
+GET    /health/detailed                 # Rich status for dashboards
+```
+
+**Start:** `hermes gateway start --api` (or `hermes api`)
+
+### MCP Server (stdio)
+
+**Start:** `hermes mcp serve`
+**Protocol:** stdio (JSON-RPC) — wire it as an MCP server in `.claude/settings.json`
+
+10 exposed tools:
+
+| Tool | What It Does |
+|------|-------------|
+| `conversations_list` | List all Hermes conversations |
+| `conversation_get` | Get details of a conversation |
+| `messages_read` | Read messages from a conversation |
+| `attachments_fetch` | Fetch message attachments |
+| `events_poll` | Poll for new events (200ms interval) |
+| `events_wait` | Block until a new event arrives |
+| `messages_send` | Send a message TO Hermes |
+| `channels_list` | List configured messaging channels |
+| `permissions_list_open` | List pending approval requests |
+| `permissions_respond` | Approve or deny a pending tool call |
+
+Using this from Claude Code, Claude can delegate tasks to Hermes, receive responses, list active conversations, and approve tool calls — full bidirectional control.
+
+---
+
+## SOUL.md — Personality
+
+`~/.hermes/SOUL.md` overrides the config personality when non-empty. Loaded fresh on every message — no restart.
+
+```markdown
+# My Hermes Persona
+
+You are a concise technical expert. No fluff, just facts.
+Keep responses short. Prefer code over explanation.
+```
+
+14 built-in personalities in `config.yaml` under `agent.personalities`:
+`helpful`, `concise`, `technical`, `creative`, `teacher`, `kawaii`, `catgirl`, `pirate`, `shakespeare`, `surfer`, `noir`, `uwu`, `philosopher`, `hype`
+
+Switch with: `hermes config set display.personality concise`
+
+---
+
+## Channels / Messaging Gateway
+
+**17 supported platforms:**
+
+| Platform | Auth Type | Key Env Var(s) | Notes |
+|----------|-----------|----------------|-------|
+| Telegram | Bot token | `TELEGRAM_BOT_TOKEN` | @BotFather |
+| Discord | Bot token | `DISCORD_BOT_TOKEN` | Enable Message Content Intent |
+| Slack | Socket Mode | `SLACK_BOT_TOKEN` | Socket Mode app |
+| Matrix | Access token | `MATRIX_ACCESS_TOKEN` | Homeserver login |
+| Mattermost | API token | `MATTERMOST_TOKEN` | Team server |
+| WhatsApp | QR pairing | — | `~/.hermes/whatsapp/session/creds.json` |
+| Signal | HTTP bridge | `SIGNAL_HTTP_URL` | signal-cli required |
+| Email | IMAP/SMTP | `EMAIL_ADDRESS` + credentials | |
+| SMS (Twilio) | API keys | `TWILIO_ACCOUNT_SID` | + auth token |
+| DingTalk | OAuth2 | `DINGTALK_CLIENT_ID` | + secret |
+| Feishu | Bot token | `FEISHU_APP_ID` | + secret |
+| WeCom (Bot) | Bot secret | `WECOM_BOT_ID` | |
+| WeCom (Callback) | Webhook | `WECOM_CALLBACK_CORP_ID` | |
+| WeChat Official | OAuth2+webhook | `WEIXIN_ACCOUNT_ID` | |
+| BlueBubbles | Server URL | `BLUEBUBBLES_SERVER_URL` | macOS server |
+| QQ Bot | OAuth2 | `QQ_APP_ID` | |
+| Home Assistant | Via MCP | — | |
+
+**Setup:**
+```bash
+hermes gateway setup          # Interactive wizard for all platforms
+hermes telegram               # Platform-specific quick setup
+hermes whatsapp               # Scan QR code
+hermes gateway start          # Start daemon
+hermes gateway status         # Check channel health
+```
+
+**Per-channel system prompts** — set in `config.yaml`:
+```yaml
+discord:
+  channel_prompts:
+    "1234567890": "You are a coding expert for #dev"
+    "0987654321": "You are a friendly helper for #general"
+```
+
+---
+
+## Model Providers
+
+**30+ supported.** Key ones:
+
+| Provider | Auth | Key Env Var |
+|----------|------|------------|
+| Anthropic | OAuth or API key | `ANTHROPIC_API_KEY` |
+| OpenRouter | API key | `OPENROUTER_API_KEY` |
+| OpenAI | API key | `OPENAI_API_KEY` |
+| Google Gemini | API key | `GOOGLE_API_KEY` |
+| AWS Bedrock | AWS credentials | (boto3/aws cli) |
+| GitHub Copilot | API key | `COPILOT_GITHUB_TOKEN` |
+| Nous Portal | OAuth device code | (portal login) |
+| Custom OpenAI-compatible | API key | Any base_url |
+
+**Switching:**
+```bash
+hermes model                          # Interactive picker
+hermes config set model.provider openrouter
+hermes config set model.default anthropic/claude-opus-4
+hermes auth add openrouter            # Add credential
+```
+
+---
+
+## Skills System
+
+24 categories of skill packs — markdown-based procedural memory injected into context.
+
+**Skill file structure:**
+```markdown
+---
+name: github-pr-workflow
+description: Create and manage GitHub pull requests
+version: 1.2.0
+author: Hermes Agent
+license: MIT
+metadata:
+  hermes:
+    tags: [GitHub, PR, git, workflow]
+    enabled: true
+    category: github
+---
+
+# GitHub PR Workflow
+
+Step 1: ...
+```
+
+**Commands:**
+```bash
+hermes skills list
+hermes skills enable github/github-pr-workflow
+hermes skills disable red-teaming/jailbreak
+```
+
+**Add external skills:**
+```yaml
+# config.yaml
+skills:
+  external_dirs:
+    - /home/coder/xo-org/workspace/.hermes-skills
+    - ~/my-custom-skills
+```
+
+---
+
+## Memory System
+
+**Storage:** `~/.hermes/memories/USER.md` (markdown, human-readable)
+
+**Injection:** Prepended to each request as `<memory-context>` fenced block (explicitly flagged as NOT user input to prevent prompt injection).
+
+**Lifecycle:**
+1. Pre-turn: retrieve relevant memory → inject into system prompt
+2. Agent works with memory context
+3. Post-turn: flush new facts → update USER.md
+4. Every 6+ turns: compress and re-save
+
+**Config:**
+```yaml
+memory:
+  memory_enabled: true
+  memory_char_limit: 2200        # Max chars recalled per turn
+  nudge_interval: 10             # Remind to save memory every N turns
+```
+
+---
+
+## Onboarding Templates
+
+### Minimum Viable config.yaml
+
+```yaml
+model:
+  default: claude-opus-4-6
+  provider: anthropic
+
+agent:
+  max_turns: 90
+
+terminal:
+  backend: local
+
+memory:
+  memory_enabled: true
+
+session_reset:
+  mode: idle
+  idle_minutes: 120
+
+_config_version: 21
+```
+
+### Minimum Viable .env
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-...
+HERMES_MAX_ITERATIONS=90
+TERMINAL_TIMEOUT=60
+```
+
+### Telegram Bot Template (config.yaml additions)
+
+```yaml
+telegram:
+  channel_prompts:
+    "YOUR_CHAT_ID": "You are a helpful assistant."
+```
+```bash
+# .env additions
+TELEGRAM_BOT_TOKEN=bot123456:ABC-DEF...
+TELEGRAM_ALLOWED_USERS=YOUR_USER_ID
+TELEGRAM_HOME_CHANNEL=YOUR_CHAT_ID
+```
+
+### Discord Bot Template (config.yaml additions)
+
+```yaml
+discord:
+  require_mention: true
+  auto_thread: true
+  reactions: true
+  channel_prompts:
+    "CHANNEL_ID": "You are a helpful coding assistant."
+```
+```bash
+# .env additions
+DISCORD_BOT_TOKEN=...
+DISCORD_ALLOWED_USERS=YOUR_USER_ID
+DISCORD_HOME_CHANNEL=CHANNEL_ID
+```
+
+### Multi-Provider Failover Template
+
+```yaml
+model:
+  default: claude-opus-4-6
+  provider: anthropic
+
+fallback_providers:
+  - provider: openrouter
+    model: anthropic/claude-sonnet-4
+  - provider: openai
+    model: gpt-4o
+
+credential_pool_strategies:
+  anthropic: round_robin
+  openrouter: least_used
+```
+
+### MCP Server Template (for Claude Code)
+
+Add to `.claude/settings.json`:
+```json
+{
+  "mcpServers": {
+    "hermes": {
+      "command": "hermes",
+      "args": ["mcp", "serve"]
+    }
+  }
+}
+```
+
+This lets Claude Code call Hermes tools: `messages_send`, `conversations_list`, `events_wait`, `permissions_respond`, etc.
+
+---
+
+## Setup Commands Reference
+
+```bash
+# Initial setup
+hermes setup                          # Full interactive wizard
+hermes config wizard                  # Re-run wizard only
+
+# Config management
+hermes config                         # Show current config
+hermes config edit                    # Open in $EDITOR
+hermes config set model.default claude-opus-4-6
+hermes config set display.personality concise
+
+# Auth / credentials
+hermes auth add anthropic             # Add credential (OAuth or API key)
+hermes auth add openrouter
+hermes auth list
+hermes auth logout anthropic
+
+# Model selection
+hermes model                          # Interactive model picker
+
+# Web dashboard
+hermes dashboard                      # Start at :9119
+hermes dashboard --port 8080
+
+# Channels
+hermes gateway setup                  # Interactive channel wizard
+hermes gateway start                  # Start messaging daemon
+hermes gateway stop
+hermes gateway status
+hermes telegram                       # Quick Telegram setup
+hermes whatsapp                       # QR-code WhatsApp pair
+
+# Skills
+hermes skills list
+hermes skills enable <category>/<name>
+hermes skills disable <category>/<name>
+
+# Diagnostics
+hermes doctor                         # Full health check
+
+# OpenClaw migration
+hermes claw migrate                   # Migrate from OpenClaw
+hermes claw cleanup                   # Archive .openclaw after migration
+```
+
+---
+
+## Hermes vs OpenClaw — Quick Comparison
+
+| | OpenClaw | Hermes |
+|--|----------|--------|
+| **Config** | `openclaw.json` (monolithic JSON) | `config.yaml` + `.env` + `auth.json` (split) |
+| **Web UI** | Canvas at `/__openclaw__/canvas/` | React SPA at `:9119` |
+| **API** | `:18789/v1/chat/completions` | `:8642/v1/chat/completions` |
+| **MCP** | Tool invocation via `POST /tools/invoke` | Stdio MCP server (`hermes mcp serve`) |
+| **Sessions** | JSONL files in `~/.openclaw/agents/main/sessions/` | JSON files in `~/.hermes/sessions/` |
+| **Memory** | SQLite binary | `memories/USER.md` (markdown) |
+| **Personality** | `workspace/SOUL.md` | `~/.hermes/SOUL.md` or config |
+| **Channel Setup** | `openclaw channels login` | `hermes gateway setup` |
+| **Credential Pool** | Single credential | Multi-key pool with strategies |
+| **Provider Support** | Anthropic primarily | 30+ providers |
+| **Skills** | OpenClaw skills plugins | 24-category markdown skill system |
+| **Migration** | — | `hermes claw migrate` |
+
+---
+
+## OpenClaw → Hermes Migration
+
+### How Migration Works
+
+Two-phase process:
+
+1. **Preview** — always runs first, shows exactly what will happen
+2. **Execute** — only runs after confirmation (or with `--yes`)
+
+```bash
+hermes claw migrate                   # Preview + confirm
+hermes claw migrate --yes             # Skip confirmation
+hermes claw migrate --overwrite       # Overwrite existing Hermes values
+hermes claw migrate --migrate-secrets # Also migrate API keys (off by default)
+hermes claw migrate --preset full     # Everything including secrets
+hermes claw cleanup                   # After migration: rename .openclaw → .openclaw.pre-migration
+```
+
+OpenClaw root scanned: `~/.openclaw/` (also checks legacy `~/.clawdbot/`, `~/.moltbot/`)
+
+---
+
+### What Gets Migrated — Full Field Mapping
+
+#### ✅ Auto-migrated (with conditions)
+
+| OpenClaw Source | Hermes Destination | Notes |
+|----------------|--------------------|-------|
+| `workspace/USER.md` | `~/.hermes/memories/USER.md` | Profile entries merged (9 entries, 461 chars on this install) |
+| `openclaw.json` → `TELEGRAM_BOT_TOKEN` | `~/.hermes/.env` | Only allowlisted secret keys |
+| `openclaw.json` → `channels.whatsapp.allowlist` | `~/.hermes/.env` → `WHATSAPP_ALLOWED_USERS` | |
+| `workspace/SOUL.md` | `~/.hermes/SOUL.md` | **Skipped if SOUL.md already exists** — needs `--overwrite` |
+| `openclaw.json` → `model` | `~/.hermes/config.yaml` → `model` section | **Skipped if model already set** — needs `--overwrite` |
+| `openclaw.json` → `ANTHROPIC_API_KEY` etc. | `~/.hermes/.env` | **Requires `--migrate-secrets` flag** (off by default) |
+| `openclaw.json` → Discord/Slack/Signal settings | `~/.hermes/.env` | Only if settings exist in source |
+| `openclaw.json` → `tts.*` | `~/.hermes/config.yaml` → `tts` section | Only if TTS configured |
+| `openclaw.json` → `mcp_servers` | `~/.hermes/config.yaml` → `mcp` section | Only if MCP servers configured |
+| OpenClaw skills directory | `~/.hermes/skills/openclaw-imports/` | Only if skills dir exists |
+| `workspace/memory/` (daily memory files) | `~/.hermes/memories/` | Only if directory exists |
+| Cron jobs | `~/.hermes/cron/` | Only if cron config exists |
+| Hooks config | `~/.hermes/hooks/` | Only if hooks configured |
+| Command allowlist (exec approvals) | `~/.hermes/config.yaml` → `command_allowlist` | Only if approvals file exists |
+| TTS assets (voice files) | `~/.hermes/` | Only if source dir exists |
+| `workspace/AGENTS.md` | Hermes workspace target | Requires `--workspace-target <path>` flag |
+
+#### 📦 Archived (no direct Hermes equivalent — saved for manual review)
+
+| OpenClaw Source | Archive Location | What to Do in Hermes |
+|----------------|------------------|----------------------|
+| `workspace/IDENTITY.md` | `migration/.../archive/workspace/IDENTITY.md` | Put relevant content into `SOUL.md` |
+| `workspace/TOOLS.md` | `migration/.../archive/workspace/TOOLS.md` | Recreate as skills in `~/.hermes/skills/` |
+| `workspace/HEARTBEAT.md` | `migration/.../archive/workspace/HEARTBEAT.md` | Recreate as cron jobs (`hermes cron`) |
+| `workspace/BOOTSTRAP.md` | `migration/.../archive/workspace/BOOTSTRAP.md` | No equivalent — embed in `SOUL.md` if needed |
+| `openclaw.json` → `plugins.*` | `migration/.../archive/plugins-config.json` | Re-setup via `hermes gateway setup` |
+| `openclaw.json` → `gateway.*` | `migration/.../archive/gateway-config.json` | Re-setup via `hermes gateway setup` |
+| `openclaw.json` → deep channel settings | `migration/.../archive/channels-deep-config.json` | Copy prompts into `config.yaml` → `discord.channel_prompts` etc. |
+
+#### ❌ Never migrated (secrets / binary / device state)
+
+| Item | Reason |
+|------|--------|
+| `memory/main.sqlite` | Binary runtime state |
+| `credentials/` directory | Device keys and secrets |
+| `devices/` directory | Hardware identity |
+| `identity/` directory | Product-specific identity |
+| WhatsApp `creds.json` | Session must be re-paired via QR code |
+| Raw `openclaw.json` | Hermes extracts only compatible fields; full file not copied |
+
+---
+
+### This Install's Migration Results
+
+Report: `~/.hermes/migration/openclaw/20260420T135537/report.json`
+
+| Result | Count | Items |
+|--------|-------|-------|
+| ✅ Migrated | 3 | USER.md, TELEGRAM_BOT_TOKEN, WHATSAPP_ALLOWED_USERS |
+| 📦 Archived | 7 | IDENTITY.md, TOOLS.md, HEARTBEAT.md, BOOTSTRAP.md, plugins-config, gateway-config, channels-deep-config |
+| ⚠️ Conflict (needs `--overwrite`) | 2 | SOUL.md, model config |
+| ⏭ Skipped (source not found) | 30 | MEMORY.md, AGENTS.md, skills, provider keys, cron, hooks, MCP servers, etc. |
+| ❌ Errors | 0 | — |
+
+**To complete the migration on this install:**
+
+```bash
+# Re-run with overwrite to pick up SOUL.md + model config from OpenClaw
+hermes claw migrate --overwrite
+
+# Manually re-add credentials (cannot be auto-migrated)
+hermes auth add anthropic
+
+# Re-pair WhatsApp (session cannot be transferred)
+hermes whatsapp
+
+# Re-configure other channels
+hermes gateway setup
+
+# Review archived files and act on them
+ls ~/.hermes/migration/openclaw/20260420T135537/archive/
+```

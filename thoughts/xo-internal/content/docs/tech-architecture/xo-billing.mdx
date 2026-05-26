@@ -1,0 +1,369 @@
+---
+title: XO Billing
+description: "Subscription & billing service — Elysia/Bun backend with Stripe integration and Clerk metadata-driven state"
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+<Callout title="Internal Technical Documentation" type="warn">
+	Engineering reference — v1.0, March 2026 | xo.builders
+</Callout>
+
+## Overview
+
+XO Billing is a **stateless billing microservice** that manages subscriptions, trials, payment methods, and role assignment for the XO platform. It acts as a bridge between Stripe (source of truth for billing state) and Clerk (source of truth for user identity), using Clerk's user metadata as its "database" rather than maintaining its own persistence layer.
+
+The service is intentionally thin — it orchestrates Stripe API calls, processes webhooks, and synchronizes subscription state back to Clerk so the rest of the platform can read user roles directly from the auth layer.
+
+```
+┌─────────────────────────────────────────────────────┐
+│               XO Billing (Elysia/Bun)               │
+│                                                     │
+│  ┌───────────────────────────────────────────────┐  │
+│  │              Subscription Module               │  │
+│  │                                                │  │
+│  │  Routes ──→ Service ──→ Stripe API            │  │
+│  │    │                        │                  │  │
+│  │    │         Webhook ◄──────┘                  │  │
+│  │    │           │                               │  │
+│  │    └───────────┴──→ Clerk Metadata             │  │
+│  └───────────────────────────────────────────────┘  │
+│                                                     │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
+│  │  Clerk   │  │  Stripe  │  │  Pino Logger     │  │
+│  │  Auth    │  │  Client  │  │  (console+file)  │  │
+│  └──────────┘  └──────────┘  └──────────────────┘  │
+└─────────────────────────────────────────────────────┘
+         │                 │
+    ┌────▼─────┐    ┌──────▼──────┐
+    │  Clerk   │    │   Stripe    │
+    │ (users,  │    │ (customers, │
+    │  roles)  │    │  subs, $$$) │
+    └──────────┘    └─────────────┘
+```
+
+## Tech Stack
+
+| Layer          | Technology                  | Purpose                              |
+| -------------- | --------------------------- | ------------------------------------ |
+| **Runtime**    | Bun                         | JavaScript runtime & package manager |
+| **Framework**  | Elysia                      | Lightweight TypeScript web framework |
+| **Language**   | TypeScript                  | Strict mode, ES2021/ES2022 target    |
+| **Payments**   | Stripe SDK v20.1.0          | Subscriptions, checkout, webhooks    |
+| **Auth**       | Clerk Backend SDK v2.29.0   | JWT verification, user metadata      |
+| **Logging**    | Pino + rotating-file-stream | Dual console/file, daily rotation    |
+| **API Docs**   | @elysiajs/openapi           | OpenAPI spec generation (dev only)   |
+| **Validation** | Elysia `t` schema system    | Runtime type checking + OpenAPI gen  |
+
+## Project Structure
+
+```
+xo-billing/
+├── src/
+│   ├── index.ts                        # App entry, middleware, health check
+│   ├── config/
+│   │   └── index.ts                    # Env validation & config object
+│   ├── modules/
+│   │   └── subscription/
+│   │       ├── index.ts                # Route definitions (all endpoints)
+│   │       ├── model.ts                # Request/response schemas
+│   │       ├── service.ts              # Core business logic
+│   │       └── webhook.ts              # Stripe webhook event handlers
+│   └── utils/
+│       ├── clerk.ts                    # Clerk client & metadata ops
+│       ├── stripe.ts                   # Stripe client init
+│       ├── errors.ts                   # Custom error hierarchy
+│       └── logger.ts                   # Pino logging config
+├── dist/                               # Bun-bundled output
+├── Dockerfile                          # oven/bun base image
+├── package.json
+└── tsconfig.json
+```
+
+## Core Design: Metadata-Driven State
+
+The most distinctive architectural decision in xo-billing is that **it has no database**. Instead, it uses Clerk user metadata as its persistence layer:
+
+### Clerk Private Metadata (not visible to client)
+
+```typescript
+{
+  stripeCustomerId: string,             // Stripe customer reference
+  stripeSubscriptionId: string | null,  // Current active subscription
+  isTrialing: boolean,                  // Whether in trial period
+  hasUsedTrial: boolean,                // One-time trial eligibility flag
+  trialUsedAt: number                   // Timestamp of trial activation
+}
+```
+
+### Clerk Public Metadata (readable by frontend)
+
+```typescript
+{
+	role: "free" | "basic" | "pro" | "enterprise";
+}
+```
+
+This means any service in the XO platform can determine a user's subscription tier by reading their Clerk public metadata — no call to the billing service needed. The billing service is only involved when state changes (subscribe, cancel, payment events).
+
+<Callout type="info">
+	Design tradeoff: No database means zero operational overhead for persistence,
+	but you can't query subscriptions without a user ID. Stripe is the
+	authoritative source if you need to look up subscriptions independently.
+</Callout>
+
+## Pricing Model
+
+### Three-Tier Subscription Plans
+
+| Tier           | Role         | Billing           |
+| -------------- | ------------ | ----------------- |
+| **Basic**      | `basic`      | Monthly or yearly |
+| **Pro**        | `pro`        | Monthly or yearly |
+| **Enterprise** | `enterprise` | Monthly or yearly |
+
+Plans are defined entirely in Stripe — the billing service reads them dynamically via `stripe.products.list()` using product IDs from environment variables. Each Stripe product must have:
+
+- At least one monthly and one yearly active price
+- Optional features via Stripe's Entitlements API
+- A `user_role` field in product metadata (e.g., `"basic"`, `"pro"`, `"enterprise"`)
+
+Role assignment is determined by reading `product.metadata.user_role` from the purchased product — no hardcoded product-to-role mapping in code.
+
+### Trial System
+
+Trials are a first-class concept with dedicated logic:
+
+- **Duration**: 30 days (hardcoded `TRIAL_DAYS = 30`)
+- **Eligibility**: One trial per user lifetime (`hasUsedTrial` flag)
+- **Payment**: No payment method required to start
+- **Conversion**: User must add payment method before trial expires
+
+```
+POST /subscriptions/ { startTrial: true, productId, priceId }
+  ↓
+Check eligibility (hasUsedTrial == false, no active sub)
+  ↓
+stripe.subscriptions.create({
+  payment_behavior: "default_incomplete",
+  trial_end: now + 30 days
+})
+  ↓
+Update Clerk: isTrialing=true, hasUsedTrial=true, trialUsedAt=now
+  ↓
+Return { subscriptionId, status: "trialing", trialEnd }
+```
+
+If trial expires without a payment method, the `customer.subscription.updated` webhook fires with `incomplete_expired` status and the user is downgraded to `free`.
+
+## API Endpoints
+
+### Public
+
+| Method | Path                   | Purpose                                                      |
+| ------ | ---------------------- | ------------------------------------------------------------ |
+| GET    | `/subscriptions/plans` | Returns all 3 plans with monthly/yearly pricing and features |
+
+### Subscription Management (Clerk JWT required)
+
+| Method | Path                             | Purpose                                                     |
+| ------ | -------------------------------- | ----------------------------------------------------------- |
+| POST   | `/subscriptions/`                | Create subscription or start trial                          |
+| GET    | `/subscriptions/`                | List user's subscriptions (paginated, filterable by status) |
+| GET    | `/subscriptions/:id`             | Get single subscription details                             |
+| DELETE | `/subscriptions/:id`             | Cancel subscription                                         |
+| GET    | `/subscriptions/:id/invoice-url` | Get hosted invoice URL (past_due/unpaid only)               |
+
+### Trial Management (Clerk JWT required)
+
+| Method | Path                               | Purpose                         |
+| ------ | ---------------------------------- | ------------------------------- |
+| GET    | `/subscriptions/trial/eligibility` | Check if user can start a trial |
+
+### Payment Methods (Clerk JWT required)
+
+| Method | Path                                         | Purpose                                     |
+| ------ | -------------------------------------------- | ------------------------------------------- |
+| GET    | `/subscriptions/payment-methods`             | List all payment methods + default          |
+| POST   | `/subscriptions/payment-methods`             | Add payment method (customer-level)         |
+| POST   | `/subscriptions/:id/payment-method`          | Add payment method to trialing subscription |
+| PUT    | `/subscriptions/payment-methods/:id/default` | Set default payment method                  |
+| DELETE | `/subscriptions/payment-methods/:id`         | Remove payment method                       |
+
+### Webhook (signature-verified, no JWT)
+
+| Method | Path              | Purpose                    |
+| ------ | ----------------- | -------------------------- |
+| POST   | `/webhook/stripe` | Receives all Stripe events |
+
+## Subscription Lifecycle
+
+### State Machine
+
+```
+                    ┌─────────────────────────────┐
+                    │         CREATION             │
+                    │                              │
+                    │  Paid: checkout → active      │
+                    │  Trial: trialing → active     │
+                    │         trialing → expired    │
+                    └──────────┬──────────────────┘
+                               │
+                    ┌──────────▼──────────────────┐
+                    │         ACTIVE               │
+                    │                              │
+                    │  Payment fails → past_due    │
+                    │  User cancels → canceled     │
+                    └──────────┬──────────────────┘
+                               │
+                    ┌──────────▼──────────────────┐
+                    │       DEGRADED               │
+                    │                              │
+                    │  past_due → unpaid (retries  │
+                    │             exhausted)        │
+                    │  past_due/unpaid → free role  │
+                    └──────────────────────────────┘
+```
+
+### Checkout Flow (Paid Subscription)
+
+```
+POST /subscriptions/ { productId, priceId }
+  ↓
+getOrCreateCustomer(userId)
+  ├── Check Clerk metadata for stored customer ID
+  ├── If stored, verify exists in Stripe
+  ├── If not, search Stripe by email
+  └── If not found, create new customer
+  ↓
+stripe.checkout.sessions.create({
+  mode: "subscription",
+  customer: customerId,
+  line_items: [{ price: priceId, quantity: 1 }]
+})
+  ↓
+Return { checkoutUrl }  →  User completes payment
+  ↓
+Webhook: checkout.session.completed
+  ↓
+Store subscriptionId in Clerk private metadata
+  ↓
+Webhook: customer.subscription.created
+  ↓
+Read product.metadata.user_role → Update Clerk public metadata role
+```
+
+## Stripe Webhook Events
+
+Nine event types are handled with guard clauses to prevent stale events from overwriting newer state:
+
+| Event                                  | Action                                                           |
+| -------------------------------------- | ---------------------------------------------------------------- |
+| `checkout.session.completed`           | Store subscription/customer IDs in Clerk metadata                |
+| `customer.subscription.created`        | Set user role from product metadata, handle trial flag           |
+| `customer.subscription.updated`        | Downgrade to free on payment failure; track trial status         |
+| `customer.subscription.deleted`        | Clear subscription from Clerk, revert role to free               |
+| `customer.subscription.trial_will_end` | Log warning if no payment method (3 days before expiry)          |
+| `invoice.payment_succeeded`            | Informational logging                                            |
+| `invoice.payment_failed`               | Downgrade to free if subscription is past_due/unpaid             |
+| `setup_intent.succeeded`               | Attach payment method to subscription (if subscription-specific) |
+| `customer.deleted`                     | Full cleanup — clear all Stripe data from Clerk                  |
+
+<Callout type="info">
+	Guard clause pattern: Many webhook handlers check whether the event is for the
+	user's "current" subscription before acting. This prevents a stale
+	`incomplete_expired` event from reverting a user who has already started a new
+	subscription.
+</Callout>
+
+## Authentication & Security
+
+### Request Auth
+
+All protected endpoints use Clerk JWT verification via the `elysia-clerk` plugin. The auth middleware extracts `userId` from the token and passes it through the request context.
+
+### Webhook Auth
+
+Stripe webhooks use cryptographic signature verification. The endpoint parses raw request body text and verifies it against `STRIPE_WEBHOOK_SECRET` using `stripe.webhooks.constructEventAsync()` (Bun-compatible async variant).
+
+### Data Security
+
+- Payment method data never touches the billing service — Stripe Checkout handles PCI compliance
+- Sensitive IDs (customer, subscription) stored in Clerk private metadata (not exposed to frontend)
+- Only the user's `role` is stored in public metadata
+
+## Error Handling
+
+The service uses a typed error hierarchy that maps to HTTP status codes:
+
+| Error Class                  | Status | When                                          |
+| ---------------------------- | ------ | --------------------------------------------- |
+| `ValidationError`            | 400    | Invalid request parameters                    |
+| `AuthenticationError`        | 401    | Missing or invalid JWT                        |
+| `AuthorizationError`         | 403    | User doesn't own resource                     |
+| `NotFoundError`              | 404    | Subscription/resource not found               |
+| `PaymentMethodRequiredError` | 402    | Action requires payment method                |
+| `TrialExpiredError`          | 402    | Trial has ended                               |
+| `AlreadySubscribedError`     | 409    | User already has active subscription          |
+| `TrialAlreadyUsedError`      | 409    | Trial already consumed                        |
+| `StripeError`                | 400    | Stripe API error (includes Stripe error code) |
+| `ClerkError`                 | 400    | Clerk API error                               |
+
+Response format is consistent across all errors:
+
+```json
+{
+	"error": {
+		"message": "Human-readable description",
+		"code": "TRIAL_ALREADY_USED",
+		"statusCode": 409
+	}
+}
+```
+
+## Deployment
+
+### Docker
+
+Built on `oven/bun` base image. Bun bundles the app into a single `dist/index.js` with minification, externalizing Pino modules for runtime loading.
+
+```dockerfile
+FROM oven/bun
+WORKDIR /app
+COPY . .
+RUN bun install && bun build src/index.ts --target bun --minify ...
+EXPOSE 3000
+CMD ["bun", "dist/index.js"]
+```
+
+### Required Environment Variables
+
+| Variable                       | Purpose                           |
+| ------------------------------ | --------------------------------- |
+| `STRIPE_SECRET_KEY`            | Stripe API authentication         |
+| `STRIPE_WEBHOOK_SECRET`        | Webhook signature verification    |
+| `STRIPE_BASIC_PRODUCT_ID`      | Basic tier product in Stripe      |
+| `STRIPE_PRO_PRODUCT_ID`        | Pro tier product in Stripe        |
+| `STRIPE_ENTERPRISE_PRODUCT_ID` | Enterprise tier product in Stripe |
+| `CLERK_SECRET_KEY`             | Backend auth verification         |
+| `CLERK_PUBLISHABLE_KEY`        | Client-side Clerk config          |
+| `PORT`                         | Server port (default: 3000)       |
+| `NODE_ENV`                     | development / production          |
+
+### Logging
+
+Dual-stream via Pino — pretty-printed console for development, daily-rotating JSON files in `./logs/` for production. Files named `YYYY-MM-DD.log`.
+
+## Architecture Notes
+
+**Why no database?** Clerk metadata + Stripe as dual sources of truth eliminates an entire persistence layer. The billing service is fully stateless — any instance can handle any request. The tradeoff is that you can't query "all users on the pro plan" without iterating Clerk users, but that's an admin concern handled via Stripe's dashboard.
+
+**Why Elysia/Bun over Express/Node?** Performance and developer experience. Elysia's type-safe route definitions generate OpenAPI docs automatically and catch schema mismatches at compile time. Bun's startup time and throughput are significantly faster than Node for this workload.
+
+**Why Clerk metadata over a join table?** The billing service needs to answer one question: "what role does this user have?" Storing that directly on the user object means every other service gets the answer for free from the auth token — zero extra API calls.
+
+**Why async webhook verification?** Stripe's standard `constructEvent()` uses Node.js crypto APIs. Bun doesn't fully support them, so the service uses `constructEventAsync()` which falls back to SubtleCrypto (Web Crypto API), which Bun does support.
+
+**Customer deduplication strategy:** `getOrCreateCustomer()` follows a defensive lookup chain: check stored ID → verify in Stripe → search by email → create new. This prevents duplicate customers even under race conditions or after metadata loss.
+
+**Known gaps:** No usage-based billing/metering yet (all plans are flat-rate), no proration handling for mid-cycle plan changes, no webhook retry/idempotency tracking, no rate limiting, CORS not yet restricted for production.

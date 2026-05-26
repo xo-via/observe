@@ -1,0 +1,87 @@
+---
+title: Tech
+description: May 2026 engineering commitments
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+
+# Tech — May 2026
+
+<Callout title="Objective">
+[TODO: One sentence — what does the platform look like by June 1? April's was: "Platform runs 500 workspaces reliably, every request is secure and observable, and users can self-serve from project creation to payment without friction."]
+</Callout>
+
+## Weekly Ship Targets
+
+| Target Date | What ships | Layer | Owner | Status |
+|---|---|---|---|---|
+| [TODO: Date 1, e.g. May 15] | [TODO: What ships] | [TODO: Layer] | | ⚪ |
+| [TODO: Date 2, e.g. May 22] | [TODO: What ships] | [TODO: Layer] | | ⚪ |
+| [TODO: Date 3, e.g. May 29 or June 1] | [TODO: What ships] | [TODO: Layer] | | ⚪ |
+
+<Callout type="info" title="How to use this">
+Three deadlines, three milestones. Each row is something that ships by that date — not "in progress," but done. If a row slips, flag why and adjust downstream.
+</Callout>
+
+## Layer Commitments
+
+<Tabs items={["Platform", "Workspace / Cowork", "Backend", "Infra"]}>
+  <Tab value="Platform">
+    **Layer 1** — [Read the briefing](/docs/gtm/may/tech/platform)
+
+    | # | Commitment | Owner | Due | Status |
+    |---|---|---|---|---|
+    | 1 | UX revamp | | | ⚪ Not Started |
+    | 2 | Add DataHog integration for platform analytics | | | ⚪ Not Started |
+    | 3 | Restructure launch without requiring any API key | | | ⚪ Not Started |
+    | 4 | Easy way to hard reset and restart the agent | | | ⚪ Not Started |
+    | 5 | Update models, channels, and identity from CLI | | | ⚪ Not Started |
+    | 6 | Define the agent architecture and how we see it evolving | | | ⚪ Not Started |
+    | 7 | Easy way to make an XO Agent an employee | | | ⚪ Not Started |
+  </Tab>
+  <Tab value="Workspace / Cowork">
+    **Layer 2** — [Read the briefing](/docs/gtm/may/tech/workspace-cowork)
+
+    | # | Commitment | Owner | Due | Status |
+    |---|---|---|---|---|
+    | 1 | Get Connect Claude working again for OpenClaw | | | ⚪ Not Started |
+    | 2 | Add ability to update the Cowork API script | | | ⚪ Not Started |
+    | 3 | Add authenticated connections to Google Drive, GitHub, and Vercel | | | ⚪ Not Started |
+    | 4 | Stabilize chat | | | ⚪ Not Started |
+    | 5 | Complete cleanup of the Cowork codebase and ready it for open source | | | ⚪ Not Started |
+    | 6 | Get Hermes and Claude Code integrated and working | | | ⚪ Not Started |
+    | 7 | Ensure total token flow through Cowork end-to-end | | | ⚪ Not Started |
+  </Tab>
+  <Tab value="Backend">
+    **Layer 3** — [Read the briefing](/docs/gtm/may/tech/backend)
+
+    | # | Commitment | Owner | Due | Status |
+    |---|---|---|---|---|
+    | 1 | Add collection of tokens in Claude Code and other templates | | | ⚪ Not Started |
+    | 2 | Collect and store total token usage data | | | ⚪ Not Started |
+    | 3 | Add token logging and usage history | | | ⚪ Not Started |
+    | 4 | Add error logging with full integration to debugging platforms | | | ⚪ Not Started |
+    | 5 | Make an OpenAPI client for the Cowork API | | | ⚪ Not Started |
+  </Tab>
+  <Tab value="Infra">
+    [Read the briefing](/docs/gtm/may/tech/infra)
+
+    | # | Commitment | Owner | Due | Status |
+    |---|---|---|---|---|
+    | 1 | Stabilize the new production environment | | | ⚪ Not Started |
+    | 2 | Add ability to update the Coder workspace | | | ⚪ Not Started |
+    | 3 | Complete idempotency (crash / restart / workspace change → resume from exact location) | | | ⚪ Not Started |
+    | 4 | Test scaling and spot instances | | | ⚪ Not Started |
+    | 5 | Add logging, monitoring, and complete agent-background visibility | | | ⚪ Not Started |
+    | 6 | Add PostHog for error tracking and logging (~2 weeks) | | | ⚪ Not Started |
+  </Tab>
+</Tabs>
+
+Status: ⚪ Not Started · 🟡 In Progress · 🟢 Done · 🔴 Blocked
+
+## Blocked
+
+<Callout type="error" title="Blockers">
+Nothing yet. Move items here when they're stuck — include the layer and what's needed to unblock.
+</Callout>

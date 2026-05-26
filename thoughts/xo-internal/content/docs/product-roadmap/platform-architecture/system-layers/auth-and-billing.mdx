@@ -1,0 +1,55 @@
+---
+title: "Layer 0 — Auth & Billing"
+description: "The foundational layer — Clerk for identity and Stripe for billing, underpinning every service in the platform"
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+<Callout title="Internal Technical Documentation" type="warn">
+Engineering reference — v1.0, March 2026 | xo.builders
+</Callout>
+
+## Overview
+
+Auth & Billing is **Layer 0** — the foundation that every other layer depends on. With **Clerk** as the identity layer and **Stripe** as the payment layer, these two systems are tightly coupled so that billing state flows directly into auth tokens. Every service in Layers 1, 2, and 3 reads identity and permissions from Layer 0 without extra API calls.
+
+```
+                    ┌─────────────────────────────────────┐
+                    │         Layer 0 — Foundation         │
+                    │                                     │
+┌─────────────┐     │  ┌──────────┐     ┌──────────────┐  │
+│  XO Swarm   │────▶│  │  Clerk   │◀────│  XO Billing  │  │
+│  (Layer 1)  │     │  │          │     │  (Elysia/Bun)│  │
+└─────────────┘     │  │  JWT     │     │              │  │
+                    │  │  API keys│     │  Stripe      │  │
+┌─────────────┐     │  │  Roles   │     │  Webhooks    │  │
+│  Cowork API │────▶│  │  Metadata│     │  Subs        │  │
+│  (Layer 2)  │     │  └──────────┘     └──────┬───────┘  │
+└─────────────┘     │        ▲                  │         │
+                    │        └──── role sync ────┘         │
+┌─────────────┐     │                                     │
+│  Swarm API  │────▶│                                     │
+│  (Layer 3)  │     │                                     │
+└─────────────┘     └─────────────────────────────────────┘
+```
+
+## Auth Mechanisms
+
+**Clerk JWT** is the primary auth for all frontend-originated requests. Every service validates the same token format. **Clerk API Keys** (`ak_xxx`) handle service-to-service authentication — used when the Cowork API inside a workspace calls back to the Swarm API. The **OAuth flow** provides browser-based auth for Cowork API sessions (start → poll → consume pattern).
+
+## Billing → Auth Role Sync
+
+XO Billing is stateless — no database. It bridges Stripe (payment source of truth) and Clerk (identity source of truth). When a user subscribes or their payment status changes, Stripe webhooks fire into XO Billing, which writes the subscription tier (`free`, `basic`, `pro`, `enterprise`) to Clerk public metadata. From that point on, every service reads the role directly from the user's auth token — zero extra calls to the billing service.
+
+## How Billing Gates Features
+
+| Tier | Agent Projects | Org Projects | Workspace TTL | Knowledge Base |
+|---|---|---|---|---|
+| **Free** | 1 active | 1 active | 1 day | None |
+| **Basic** | 5 active | 2 active | 30 days | 100MB per project |
+| **Pro** | Unlimited | 10 active | 30 days | 1GB per project |
+| **Enterprise** | Unlimited | Unlimited | Custom | Custom |
+
+The billing check happens at workspace provisioning time — XO Swarm reads the user's role from their Clerk JWT, and if the tier doesn't support the requested project type or the user has hit their quota, the creation is blocked before any infrastructure is provisioned.
+
+For full billing documentation, see [XO Billing](/docs/tech-architecture/xo-billing).

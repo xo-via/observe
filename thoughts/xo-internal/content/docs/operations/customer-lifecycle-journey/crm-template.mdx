@@ -1,0 +1,156 @@
+---
+title: How to use CRM
+description: Field reference, stage definitions, and tag taxonomy for the XO CRM tracker
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+
+<Callout title="Confidential" type="warn">
+Internal use only — April 2026 | xo.builders
+</Callout>
+
+## Overview
+
+The XO CRM tracker is a shared Google Sheet — **[open it here](https://docs.google.com/spreadsheets/d/1Bzmyz4mDk0XkESFojfPxOYCWlAaGUIljvkLRjDPfOcg/edit?usp=sharing)**. Every row is one contact. This page is the field reference — what each column means, what values are valid, and how to fill it correctly.
+
+---
+
+## Field Reference
+
+### Identity fields
+
+| Field | Type | Description |
+|---|---|---|
+| `Name` | Text | Full name of the contact |
+| `Company` | Text | Company or organisation name |
+| `Email` | Email | Primary contact email |
+
+### Status fields
+
+| Field | Valid values | Description |
+|---|---|---|
+| `Stage` | S1 – S5, SX | Where the contact sits in the pipeline (see Stages below) |
+| `Priority` | P1 / P2 / P3 | Urgency ranking — P1 = highest (see Priority below) |
+| `Temperature` | HOT / WARM / COLD | Engagement signal — how active or responsive they are right now |
+
+### Classification fields
+
+| Field | Type | Description |
+|---|---|---|
+| `Industry` | Slug | Vertical the contact operates in — e.g. `dev-tools`, `fintech`, `saas` |
+| `Pain_Tags` | Pipe-separated slugs | The blockers or pain points the contact has surfaced |
+| `Agent_Tags` | Pipe-separated slugs | Which XO agents they use or are evaluating |
+| `Broadcast_Tags` | Pipe-separated slugs | Which broadcast sequences to include them in |
+
+### Action fields
+
+| Field | Type | Description |
+|---|---|---|
+| `Next_Action_Date` | DD-MM-YYYY | The date of the next planned touchpoint |
+| `Notes` | Free text | Running log — most recent first. One-liners only; keep it scannable |
+
+---
+
+## Stages
+
+| Stage | Label | Meaning |
+|---|---|---|
+| S1 | Lead | Identified, not yet qualified. No confirmed pain or budget signal |
+| S2 | Qualified | Pain confirmed. Budget or decision-making capacity likely |
+| S3 | Demo Done | Product shown. Waiting on response or next step |
+| S4 | Follow-up | Post-demo nurture. Waiting on timing, infra, or stakeholder sign-off |
+| S5 | Active User | Using the product. Focus shifts to retention and expansion |
+| SX | Closed Lost | Not moving forward now. Set a re-engage date if applicable |
+
+---
+
+## Priority
+
+Priority reflects how much CS attention this contact warrants right now — not their company size.
+
+| Value | Meaning |
+|---|---|
+| P1 | Actively working it. Respond within 24h. Founders loop in if needed |
+| P2 | Moving, but not urgent. Weekly check-in cadence |
+| P3 | Slow / parked. Only action on a trigger (reply, event, date) |
+
+---
+
+## Temperature
+
+Temperature is a signal, not a stage. A contact can be S4 and HOT (re-engaged after a delay) or S2 and COLD (qualified but unresponsive).
+
+| Value | Signal |
+|---|---|
+| HOT | Replied recently, booked a call, or sent a strong buying signal |
+| WARM | Engaged but not moving fast — watching, thinking, waiting |
+| COLD | No response in 7+ days, or explicitly deprioritised |
+
+---
+
+## Tag Taxonomy
+
+Tags use lowercase slugs. Multiple values are separated by a pipe `|` character.
+
+<Tabs items={['Pain Tags', 'Agent Tags', 'Broadcast Tags']}>
+
+<Tab value="Pain Tags">
+
+Tags that describe the problem the contact has surfaced. Add as many as apply.
+
+| Tag | Meaning |
+|---|---|
+| `visibility` | No insight into what their agents are doing |
+| `guardrails` | Needs controls or limits on agent behaviour |
+| `no-eng-buy-in` | Engineering team not yet aligned or involved |
+| `infra-decision-pending` | Waiting on an internal infrastructure or vendor decision |
+| `isolation` | Needs workspace or environment isolation |
+| `agent-drift` | Agents behaving unpredictably or inconsistently |
+| `security` | Security review required or flagged |
+| `data-privacy` | Data residency or privacy constraints |
+| `cost-sensitivity` | Budget is tight or pricing is an objection |
+| `timing` | Right problem, wrong moment — come back later |
+| `no-eng` | No engineering resource in-house |
+| `not-a-fit-now` | Not a fit today, but may be in the future |
+
+</Tab>
+
+<Tab value="Agent Tags">
+
+Tags that identify which XO agent(s) the contact uses or is evaluating.
+
+| Tag | Meaning |
+|---|---|
+| `claude-code` | Using or trialling the Claude Code agent |
+| `codex` | Using or trialling the Codex agent |
+| `custom-agent` | Building or evaluating a custom agent on XO |
+| `none` | No agent tagged yet |
+
+</Tab>
+
+<Tab value="Broadcast Tags">
+
+Tags that control which broadcast or nurture sequences this contact receives. Add only what applies to their current situation.
+
+| Tag | When to apply |
+|---|---|
+| `guardrails-launch` | Include in guardrails feature launch broadcast |
+| `visibility-update` | Include in visibility feature update sequence |
+| `eng-champion-needed` | Needs eng champion outreach or content |
+| `isolation-feature` | Include in workspace isolation feature broadcast |
+| `infra-ready-ping` | Re-engage when infra readiness signal arrives |
+| `agent-drift-fix` | Include in agent drift fix / stability update broadcast |
+| `security-update` | Include in security or compliance update sequence |
+| `compliance-launch` | Include in compliance feature launch broadcast |
+| `pricing-update` | Re-engage when pricing changes or free tier launches |
+| `free-tier-launch` | Include in free tier launch broadcast |
+| `hiring-trigger` | Re-engage when contact hires engineering talent |
+| `re-engage-q3` | Parked — trigger re-engagement in Q3 |
+| `expansion-ready` | Active user ready for expansion or upsell conversation |
+
+</Tab>
+
+</Tabs>
+
+---

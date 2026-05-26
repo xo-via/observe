@@ -1,0 +1,89 @@
+---
+title: "XO-PAN Overview"
+description: "XO Private Agent Network — a private, secure network layer enabling multi-agent orchestration on self-hosted infrastructure."
+---
+
+# XO Private Agent Network (XO-PAN)
+
+**Status:** Draft — Architecture Review  
+**Author:** XO Engineering  
+**Date:** 2026-04-10  
+**Target Runtime:** Olares OS (Kubernetes-based personal cloud)
+
+---
+
+## Problem Statement
+
+AI agents today run as isolated applications. On a platform like Olares, a user can install Ollama, Open WebUI, Stable Diffusion, JupyterLab, and various custom agents — but each runs in its own container with no awareness of the others. There is no coordination layer, no shared task management, no governed communication between agents, and no way to compose them into a team that works toward a common goal.
+
+XO solves this in the cloud with **XO Orgs** — multi-agent orchestration with RBAC, task routing, heartbeat execution, and full audit trails. The Private Agent Network (XO-PAN) brings this capability to **self-hosted infrastructure**, starting with Olares.
+
+---
+
+## What XO-PAN Is
+
+A deployable network layer — packaged as an Olares application — that enables any agent running on an Olares instance to register, discover other agents, communicate through governed channels, and coordinate on shared goals. The entire network runs within the user's hardware boundary. No data leaves the device.
+
+---
+
+## What XO-PAN Is Not
+
+- **Not a new agent runtime** — it orchestrates existing agents (Ollama, Claude Code, OpenClaw, custom processes)
+- **Not a replacement for Olares' app model** — agents still deploy as Olares apps; XO-PAN is the coordination layer between them
+- **Not cloud-dependent** — the full stack runs locally, with optional cloud sync for multi-node deployments
+
+---
+
+## Requirements
+
+### Functional Requirements
+
+| ID | Requirement | Priority |
+|---|---|---|
+| F1 | Agents register to the network with identity, capabilities, and adapter type | P0 |
+| F2 | Agents discover other registered agents and their capabilities | P0 |
+| F3 | Agents communicate via structured messages (task assignments, status updates, context sharing) | P0 |
+| F4 | Human operators see all agent activity in a unified dashboard | P0 |
+| F5 | Tasks flow through a checkout protocol ensuring exclusive execution | P0 |
+| F6 | Agents execute in heartbeat runs — stateless, auditable execution windows | P0 |
+| F7 | RBAC governs agent permissions (who can create agents, delegate work, access secrets) | P0 |
+| F8 | Pre-packaged Org templates deploy multi-agent teams in one click | P1 |
+| F9 | GPU-aware task scheduling routes compute-heavy work to agents with GPU access | P1 |
+| F10 | Knowledge bases are shared across agents in the same project | P1 |
+| F11 | Agents can escalate blocked tasks up the chain of command | P1 |
+| F12 | Full audit trail (NDJSON run logs) for every heartbeat run | P0 |
+| F13 | Budget enforcement with per-agent monthly caps and auto-pause | P2 |
+| F14 | MCP-compatible agents register without custom integration code | P1 |
+
+### Non-Functional Requirements
+
+| ID | Requirement | Target |
+|---|---|---|
+| NF1 | Heartbeat-to-first-action latency | < 2 seconds |
+| NF2 | Agent registration to discoverable | < 5 seconds |
+| NF3 | Maximum concurrent agents per instance | 50+ |
+| NF4 | Dashboard event propagation (SSE) | < 500ms |
+| NF5 | Zero external network calls in default mode | Strict |
+| NF6 | Storage overhead for XO-PAN system services | < 2GB RAM, < 5GB disk |
+| NF7 | Works on Olares minimum spec (4 cores, 8GB RAM) with reduced agent count | Degraded but functional |
+
+### Constraints
+
+- Must deploy as a standard Olares application within the user's Kubernetes namespace
+- Must use Olares' existing infrastructure services (NATS, Citus PostgreSQL, Redis, LarePass) — no duplicate databases
+- Must not require internet connectivity for core functionality
+- Must respect Olares' per-user namespace isolation model
+- Agent runtimes (Ollama, Claude Code, etc.) remain separate Olares apps — XO-PAN coordinates, not contains
+
+---
+
+## Document Map
+
+| Document | What It Covers |
+|---|---|
+| [Architecture](/docs/evm/xo-pan/architecture) | Six-layer architecture, component deep dives (registry, mesh, orchestration, gateway, dashboard) |
+| [Data Model](/docs/evm/xo-pan/data-model) | SQL schemas for agents, tasks, execution, audit — adapted from Paperclip |
+| [API Contracts](/docs/evm/xo-pan/api-contracts) | MCP tools, REST endpoints, Org template format |
+| [Olares Integration](/docs/evm/xo-pan/olares-integration) | How XO-PAN connects to NATS, Citus PG, HAMi, LarePass, K8s namespaces |
+| [Data Flows](/docs/evm/xo-pan/data-flows) | Step-by-step scenarios: Org deployment, task decomposition, GPU scheduling |
+| [Trade-Offs](/docs/evm/xo-pan/trade-offs) | Architectural decisions, open questions, and milestone plan |

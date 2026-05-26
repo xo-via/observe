@@ -1,0 +1,77 @@
+---
+title: June 2026
+description: Stabilize the platform post-M3. Begin B2B hardening.
+icon: Workflow
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# June 2026 — Stabilize and Pivot
+
+**Status: committed. M3 landed in May; June is the post-milestone stabilization month.**
+
+The first month after M3 isn't a new milestone — it's a stabilization month. The platform held 1,000 workspaces, but May was a sprint. June is when we measure what actually stuck, which user segments converted, and what the next ramp looks like.
+
+<Callout>
+  **The win condition for June:** May's 1,000 workspaces hold or grow, 30-day retention validates PMF, and the B2B pipeline depth is measurable.
+</Callout>
+
+## Focus
+
+Two parallel tracks:
+
+**Track 1: Validate.** Did the 1,000 hold? What's the cohort retention at 30 days? Where did churn come from? Is M2's AI Assistant retaining users that OpenClaw alone wouldn't? What does the B2B funnel look like after the public push?
+
+**Track 2: Begin B2B hardening.** Innovation teams and engineering orgs that engaged in May start moving toward Business tier. The platform needs to start looking enterprise-ready: SLAs, support response times, instance provisioning automation.
+
+**ICP this month.** The shape shifts toward two specific personas. (1) Existing community users from May — we re-engage them via case studies, referral incentives, and the first feedback-driven template. (2) **Innovation teams at mid-size companies (50–500 people)** — VPs of Engineering, Heads of Platform, technical innovation leads who tested XO during the public push and are now in scoping conversations. Their budget is $5K–$25K, fits Business tier, doesn't usually trigger formal procurement. This month is when the B2B pipeline either appears or it doesn't, and we plan accordingly.
+
+## What ships
+
+**Operational tightening.** Backup/restore for workspaces. Improved monitoring dashboards. Cowork API rate limits and observability. Workspace lifecycle hardening based on May edge cases.
+
+**B2B prep work.** Automated provisioning pipeline for Business-tier custom instances. SLA documentation. Support ticketing tooling. Sales-side CRM templates for the pipeline.
+
+**Templates from feedback.** First post-launch template defined by what May users asked for — not by guessing. (The candidate list emerges from beta-week conversations, so we won't know the specific template until late May.)
+
+## GTM motion
+
+| Channel | Activity |
+|---|---|
+| **Case studies** | First two beta success stories published. Real names, real outcomes |
+| **B2B pipeline** | Convert May prospects: scope calls, custom-instance proposals |
+| **Community** | Monthly community call (open demos, direct feedback) |
+| **Content** | One in-depth blog post on what we learned hitting 1,000 |
+
+## Infrastructure
+
+| Metric | Value |
+|---|---|
+| Cost per workspace | $9 |
+| Total infra cost | $12,720 / mo |
+| Total workspaces | 1,000–1,200 active (capacity to ~1,400) |
+
+Capacity doubles from May. The aggressive scale-up isn't because we expect to hit the ceiling — it's because B2B custom instances are larger and we need provisioning headroom.
+
+## KPIs to watch
+
+| Metric | Target | What it signals |
+|---|---|---|
+| 30-day retention from May cohort | &gt; 30% | PMF strength |
+| Active workspaces sustained | &gt; 1,000 | No retention cliff |
+| AI Assistant template adoption | &gt; 30% of new signups | M2 working as second template |
+| B2B prospect conversations | &gt; 10 active | Pipeline depth |
+| Business-tier signups (paid) | &gt; 3 | First B2B revenue |
+| Custom instance provisioning time | &lt; 24 hours | B2B operational readiness |
+| Support tickets / active user / week | &lt; 5% | Product quality holding |
+| Token flow through platform | ~1.5B tokens | Sustained activity, not just signup volume |
+
+## Decision points this month
+
+Two big ones to resolve in June, both with downstream impact:
+
+**Continue community-led growth or shift to B2B-led?** May data tells us where the demand is hottest. If community retention is strong, push harder on referrals and templates. If B2B prospects are stronger than expected, shift effort toward Business-tier conversion.
+
+**Is SOC 2 Type I worth starting now?** B2B prospects will ask. Starting in June lands the audit late summer. Starting in July pushes it to fall. The trigger is whether ≥3 prospects gate the deal on SOC 2.
+
+→ Previous month: [May 2026](/plan/may-2026) · Next month: [July 2026](/plan/july-2026)

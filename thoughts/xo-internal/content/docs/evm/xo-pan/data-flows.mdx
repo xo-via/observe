@@ -1,0 +1,162 @@
+---
+title: Data Flows
+description: "Step-by-step scenarios showing how XO-PAN handles Org deployment, task decomposition, and GPU-aware scheduling."
+---
+
+# Data Flow Scenarios
+
+These scenarios walk through how the system behaves end-to-end for key user actions.
+
+---
+
+## Scenario 1: User Deploys a "Dev Team" Org
+
+The user clicks "Deploy Dev Team" in the XO-PAN Dashboard.
+
+```
+User clicks "Deploy Dev Team" in Dashboard
+  │
+  ├── Gateway: POST /api/orgs/deploy (templateId: "dev-team-v1")
+  │
+  ├── Registry: Create company "Dev Team" with prefix "DEV"
+  │     ├── Create CEO agent (role: ceo, adapter: ollama, model: codellama:34b)
+  │     ├── Create Engineer agent (role: engineer, reportsTo: CEO, model: codellama:13b)
+  │     └── Create Reviewer agent (role: qa, reportsTo: CEO, model: codellama:7b)
+  │
+  ├── Registry: Create project "Main App" with workspace → /home/user/projects/myapp
+  │
+  ├── Registry: Create goal "Ship v1.0"
+  │
+  ├── Mesh: Publish xo.network.broadcast { type: "org_deployed", agents: [...] }
+  │
+  ├── Scheduler: Create wakeup for CEO agent (reason: "system", wake CEO to decompose goal)
+  │
+  └── Dashboard: SSE event → UI updates with new Org, 3 agents, 1 goal
+```
+
+**What the user sees:** The dashboard shows a new Org with three agents (Tech Lead, Engineer, Code Reviewer), one project linked to their codebase, and one goal. Within 30 seconds, the Tech Lead agent wakes up and begins decomposing the goal into tasks.
+
+---
+
+## Scenario 2: CEO Agent Decomposes Goal into Tasks
+
+After the Org is deployed, the Heartbeat Scheduler wakes the CEO agent to process the initial goal.
+
+```
+Scheduler: Wakeup CEO (reason: "system")
+  │
+  ├── CEO Heartbeat Run starts:
+  │     ├── Identity: Load AGENTS.md, SOUL.md, HEARTBEAT.md
+  │     ├── Inbox: Read goal "Ship v1.0" + project context
+  │     ├── Work: Decompose into issues:
+  │     │     ├── DEV-1: "Set up CI/CD pipeline" → assign to Engineer
+  │     │     ├── DEV-2: "Implement auth module" → assign to Engineer
+  │     │     └── DEV-3: "Write API docs" → assign to Reviewer (research capability)
+  │     ├── Update: POST /api/issues (x3), each with assignee_agent_id
+  │     └── Exit: Heartbeat complete
+  │
+  ├── Registry: Issues created, wakeup requests generated for Engineer and Reviewer
+  │
+  ├── Mesh: Publish xo.task.DEV-1.updates, xo.task.DEV-2.updates, xo.task.DEV-3.updates
+  │
+  └── Scheduler (next cycle): Wakeup Engineer (2 tasks), Wakeup Reviewer (1 task)
+```
+
+**Key behavior:** The CEO agent doesn't write code — it decomposes and delegates. The Engineer and Reviewer are woken on the next scheduler cycle to execute the assigned tasks.
+
+---
+
+## Scenario 3: Engineer Needs GPU, Gets Scheduled via HAMi
+
+The Engineer agent requires GPU access to run codellama:13b for code generation.
+
+```
+Scheduler: Wakeup Engineer (reason: "assignment", tasks: DEV-1, DEV-2)
+  │
+  ├── Check resource_requirements: { gpu: true, vramMinMB: 8192 }
+  │
+  ├── HAMi API: Request GPU allocation
+  │     ├── GPU 0: 24GB total, 16GB free → GRANTED (8GB slice)
+  │     └── Allocation returned: { gpuId: 0, vramAllocated: 8192 }
+  │
+  ├── Wakeup message includes GPU context:
+  │     {
+  │       wakeReason: "assignment",
+  │       gpuAllocation: { gpuId: 0, vram: 8192 },
+  │       tasks: ["DEV-1", "DEV-2"]
+  │     }
+  │
+  ├── Engineer Heartbeat Run:
+  │     ├── Checkout DEV-1 → 200 OK (locked)
+  │     ├── Work: Execute code generation with GPU
+  │     ├── Checkin DEV-1 → status: done
+  │     ├── Checkout DEV-2 → 200 OK
+  │     ├── Work: Implement auth module
+  │     ├── Checkin DEV-2 → status: done
+  │     └── Exit
+  │
+  └── HAMi: GPU allocation released on heartbeat completion
+```
+
+**Key behavior:** GPU is allocated before the agent wakes, included in the wakeup context, and released when the heartbeat run completes. If the GPU were unavailable, the wakeup would be queued as `gpu_pending` and retried on the next scheduler cycle.
+
+---
+
+## Scenario 4: Engineer Hits a Blocker, Escalates to CEO
+
+During task execution, the Engineer encounters a decision it can't make autonomously.
+
+```
+Engineer Heartbeat Run (working on DEV-2):
+  │
+  ├── Checkout DEV-2 → 200 OK
+  ├── Work: Starts implementing auth module
+  ├── Blocker: "Should auth use JWT or session cookies? This is an architecture decision."
+  │
+  ├── POST /api/issues/DEV-2/escalate
+  │     ├── Issue status → "blocked"
+  │     ├── Create comment: "Blocked: need architecture decision on auth approach"
+  │     ├── Wakeup request created for CEO (reason: "escalation")
+  │     └── Checkout released
+  │
+  ├── Engineer moves to next available task (if any)
+  │
+  └── Scheduler (next cycle):
+        ├── Wakeup CEO (reason: "escalation")
+        ├── CEO reads escalation, makes decision, comments on DEV-2
+        ├── DEV-2 status → "todo" (unblocked)
+        └── Wakeup request created for Engineer (reason: "assignment")
+```
+
+**Key behavior:** Agents never spin on blockers. They escalate up the chain of command (`reportsTo`), release the checkout, and move on. The CEO resolves the blocker asynchronously.
+
+---
+
+## Scenario 5: Context Sharing Between Agents
+
+A Research agent shares findings that a Coding agent needs.
+
+```
+Research Agent completes analysis:
+  │
+  ├── Publishes to NATS: xo.task.DEV-4.updates
+  │     {
+  │       "type": "context_update",
+  │       "fromAgent": "researcher-01",
+  │       "issueId": "DEV-4",
+  │       "payload": {
+  │         "summary": "API rate limits are 100 req/min, auth uses Bearer tokens",
+  │         "artifacts": ["research/api-analysis.md"],
+  │         "knowledgeBaseRef": "kb://project-alpha/api-docs"
+  │       }
+  │     }
+  │
+  ├── Message persisted to agent_messages table (audit copy)
+  │
+  └── Engineer's next heartbeat run:
+        ├── Inbox check: finds context_update for DEV-4
+        ├── Loads artifacts + KB reference
+        └── Proceeds with implementation using full research context
+```
+
+**Key behavior:** Context flows through the NATS mesh, not through re-prompting. The Engineer doesn't need to re-discover what the Researcher already found.

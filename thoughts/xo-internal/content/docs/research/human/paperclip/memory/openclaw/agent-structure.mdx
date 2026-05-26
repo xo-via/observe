@@ -1,0 +1,69 @@
+---
+title: Agent Structure
+description: How OpenClaw agents are configured — per-agent directories, auth profiles, prompt building, and multi-agent coordination.
+---
+
+# OpenClaw — Agent Structure
+
+## Per-Agent Identity
+
+Each agent is a self-contained directory with its own identity, memory, and credentials (see [File System](/docs/research/human/paperclip/memory/openclaw/file-system) for the full directory layout). The `agentId` is the stable identifier across all platforms and sessions.
+
+## Auth Profiles
+
+Each agent can have multiple platform auth profiles, stored in `auth-profiles.json`:
+
+```json
+[
+  {
+    "platform": "telegram",
+    "token": "bot_token_here",
+    "active": true
+  },
+  {
+    "platform": "discord",
+    "token": "discord_bot_token",
+    "active": true
+  }
+]
+```
+
+A single agent can simultaneously participate in Telegram groups, Discord servers, Slack workspaces, and more — all using the same identity and memory.
+
+## System Prompt Building
+
+The `SystemPromptBuilder` dynamically assembles the system prompt at the start of each turn:
+
+```
+1. Load base instructions (role, persona, rules)
+2. Append MEMORY.md contents
+3. Append relevant daily notes (last N days)
+4. Append active skills/tools definitions
+5. Trim to fit context window
+```
+
+## Session History Loading
+
+The `SessionHistoryLoader` fetches conversation context:
+
+1. Load current session transcript
+2. Optionally load summaries from recent past sessions
+3. Apply Context Window Guard to truncate if needed
+
+## Multi-Agent Coordination
+
+OpenClaw supports separate agent configurations with isolated directories:
+
+- Each agent has its own `~/.openclaw/agents/{agentId}/` directory
+- Agents do not share memory by default
+- Shared knowledge must be manually written into each agent's `MEMORY.md`
+- No built-in task delegation or checkout protocol — coordination happens via messaging channels
+
+## Skills System
+
+Skills extend agent capabilities. They are typically loaded as:
+- Tool definitions injected into the system prompt
+- External scripts/processes the agent can invoke
+- Platform-specific integrations (e.g., web search, calendar access)
+
+For a full cross-system comparison, see the [System Comparison](/docs/research/human/paperclip/memory/comparison) page.

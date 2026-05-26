@@ -1,0 +1,23 @@
+---
+title: System Layers
+description: "Overview of XO's four architectural layers — Auth & Billing (foundation), Swarm (entry), Workspace (execution), and Backend (services & infrastructure)"
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+<Callout title="Internal Technical Documentation" type="warn">
+Engineering reference — v1.0, March 2026 | xo.builders
+</Callout>
+
+## Overview
+
+The XO platform is organized into four distinct layers, each with a clear responsibility boundary. Layer 0 is the foundational auth and billing system. Layer 1 is what users see and interact with. Layer 2 is where agent workspaces actually run. Layer 3 is the backend services, data stores, and infrastructure.
+
+Each layer is documented in detail on its own page:
+
+| Layer | Page | Responsibility |
+|---|---|---|
+| Layer 0 | [Auth & Billing](/docs/product-roadmap/platform-architecture/system-layers/auth-and-billing) | Identity, permissions, subscription management — the foundation all services depend on |
+| Layer 1 | [XO Swarm](/docs/product-roadmap/platform-architecture/system-layers/xo-swarm) | User-facing platform, project CRUD, @mention routing, file storage |
+| Layer 2 | [Workspace Layer](/docs/product-roadmap/platform-architecture/system-layers/workspace-layer) | Workspace provisioning, agent execution, compute lifecycle, cloud config |
+| Layer 3 | [XO Backend](/docs/product-roadmap/platform-architecture/system-layers/xo-backend) | Agent intelligence, data stores, infrastructure |

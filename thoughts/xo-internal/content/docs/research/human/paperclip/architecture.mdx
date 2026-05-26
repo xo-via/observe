@@ -1,0 +1,340 @@
+---
+title: "Architecture"
+description: "Technical architecture deep-dive — monorepo structure, database model, adapter system, plugin runtime, and deployment modes"
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+## Monorepo Structure
+
+Paperclip is a pnpm monorepo (~1,300 files) with the following workspace packages:
+
+```
+paperclip/
+├── server/              # Express 5 API server + orchestration engine
+├── ui/                  # React 19 + Vite dashboard
+├── cli/                 # `paperclipai` CLI tool
+├── packages/
+│   ├── db/              # Drizzle ORM schema + migrations
+│   ├── shared/          # Shared types, constants, validators
+│   ├── adapter-utils/   # Shared adapter utilities
+│   ├── adapters/        # 7 agent adapter implementations
+│   │   ├── claude-local/
+│   │   ├── codex-local/
+│   │   ├── cursor-local/
+│   │   ├── gemini-local/
+│   │   ├── openclaw-gateway/
+│   │   ├── opencode-local/
+│   │   └── pi-local/
+│   └── plugins/
+│       ├── sdk/         # Plugin development SDK
+│       ├── create-paperclip-plugin/  # Scaffolding tool
+│       └── examples/    # Reference plugin implementations
+├── skills/              # Agent skill definitions (SKILL.md files)
+├── docs/                # Mintlify-powered public documentation
+├── doc/                 # Internal specs and design docs
+├── evals/               # Promptfoo evaluation configs
+└── tests/               # E2E and release smoke tests (Playwright)
+```
+
+The workspace graph is flat — `server` depends on `db`, `shared`, all adapters, and `plugin-sdk`. The `ui` depends on `shared` and all adapters (for adapter-specific UI configuration). The `cli` is independent.
+
+---
+
+## Server Architecture
+
+The server is an Express 5 application (`server/src/app.ts`) that serves both the REST API and the React UI (via Vite dev middleware in development, or static files in production).
+
+### Core Services
+
+The `server/src/services/` directory contains ~60 service modules. The key ones:
+
+**Orchestration services** handle the core business logic — agent lifecycle, task management, goal alignment, and work routing:
+
+| Service | Responsibility |
+|---|---|
+| `agents.ts` | Agent CRUD, status management, runtime state |
+| `issues.ts` | Task/issue lifecycle, assignment, checkout semantics |
+| `goals.ts` | Goal hierarchy and alignment tracking |
+| `projects.ts` | Project management and cross-team coordination |
+| `heartbeat.ts` | Heartbeat scheduling, invocation, and run tracking |
+| `budgets.ts` | Budget enforcement, cascading delegation, spend tracking |
+| `costs.ts` | Token/API cost event recording and aggregation |
+| `approvals.ts` | Approval gate enforcement and resolution |
+| `issue-approvals.ts` | Issue-level approval workflows |
+| `company-portability.ts` | Export/import of company templates and snapshots |
+| `routines.ts` | Scheduled recurring tasks |
+
+**Agent execution services** manage how agents are invoked and supervised:
+
+| Service | Responsibility |
+|---|---|
+| `agent-instructions.ts` | Dynamic instruction generation for agents |
+| `agent-permissions.ts` | Permission checks for agent actions |
+| `execution-workspaces.ts` | Workspace provisioning for agent runs |
+| `workspace-operations.ts` | File operations within agent workspaces |
+| `workspace-runtime.ts` | Runtime environment management |
+| `local-service-supervisor.ts` | Supervision of locally-running agent processes |
+
+**Plugin services** form a complete plugin runtime:
+
+| Service | Responsibility |
+|---|---|
+| `plugin-loader.ts` | Plugin discovery and loading |
+| `plugin-lifecycle.ts` | Install, enable, disable, uninstall |
+| `plugin-runtime-sandbox.ts` | Isolated execution environment |
+| `plugin-job-scheduler.ts` | Cron-like job scheduling for plugins |
+| `plugin-job-coordinator.ts` | Cross-plugin job coordination |
+| `plugin-tool-dispatcher.ts` | Plugin-provided tool registration and dispatch |
+| `plugin-tool-registry.ts` | Central registry of available tools |
+| `plugin-state-store.ts` | Persistent key-value store per plugin |
+| `plugin-secrets-handler.ts` | Secret management for plugins |
+| `plugin-stream-bus.ts` | Event streaming between plugins |
+| `plugin-event-bus.ts` | Internal event bus for plugin lifecycle events |
+| `plugin-worker-manager.ts` | Worker process management |
+
+**Infrastructure services** handle auth, storage, realtime, and observability:
+
+| Service | Responsibility |
+|---|---|
+| `board-auth.ts` | Human/Board authentication |
+| `access.ts` | Authorization and access control |
+| `secrets.ts` | Company-level secret management |
+| `live-events.ts` | WebSocket-based realtime event delivery |
+| `activity-log.ts` | Immutable audit trail of all mutations |
+| `activity.ts` | Activity feed generation |
+| `dashboard.ts` | Dashboard metrics aggregation |
+| `sidebar-badges.ts` | UI notification badge counts |
+| `documents.ts` | Document/artifact management |
+
+### API Routes
+
+The `server/src/routes/` directory mirrors the service layer, exposing RESTful endpoints under `/api/`. Notable routes include `/api/agents`, `/api/issues`, `/api/companies`, `/api/goals`, `/api/projects`, `/api/approvals`, `/api/costs`, `/api/plugins`, `/api/routines`, `/api/secrets`, and `/api/execution-workspaces`.
+
+---
+
+## Database Model
+
+The database layer uses Drizzle ORM with PostgreSQL (embedded via `embedded-postgres` in development, or external in production). The schema is defined across ~60 table files in `packages/db/src/schema/`.
+
+### Key Schema Groups
+
+**Core organizational entities:**
+
+| Table | Purpose |
+|---|---|
+| `companies` | Company definitions with multi-tenant isolation |
+| `agents` | Agent registry — name, role, adapter type, config, status |
+| `agent_config_revisions` | Versioned adapter config history (rollback support) |
+| `agent_runtime_state` | Current runtime state (active, paused, idle) |
+| `agent_api_keys` | Per-agent API keys, hashed at rest |
+| `agent_task_sessions` | Mapping between agents and their work sessions |
+| `agent_wakeup_requests` | Pending wakeup triggers for agents |
+
+**Work tracking:**
+
+| Table | Purpose |
+|---|---|
+| `issues` | Core task/ticket entity with full lifecycle tracking |
+| `issue_comments` | Threaded comments on issues |
+| `issue_attachments` | File attachments on issues |
+| `issue_labels` | Label/tag junction table |
+| `issue_documents` | Linked documents per issue |
+| `issue_work_products` | Outputs/artifacts produced by work on an issue |
+| `issue_read_states` | Per-agent read cursor for issue updates |
+| `issue_inbox_archives` | Archived inbox items |
+| `labels` | Label definitions (workspace-wide or team-scoped) |
+| `projects` | Project definitions spanning teams |
+| `project_goals` | Goal-to-project alignment |
+| `goals` | Goal hierarchy (initiative → objective → key result) |
+
+**Financial and governance:**
+
+| Table | Purpose |
+|---|---|
+| `cost_events` | Individual token/API cost events per agent per task |
+| `budget_policies` | Budget rules and limits at various scopes |
+| `budget_incidents` | Budget threshold violations |
+| `finance_events` | Revenue/expense tracking |
+| `approvals` | Approval requests and resolution state |
+| `approval_comments` | Discussion threads on approval items |
+| `issue_approvals` | Issue-level approval gates |
+
+**Heartbeat and execution:**
+
+| Table | Purpose |
+|---|---|
+| `heartbeat_runs` | Individual heartbeat execution records |
+| `heartbeat_run_events` | Events within a heartbeat run |
+| `execution_workspaces` | Provisioned workspaces for agent execution |
+| `workspace_operations` | File/command operations within workspaces |
+| `workspace_runtime_services` | Runtime services attached to workspaces |
+| `routines` | Scheduled recurring task definitions |
+
+**Plugin system:**
+
+| Table | Purpose |
+|---|---|
+| `plugins` | Installed plugin registry |
+| `plugin_config` | Plugin configuration |
+| `plugin_company_settings` | Per-company plugin settings |
+| `plugin_entities` | Plugin-managed entities |
+| `plugin_jobs` | Scheduled and running plugin jobs |
+| `plugin_logs` | Plugin execution logs |
+| `plugin_state` | Persistent plugin key-value state |
+| `plugin_webhooks` | Plugin webhook registrations |
+
+**Auth and access:**
+
+| Table | Purpose |
+|---|---|
+| `auth` | better-auth managed auth tables |
+| `board_api_keys` | Human/Board API keys |
+| `company_memberships` | User-to-company membership |
+| `company_secrets` | Encrypted company-level secrets |
+| `company_secret_versions` | Versioned secret history |
+| `principal_permission_grants` | Permission grants for principals |
+| `instance_settings` | Instance-wide configuration |
+| `instance_user_roles` | User roles at the instance level |
+| `invites` | User invitations |
+| `join_requests` | Agent join requests |
+| `cli_auth_challenges` | CLI authentication challenges |
+
+<Callout title="Scale note" type="info">
+~60 tables for a v0.3 product is a significant data model. This is a relational-first approach — every entity has explicit foreign keys, junction tables, and audit columns. Compare with XO Org's event-sourced model where state is derived from a single append-only log. Both approaches are valid; the relational model trades auditability-by-default for immediate queryability.
+</Callout>
+
+---
+
+## The Adapter System
+
+Adapters are the integration layer between Paperclip's control plane and the agent runtimes. Each adapter implements a three-method contract:
+
+```typescript
+invoke(agentConfig, context?) → void     // Start the agent's cycle
+status(agentConfig) → AgentStatus        // Check: running? finished? errored?
+cancel(agentConfig) → void               // Graceful stop signal
+```
+
+This is the full contract. `invoke` triggers a heartbeat cycle, `status` lets Paperclip monitor liveness, and `cancel` enables the Board's pause functionality. Everything beyond this — cost reporting, task updates, progress logging — is optional and flows through Paperclip's REST API.
+
+### Built-in Adapters
+
+| Adapter | Runtime | Invocation | Notes |
+|---|---|---|---|
+| `claude-local` | Claude Code CLI | Child process | Injects PAPERCLIP_* env vars, manages session IDs |
+| `codex-local` | OpenAI Codex CLI | Child process | Similar to claude-local with Codex-specific config |
+| `cursor-local` | Cursor IDE | API/CLI bridge | Bridges to Cursor's interface |
+| `gemini-local` | Google Gemini CLI | Child process | Gemini-specific adapter |
+| `openclaw-gateway` | OpenClaw | HTTP gateway | Sends webhooks to managed OpenClaw instances |
+| `opencode-local` | OpenCode CLI | Child process | OpenCode-specific adapter |
+| `pi-local` | Pi agent CLI | Child process | Pi-specific adapter |
+
+### Context Delivery Modes
+
+Each agent can be configured for one of two context delivery strategies:
+
+**Fat payload** — Paperclip bundles all relevant context (assigned tasks, recent messages, company metrics, goal ancestry) into the heartbeat invocation. The agent receives everything it needs in the initial payload and doesn't need to call back. Best for simple, stateless agents that can't maintain API connections.
+
+**Thin ping** — Paperclip sends a minimal wake-up signal (just the agent ID and run ID). The agent calls back to Paperclip's API to fetch whatever context it needs. Best for sophisticated agents that manage their own state and want to control what they load.
+
+The Paperclip Skill (`skills/paperclip/SKILL.md`) teaches agents the thin-ping protocol: how to authenticate, check assignments, checkout tasks, read context, and report results via the API.
+
+---
+
+## The Heartbeat Protocol
+
+The heartbeat is Paperclip's scheduling and execution model. It defines when and how agents wake up, not what they do.
+
+### Lifecycle of a Heartbeat Run
+
+```
+Schedule triggers → invoke(adapter) → Agent wakes up
+  → Agent checks assignments (GET /api/agents/me/inbox-lite)
+  → Agent checks out a task (POST /api/issues/{id}/checkout)
+  → Agent reads context (GET /api/issues/{id}/heartbeat-context)
+  → Agent does work (using its own tools/capabilities)
+  → Agent reports results (PATCH /api/issues/{id}, POST comments)
+  → Agent exits → Paperclip records run completion
+```
+
+Each heartbeat run is recorded in the `heartbeat_runs` table with timestamps, status, and events. The `heartbeat_run_events` table captures individual events within a run for tracing.
+
+### The Paperclip Skill Protocol
+
+The Paperclip Skill (`SKILL.md`) defines the standard heartbeat procedure for instrumented agents:
+
+1. **Identity** — `GET /api/agents/me` to fetch role, chain of command, and budget
+2. **Approval follow-up** — if triggered by an approval, review and resolve linked issues
+3. **Get assignments** — `GET /api/agents/me/inbox-lite` for the compact assignment list
+4. **Pick work** — prioritize `in_progress` over `todo`, skip `blocked` unless unblockable
+5. **Checkout** — atomic `POST /api/issues/{id}/checkout` (409 if already owned by another agent)
+6. **Understand context** — `GET /api/issues/{id}/heartbeat-context` for compact issue state with goal ancestry
+7. **Do the work** — agent uses its own tools and capabilities
+8. **Update status** — `PATCH /api/issues/{id}` with status and comment, include run ID header for tracing
+
+The skill also defines delegation rules (how to create subtasks and assign to other agents), cross-team communication protocols, and blocked-task deduplication logic to prevent agents from posting redundant status updates.
+
+---
+
+## Plugin Runtime
+
+Paperclip has a comprehensive plugin system with its own SDK, sandboxing, job scheduling, and tool registration.
+
+### Plugin Capabilities
+
+| Capability | Description |
+|---|---|
+| **Tools** | Register custom tools that agents can invoke via the API |
+| **Jobs** | Schedule recurring or one-off background jobs |
+| **State** | Persistent key-value store scoped per plugin |
+| **Secrets** | Secure secret storage for API keys, tokens, etc. |
+| **Webhooks** | Register webhook endpoints for external events |
+| **Events** | Subscribe to Paperclip lifecycle events |
+| **UI** | Serve custom UI panels (static files) |
+
+### Plugin Architecture
+
+The plugin runtime consists of several coordinating services:
+
+The **plugin loader** discovers and loads plugins on startup. The **lifecycle manager** handles install/enable/disable/uninstall transitions. The **runtime sandbox** provides isolation for plugin execution. The **job scheduler** runs plugin jobs on a configurable tick interval (default 30s) with configurable concurrency (default 10 concurrent jobs). The **tool dispatcher** registers plugin-provided tools into a central registry and routes invocations. The **state store** provides persistent key-value storage. The **secrets handler** manages encrypted secret storage. The **stream bus** and **event bus** handle inter-plugin communication and lifecycle notifications.
+
+### Plugin SDK
+
+The `@paperclipai/plugin-sdk` package provides the development toolkit. The `create-paperclip-plugin` scaffolding tool generates new plugin projects. Example plugins in the repo demonstrate kitchen-sink capabilities, file browsing, and hello-world patterns.
+
+---
+
+## Deployment Modes
+
+Paperclip supports two runtime modes with different security postures:
+
+| Mode | Auth | Binding | Use Case |
+|---|---|---|---|
+| `local_trusted` | No login required | Loopback only (127.0.0.1) | Single-operator local machine |
+| `authenticated` + `private` | Login required | `0.0.0.0` (all interfaces) | Private network (Tailscale, VPN, LAN) |
+| `authenticated` + `public` | Login required | Explicit public URL | Internet-facing deployment |
+
+The default is `local_trusted` — no login friction, localhost-only binding, optimized for fastest startup. The `authenticated` modes use `better-auth` for session management with configurable exposure policies.
+
+The CLI (`paperclipai onboard`) handles first-time setup. The `paperclipai doctor` command validates configuration and can auto-repair common issues. The `paperclipai run` command auto-onboards if needed, runs doctor with repair enabled, and starts the server.
+
+---
+
+## Realtime and WebSockets
+
+The server uses the `ws` library for WebSocket connections. The `live-events.ts` service manages real-time event delivery to connected dashboard clients. This powers live updates in the UI — agent status changes, task transitions, cost events, and heartbeat completions appear immediately without polling.
+
+Agent communication does not use WebSockets — agents interact exclusively through the REST API during their heartbeat cycles. The WebSocket layer is purely for the dashboard UI.
+
+---
+
+## Storage
+
+**Database**: Embedded PostgreSQL (via `embedded-postgres` with a patched version) in development. External PostgreSQL for production. Data directory defaults to `~/.paperclip/instances/default/db/`.
+
+**Artifacts**: S3-compatible object storage (via `@aws-sdk/client-s3`) for file attachments, work products, and company logos. Falls back to local filesystem storage when S3 is not configured.
+
+**Backups**: Automatic database backups every 60 minutes with 30-day retention. Backup directory at `~/.paperclip/instances/default/data/backups/`.
+
+**Configuration**: Instance configuration stored at `~/.paperclip/instances/default/config.json`. Company-level secrets stored encrypted in the database with versioned history.

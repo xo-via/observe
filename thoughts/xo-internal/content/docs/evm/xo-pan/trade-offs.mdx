@@ -1,0 +1,87 @@
+---
+title: Trade-Offs & Roadmap
+description: "Architectural decisions, open questions for the Olares team, and milestone plan for XO-PAN."
+---
+
+# Trade-Offs, Open Questions, and Roadmap
+
+---
+
+## Architectural Decisions
+
+### Single StatefulSet vs. Microservices
+
+**Decision:** Single StatefulSet (co-located Gateway + Registry + Orchestration + Scheduler)
+
+**Why:** Olares targets personal hardware (4–24 cores, 8–96GB RAM). Running 5 separate pods for XO-PAN would consume resources better spent on agent workloads. A single FastAPI process with async background tasks handles the expected load (< 50 concurrent agents, < 100 heartbeats/minute).
+
+**Revisit when:** Enterprise multi-node deployments or > 100 agents.
+
+---
+
+### NATS vs. Custom Message Bus
+
+**Decision:** Reuse Olares' NATS cluster.
+
+**Why:** NATS is already deployed and maintained by Olares. It supports pub/sub, request-reply, and JetStream persistence — all needed for the agent mesh. Adding a second broker (Redis Pub/Sub, RabbitMQ) would duplicate infrastructure.
+
+**Trade-off:** Subject-level authorization in NATS requires careful configuration. If Olares' NATS doesn't support multi-tenant auth out of the box, we may need a NATS sidecar with custom auth.
+
+---
+
+### LarePass vs. Clerk for Auth
+
+**Decision:** LarePass for human auth, API keys for agent auth.
+
+**Why:** XO-PAN runs inside Olares. Using Clerk would require internet access and duplicate the identity system. LarePass provides SSO across all Olares apps — XO-PAN should be a first-class citizen, not an exception.
+
+**Trade-off:** Lose Clerk's webhook-based metadata sync. Need to build a LarePass adapter for the RBAC system.
+
+---
+
+### Ollama-First vs. Agent-Agnostic
+
+**Decision:** Agent-agnostic with Ollama as the primary adapter.
+
+**Why:** Olares ships Ollama as its primary LLM runtime. Most Olares users will run Ollama models. But XO-PAN must also support Claude Code (via Coder containers), OpenClaw, and arbitrary HTTP/process-based agents. The adapter pattern (from Paperclip) handles this — each agent type gets an adapter that translates between the heartbeat protocol and the agent's native interface.
+
+---
+
+### Embedded Knowledge Base vs. External
+
+**Decision:** Use Qdrant for per-project knowledge bases (same as XO Cloud), but deploy as an optional sidecar.
+
+**Why:** Semantic search across shared context is critical for multi-agent coordination (e.g., research agent's findings available to coding agent). Qdrant is lightweight and embeddable. But on minimum-spec hardware (8GB RAM), it's a luxury. Make it optional — the system works without it (falls back to keyword matching on `agent_messages` table), but performs better with it.
+
+---
+
+## Open Questions
+
+These require input from the Olares team or a strategic decision from XO.
+
+| # | Question | Impact | Status |
+|---|---|---|---|
+| 1 | Does Olares NATS support per-subject ACLs, or do we need a proxy layer? | Security of agent mesh | Needs investigation |
+| 2 | Can XO-PAN create its own database in Olares Citus, or must it use a provided one? | Data model deployment | Needs Olares team input |
+| 3 | What's the HAMi API contract for requesting GPU slices programmatically? | GPU-aware scheduling | Needs investigation |
+| 4 | Should Org templates ship with the app or be downloadable from a template registry? | Distribution model | Decision needed |
+| 5 | Vue (Olares ecosystem) or React (XO ecosystem) for the dashboard? | Dev velocity, maintenance | Decision needed |
+| 6 | How do we handle agents that run on a different Olares node in a multi-node cluster? | Scaling beyond single node | Deferred to v2 |
+| 7 | License model: open-source core + commercial Org templates, or fully proprietary? | Business model | Needs strategic decision |
+| 8 | Can Olares apps expose MCP endpoints to other apps, or do we need a bridge? | Agent registration UX | Needs investigation |
+
+---
+
+## Milestone Plan
+
+| Phase | Scope | Estimate |
+|---|---|---|
+| **M0: Proof of Concept** | Single agent registration + heartbeat + dashboard on Olares | 3–4 weeks |
+| **M1: Agent Mesh** | NATS-based communication, multi-agent discovery, checkout protocol | 3–4 weeks |
+| **M2: Orchestration** | Task routing, goal decomposition, RBAC enforcement | 4–5 weeks |
+| **M3: Org Templates** | Pre-packaged teams, one-click deployment, GPU-aware scheduling | 3–4 weeks |
+| **M4: Olares Market** | App manifest, marketplace listing, install/upgrade flow | 2–3 weeks |
+
+**Total estimated timeline:** 15–20 weeks from kickoff to marketplace listing.
+
+**M0 is the critical gate.** It proves that XO-PAN can run within an Olares namespace, connect to NATS and Citus PG, register an agent, execute a heartbeat run, and show results in a dashboard. Everything else builds on this foundation.

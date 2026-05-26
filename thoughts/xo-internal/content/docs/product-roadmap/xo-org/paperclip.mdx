@@ -1,0 +1,207 @@
+---
+title: "Paperclip — Reference Architecture"
+description: "How Paperclip works, what it does well, and how it maps to XO Org's architecture and roadmap"
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+<Callout title="Competitive & Architectural Reference" type="info">
+Paperclip is an open-source project that occupies the same problem space as XO Org — multi-agent orchestration. This page documents how it works and where the two systems converge and diverge.
+</Callout>
+
+## What Paperclip Is
+
+Paperclip is an open-source Node.js server and React UI that orchestrates a team of AI agents to run a business. Their framing is deliberate: "If OpenClaw is an employee, Paperclip is the company." It models the organizational layer — org charts, budgets, goals, governance — that sits above individual agents.
+
+Where XO Org is a workspace that agents connect to and collaborate through, Paperclip is a control plane that agents are hired into and managed by. Both are solving the same core problem (coordinating many agents toward a shared objective) but from different entry points.
+
+---
+
+## How Paperclip Works
+
+Paperclip runs as a single self-hosted Node.js server with an embedded PostgreSQL database. There is no external infrastructure required — `pnpm dev` starts everything. The UI is a React app served from the same origin via Vite dev middleware.
+
+### The Core Domain Model
+
+Paperclip is built around five primary entities:
+
+**Companies** are the top-level isolation boundary. One Paperclip instance can host many companies, each with its own agents, goals, budgets, and audit trail. This is analogous to how a single XO Org deployment could manage separate teams or projects.
+
+**Agents** are the workforce. Every agent has a role, title, reporting line, and an adapter type that defines how Paperclip invokes it. The minimum contract is simply "be callable" — if it can receive a heartbeat, it's hired. Agents can optionally report status, cost/token usage, and task updates back to the control plane.
+
+**Goals and Projects** provide strategic alignment. Work flows down from company-level initiatives through projects into individual tasks. Every task carries its full goal ancestry so agents always see the "why" behind their assignments.
+
+**Issues (Tickets)** are the unit of work. Paperclip's ticket system traces every conversation, every decision, and every tool call. Task checkout and budget enforcement are atomic — no double-work, no runaway spend.
+
+**Heartbeats** are the scheduling mechanism. Agents wake on a configurable schedule, check for assigned work, and act. Between heartbeats, agents are dormant. This is fundamentally different from XO Org's always-connected model where agents maintain persistent connections and receive work in real-time.
+
+### The Adapter Pattern
+
+Paperclip doesn't prescribe how agents work internally. Each agent type has an adapter that translates between Paperclip's protocol and the agent's native interface. The repo ships seven adapters:
+
+| Adapter | What it wraps |
+|---|---|
+| `claude-local` | Claude Code CLI |
+| `openclaw-gateway` | OpenClaw instances |
+| `codex-local` | OpenAI Codex CLI |
+| `cursor-local` | Cursor IDE |
+| `gemini-local` | Google Gemini CLI |
+| `opencode-local` | OpenCode CLI |
+| `pi-local` | Pi agent CLI |
+
+Each adapter defines its own config schema — an OpenClaw adapter might use SOUL.md and HEARTBEAT.md files, a Claude Code adapter uses CLAUDE.md, a bare script might use command-line args. Paperclip manages the organization; the adapter defines the agent's inner workings.
+
+Context delivery is configurable per agent. "Fat payload" mode bundles all relevant context (tasks, messages, metrics) into the heartbeat invocation for simple/stateless agents. "Thin ping" mode sends a wake-up signal and lets the agent call back to Paperclip's API for whatever it needs.
+
+### Board Governance
+
+Every company has a Board — the human oversight layer. The Board has unrestricted access at all times: pause/resume any agent, override any decision, modify any budget, intervene at any level. Approval gates enforce human review before high-impact actions like new agent hires or CEO strategic breakdowns.
+
+Budget delegation cascades from the Board → CEO → managers → individual agents. Each level can set budgets for the level below. When an agent hits its limit, it stops. The Board can override any budget at any level.
+
+### Plugin System
+
+Paperclip has a full plugin runtime with sandboxing, job scheduling (with a coordinator and scheduler), state stores, tool dispatching, secret handling, and webhook support. Plugins can add capabilities like knowledge bases, custom tracing, and job queues. The plugin SDK supports developing and testing plugins independently.
+
+### Company Portability
+
+Entire organizations can be exported and imported. Two modes exist: template export (structure only — agent definitions, org chart, configs, seed tasks) and snapshot export (full state including current tasks and progress). This enables a marketplace of pre-built company configurations — their planned "Clipmart" feature.
+
+---
+
+## Technical Stack
+
+Paperclip is a **pnpm monorepo** with the following structure:
+
+| Package | Role |
+|---|---|
+| `server/` | Express 5 API, embedded PostgreSQL (via `embedded-postgres`), Drizzle ORM, WebSocket realtime, Pino logging |
+| `ui/` | React 19, Vite, Tailwind 4, TanStack Query, Radix UI, Mermaid diagrams |
+| `packages/db/` | Drizzle schema + migrations (~60 tables) |
+| `packages/adapters/` | 7 agent adapters |
+| `packages/plugins/` | Plugin SDK, dev tooling, and example plugins |
+| `packages/shared/` | Shared types and utilities |
+| `cli/` | `paperclipai` CLI for onboarding, config, and management |
+
+The database layer is notable — approximately 60 tables covering agents, issues, goals, projects, budgets, approvals, plugins, cost events, activity logs, documents, routines, and more. This is a mature relational model compared to XO Org's file-based event log approach.
+
+---
+
+## Where Paperclip Maps to XO Org
+
+The two systems share the same four architectural pillars (Memory, Communication, Auth & Connections, Orchestration) but implement them differently:
+
+### Memory Layer
+
+| | XO Org | Paperclip |
+|---|---|---|
+| **Storage** | Append-only event log (`log.jsonl`) + file-based manifests | PostgreSQL (embedded or external) with Drizzle ORM |
+| **State model** | Derived from event replay | Directly stored in relational tables |
+| **Audit trail** | The log IS the audit trail | Separate activity_log + cost_events tables |
+| **Artifacts** | Filesystem (`artifacts/`) | S3-compatible storage (via `@aws-sdk/client-s3`) |
+
+**Takeaway:** Paperclip chose a traditional relational database — 60+ tables, migrations, foreign keys. XO Org chose event sourcing with derived state. Paperclip's approach is more immediately queryable and familiar to most developers. XO Org's approach is more auditable and crash-resilient by default, but requires more infrastructure to query complex state.
+
+### Communication
+
+| | XO Org | Paperclip |
+|---|---|---|
+| **Model** | Message envelopes with four addressing modes (direct, @role, #channel, broadcast) | Task-based. Agents get work via heartbeats and ticket assignments |
+| **Real-time** | SSE streaming (Phase 3) with cursor polling fallback | WebSocket server (`ws`) for dashboard updates |
+| **Agent interaction** | Peer-to-peer through channels | Hierarchical — through org chart and ticket system |
+
+**Takeaway:** XO Org models communication as a first-class concept — channels, pub/sub, addressing modes. Paperclip models it as a side effect of the task system — agents communicate by creating tickets, commenting on issues, and delegating work. Paperclip's approach mirrors how a real company works (through tickets and meetings, not chatrooms). XO Org's approach is more flexible for ad-hoc collaboration.
+
+### Auth & Connections
+
+| | XO Org | Paperclip |
+|---|---|---|
+| **Internal auth** | Token-based (`xo_ag_{id}_{hmac}`), three tiers (admin/mod/member) | `better-auth` library, agent JWT tokens, API keys per agent and board |
+| **External** | Webhooks + OAuth (Phase 2+) | Webhook support, stored credentials, external API calls |
+| **Multi-tenancy** | Single org per server | Multi-company per server with complete data isolation |
+
+**Takeaway:** Paperclip's multi-company isolation is a significant architectural difference. One deployment runs many companies — useful for agencies, holding-company setups, or marketplace scenarios. XO Org currently models one org per server. This is worth considering for XO's roadmap.
+
+### Orchestration
+
+| | XO Org | Paperclip |
+|---|---|---|
+| **Task routing** | Capacity-aware @role dispatch | Assignment-based — managers delegate down the org chart |
+| **Governance** | Configurable rules (approval gates, rate limits, backpressure) | Board approval gates, budget enforcement, pausable agents |
+| **Scheduling** | Always-connected agents with SSE | Heartbeat-based — agents wake on schedule, act, go dormant |
+| **Budget control** | Not yet implemented | Atomic budget enforcement, cascading delegation, cost tracking per agent |
+
+**Takeaway:** Paperclip's budget enforcement is the most mature piece — atomic checkout, per-agent cost tracking, cascading budget delegation. This is something XO Org should prioritize. The heartbeat model vs. always-connected is a fundamental design difference: heartbeats are simpler and cheaper (agents aren't running when idle) but introduce latency; always-connected is more responsive but more expensive.
+
+---
+
+## What Paperclip Does Well (Lessons for XO)
+
+**Budget enforcement as a first-class concern.** Token spend is the #1 operational risk with autonomous agents. Paperclip makes budgets atomic and cascading — this should be a priority for XO Org.
+
+**Company portability.** The export/import system with secret scrubbing and collision handling is well-designed. XO Org's equivalent would be exporting a complete workspace configuration (agent manifests, channel configs, governance rules) as a portable template. This maps directly to XO's workspace template concept.
+
+**Org chart as a routing primitive.** Paperclip uses the reporting hierarchy to determine delegation paths — a manager delegates to reports, cross-team work flows through explicit task assignment. This is a simple, intuitive model that users already understand.
+
+**Multi-company isolation.** Running many isolated organizations in one deployment is valuable for agencies, platform builders, and power users. XO should consider this for XO Org v2.
+
+**Plugin ecosystem.** The plugin SDK with sandboxing, job scheduling, and tool dispatching is comprehensive. XO's skill system serves a similar role but at the agent level rather than the platform level.
+
+---
+
+## Where XO Org Has Advantages
+
+**Real-time by design.** XO Org's SSE streaming and channel-based communication makes it inherently more responsive than Paperclip's heartbeat polling model. For use cases that require fast handoffs (like a research agent discovering something urgent for an engineering agent), XO Org's architecture is better suited.
+
+**Peer-to-peer collaboration.** Paperclip's communication is hierarchical — it flows through the org chart. XO Org's channel model allows any agent to talk to any other agent through shared channels, enabling more organic collaboration patterns.
+
+**Event sourcing.** The append-only log gives XO Org crash resilience, point-in-time debugging, and a complete audit trail without separate logging infrastructure. Paperclip's relational model requires explicit activity logging.
+
+**Agent-native workspaces.** XO's broader platform provides the workspace layer — cloud IDEs, file systems, tool access — that agents operate in. Paperclip assumes agents bring their own execution environment. XO provides it.
+
+---
+
+## Mapping to XO's Roadmap
+
+Several Paperclip concepts map directly to planned or potential XO Org features:
+
+| Paperclip Concept | XO Org Equivalent | Status |
+|---|---|---|
+| Company | XO Org instance | Planned (Phase 1) |
+| Agent + Adapter | XO Agent + Template | Exists (xo-swarm templates) |
+| Heartbeat | Agent connection + SSE events | Planned (Phase 3 — SSE) |
+| Board governance | Human admin with approval gates | Planned (Phase 1 — Governance) |
+| Budget enforcement | Not yet planned | **Gap — should be prioritized** |
+| Company export/import | Workspace templates | Exists conceptually |
+| Plugin system | XO Skills + MCP tools | Partially exists |
+| Multi-company | Multiple XO Org instances | Not yet planned |
+| Clipmart (marketplace) | XO template marketplace | On vision roadmap |
+| Org chart routing | @role capacity-aware routing | Planned (Phase 2) |
+
+<Callout title="Key Gap" type="warn">
+Budget enforcement and cost tracking are the most significant gap between XO Org's current roadmap and what Paperclip ships today. Given that runaway token spend is the biggest operational risk with autonomous agents, this should be added to XO Org's Phase 1 or Phase 2 scope.
+</Callout>
+
+---
+
+## Running Paperclip Locally
+
+The repo is cloned at `experiments/paperclip` in the workspace. To run it:
+
+```bash
+cd experiments/paperclip
+pnpm install
+pnpm dev
+```
+
+This starts the API at `http://localhost:3100` with an embedded PostgreSQL database — no setup required. The UI is served from the same origin.
+
+Use `npx paperclipai onboard --yes` for the guided setup, or `pnpm dev:once` for a non-watching dev run.
+
+---
+
+## Summary
+
+Paperclip validates the same thesis as XO Org — that coordinating multiple AI agents requires organizational primitives (hierarchy, governance, budgets, goals), not just messaging. The two systems converge on the problem and diverge on the implementation. Paperclip leans into the "company" metaphor with org charts and heartbeats. XO Org leans into the "workspace" metaphor with channels and real-time connections.
+
+The biggest takeaways for XO's roadmap are budget enforcement (do it early), company portability (aligns with XO's template vision), and multi-tenancy (worth planning for). The biggest differentiation is XO's real-time communication model, agent-native workspaces, and the broader XO platform (Swarm, Cowork API, Dashboard) that Paperclip doesn't provide.

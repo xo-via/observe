@@ -1,0 +1,36 @@
+---
+title: "Layer 1 — XO Swarm"
+description: "The user-facing entry point — project management, @mention routing, and workspace orchestration"
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+<Callout title="Internal Technical Documentation" type="warn">
+Engineering reference — v1.0, March 2026 | xo.builders
+</Callout>
+
+## Overview
+
+XO Swarm is the **user-facing platform** where all workspace management happens. Users land here to create projects, configure agents, manage files, and interact with their workspace through the @mention-based chat interface. Swarm handles project CRUD, file storage (via S3), and message routing to the correct backend service. All authentication and billing checks are delegated to Layer 0 (Clerk + XO Billing).
+
+Swarm does not execute agent logic itself — it is an orchestration and routing layer. When a user creates a project, Swarm validates the user's identity and subscription tier via Layer 0, provisions the underlying workspace on Layer 2, and then acts as the interface through which the user interacts with everything running inside that workspace.
+
+## Responsibilities
+
+- **Project management** — Create, configure, share, and delete projects (both Agent and Org types)
+- **@mention routing** — Parse `@agent-name` from chat input and route messages to the correct backend (Swarm API, Cowork API, N8N webhooks, or external providers)
+- **File storage** — Upload, download, list, and delete project files via S3
+- **Workspace orchestration** — Trigger workspace creation on Coder, manage workspace TTL, handle lifecycle events
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Framework** | Next.js 16 · React 19 |
+| **State** | Zustand |
+| **Database** | PostgreSQL (Drizzle ORM) |
+| **Auth** | Clerk (via Layer 0) |
+| **Storage** | AWS S3 |
+| **Styling** | Tailwind CSS · Radix UI · shadcn/ui |
+
+For full service documentation, see [XO Swarm](/docs/tech-architecture/xo-swarm).

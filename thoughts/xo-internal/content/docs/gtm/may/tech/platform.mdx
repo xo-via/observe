@@ -1,0 +1,69 @@
+---
+title: "Layer 1: Platform"
+description: Why we're investing in Platform this month and how to think about it
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+
+# Layer 1 — Platform
+
+<Callout title="Why now">
+[TODO: 2–3 sentences. April's framing: Platform is the surface users touch every day; at 500 workspaces every rough edge multiplies. What's the equivalent framing for May given where we ended April?]
+</Callout>
+
+## Objectives
+
+1. **UX revamp** — Refresh the platform interface end-to-end so the core flows feel cleaner and more usable.
+   *User impact: [TODO: which flows specifically — project creation, dashboard, settings, billing? Drives the user-facing pitch.]*
+
+2. **Add DataHog integration for platform analytics** — Wire up DataHog to capture platform-level analytics so we can see how users move through the product.
+   *User impact: Indirect — better product decisions and faster iteration on the things users actually touch. [TODO: confirm "DataHog" — did you mean Datadog, or is this distinct from the PostHog work in Infra?]*
+
+3. **Restructure launch without requiring any API key** — Users can launch a workspace with zero credentials up front and bring keys when they're ready to actually run an agent.
+   *User impact: Zero barrier to first launch — users see the product before committing credentials.*
+
+4. **Easy way to hard reset and restart the agent** — One-click hard reset that brings an agent back to a known-good state without recreating the workspace.
+   *User impact: Stuck agents stop being a support ticket — users self-recover in seconds.*
+
+5. **Update models, channels, and identity from CLI** — Bring model / channel / identity edits into CLI commands so power users don't have to round-trip through the UI.
+   *User impact: Faster iteration for technical users; fewer reasons to leave the terminal.*
+
+6. **Define the agent architecture and how we see it evolving** — Write down the canonical agent architecture and the evolution path so the team and users share one model of what an XO agent is.
+   *User impact: [TODO: is this an internal artifact or a public doc? If public — users understand what they're working with. If internal — no direct user impact.]*
+
+7. **Easy way to make an XO Agent an employee** — A simple flow to designate an agent as an "employee" inside an org with the right permissions and identity.
+   *User impact: Customers can deploy agents into real org workflows (Slack, email, etc.) without bespoke setup.*
+
+## Priority and focus
+
+<Steps>
+  <Step>
+    ### [TODO: Priority 1 — outcome-shaped headline]
+
+    [TODO: 2–3 sentences on what "good" looks like for this priority.]
+  </Step>
+  <Step>
+    ### [TODO: Priority 2]
+
+    [TODO: 2–3 sentences.]
+  </Step>
+  <Step>
+    ### [TODO: Priority 3]
+
+    [TODO: 2–3 sentences.]
+  </Step>
+  <Step>
+    ### [TODO: Priority 4]
+
+    [TODO: 2–3 sentences.]
+  </Step>
+</Steps>
+
+**In scope:** [TODO: comma-separated list of what's in scope this month.]
+
+**Out of scope:** [TODO: comma-separated list of what we're explicitly deferring, with a one-line "why later" if useful.]
+
+<Callout type="info" title="Mindset">
+[TODO: 2–3 sentences on the mental model the team should hold while doing this work. April's was about thinking like a 5-minute-patience new user.]
+</Callout>

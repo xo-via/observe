@@ -1,0 +1,60 @@
+---
+title: "Layer 3: Backend"
+description: Why we're investing in Backend this month and how to think about it
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Layer 3 — Backend
+
+<Callout title="Why now">
+The backend is currently spread across multiple repos, making it harder to debug, deploy, and reason about. As we scale to 500 workspaces, every request needs to be authenticated, every action logged, and every failure traceable. A fragmented backend makes all of that harder.
+</Callout>
+
+## Objectives
+
+1. **Consolidate into 1 unified backend repo** — Single codebase so the team can reason about the full request lifecycle in one place. Faster debugging, simpler deploys, fewer "it works in my repo" issues.
+   *User impact: Faster bug fixes and feature shipping — less time debugging across repos means more time building what users need.*
+
+2. **Ship auth middleware on all endpoints** — Zero unauthenticated routes. Every API call validates identity and permissions before processing. Table stakes for B2B — partners will audit this.
+   *User impact: Users and their data are secure by default. B2B partners can trust the platform with their workloads.*
+
+3. **Implement structured logging with request tracing** — Every request logged with enough context to debug without accessing production data. Full trace from user action to root cause.
+   *User impact: When something goes wrong, we can pinpoint the issue in minutes instead of hours — faster resolution, less downtime.*
+
+4. **Instrument all LLM API calls for token counting** — Log token counts with workspace ID, agent ID, timestamp, and model. No message content, no prompts, no responses, no PII.
+   *User impact: Foundation for transparent billing — users will always know exactly what they're being charged for.*
+
+5. **Build token aggregation pipeline** — Aggregate raw token logs into per-workspace, per-agent, per-time-window totals. Feeds billing, dashboards, and partner reporting.
+   *User impact: Users and partners get clean usage data without needing to parse raw logs or ask support.*
+
+6. **Expose token usage API** — REST endpoints for billing integration and B2B partner reporting.
+   *User impact: Partners can pull usage data into their own systems, making XO easy to integrate into existing business workflows.*
+
+## Priority and focus
+
+<Steps>
+  <Step>
+    ### 1 unified backend instead of distributed repos
+
+    Consolidate into a single backend service (or monorepo) so the team can reason about the full request lifecycle in one place. Faster debugging, simpler deploys, fewer "it works in my repo" issues.
+  </Step>
+  <Step>
+    ### Every request is authenticated and secure
+
+    No unauthenticated endpoints. Every API call validates identity and permissions before processing. This is table stakes for B2B — partners will audit this.
+  </Step>
+  <Step>
+    ### Logging and monitoring implemented
+
+    Every request logged with enough context to debug issues without accessing production data. Request tracing across the full stack so when something fails, we can trace it from the user action to the root cause.
+  </Step>
+</Steps>
+
+**In scope:** Repo consolidation, auth middleware on all endpoints, structured logging with request tracing, token usage instrumentation (no PII — totals only), monitoring dashboards.
+
+**Out of scope:** API versioning, GraphQL, public API docs. Those are post-consolidation concerns. Get one clean backend first.
+
+<Callout type="info" title="Mindset">
+Consolidate before you build new. Every new endpoint should go into the unified backend — no exceptions. If you're tempted to spin up a new service, ask yourself if it can be a module in the monorepo instead. Simpler is faster at this stage.
+</Callout>

@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>XO Phone — Full Backend API Design</title>
+  <style>
+    :root {
+      --lime:#83d63a; --lime-s:rgba(131,214,58,.14); --lime-e:rgba(131,214,58,.5);
+      --ink:#08090A; --ink2:#131416; --ink3:#1c1c1e;
+      --t:rgba(255,255,255,1); --t2:rgba(255,255,255,.72); --t3:rgba(255,255,255,.42);
+      --div:rgba(255,255,255,.08);
+      --amber:#ffb547; --amb-s:rgba(255,181,71,.13);
+      --red:#ff6b6b; --red-s:rgba(255,107,107,.13);
+      --blue:#64b5f6; --blu-s:rgba(100,181,246,.13);
+      --vio:#b794ff; --vio-s:rgba(183,148,255,.13);
+      --teal:#4ecdc4; --teal-s:rgba(78,205,196,.13);
+      --pink:#ff6b9d; --pink-s:rgba(255,107,157,.13);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--ink);color:var(--t);
+      font-family:'Inter',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+      line-height:1.55;-webkit-font-smoothing:antialiased}
+    .w{max-width:1120px;margin:0 auto;padding:48px 22px 96px}
+
+    /* HEADER */
+    header{border-bottom:1px solid var(--div);padding-bottom:26px;margin-bottom:36px}
+    .brand{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+    .bm{width:32px;height:32px}
+    .bt{font-weight:700;letter-spacing:.01em;color:var(--lime);font-size:13px;text-transform:uppercase}
+    h1{font-size:30px;font-weight:700;letter-spacing:-.02em;margin:0 0 7px}
+    .lead{color:var(--t2);font-size:14px;margin:0}
+    .pills{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}
+    .p{padding:3px 11px;border-radius:999px;font-size:10px;font-weight:700;
+       letter-spacing:.05em;text-transform:uppercase;
+       background:var(--ink3);color:var(--t2);border:1px solid var(--div)}
+    .p.g{background:var(--lime-s);color:var(--lime);border-color:var(--lime-e)}
+    .p.a{background:var(--amb-s);color:var(--amber);border-color:rgba(255,181,71,.4)}
+    .p.r{background:var(--red-s);color:var(--red);border-color:rgba(255,107,107,.4)}
+
+    /* HEADINGS */
+    h2{font-size:21px;font-weight:700;letter-spacing:-.015em;margin:60px 0 8px}
+    h2 .ico{margin-right:9px}
+    .ss{color:var(--t2);font-size:13px;margin:0 0 20px}
+    h3{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+       color:var(--t3);margin:24px 0 10px}
+    p{color:var(--t2);margin:10px 0}
+    p strong{color:var(--t);font-weight:600}
+    code{background:var(--ink3);padding:1px 6px;border-radius:4px;
+         font-family:'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;
+         font-size:11.5px;color:var(--lime)}
+    pre{background:var(--ink2);border:1px solid var(--div);border-radius:11px;
+        padding:16px;font-family:'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;
+        font-size:11.5px;line-height:1.55;overflow-x:auto;color:var(--t)}
+    table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12.5px}
+    th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--div)}
+    th{background:var(--ink3);font-weight:700;font-size:10px;text-transform:uppercase;
+       letter-spacing:.04em;color:var(--t)}
+    tbody tr:hover{background:var(--ink2)}
+    a{color:var(--lime)}
+
+    /* ── ECOSYSTEM MAP ── */
+    .eco{margin:20px 0}
+
+    /* top row: user → phone-os → siblings */
+    .eco-top{display:flex;align-items:center;gap:0;flex-wrap:wrap}
+    .eco-box{border-radius:14px;padding:14px 18px;border:1px solid var(--div)}
+    .eco-arrow{padding:0 12px;color:var(--t3);font-size:20px;flex-shrink:0}
+    .eco-arrow.down{padding:6px 0;text-align:center;font-size:18px;color:var(--t3)}
+
+    /* repo boxes by type */
+    .eb-phone{background:linear-gradient(135deg,rgba(131,214,58,.13),transparent);
+              border-color:var(--lime-e);flex:1;min-width:180px}
+    .eb-nextjs{background:linear-gradient(135deg,var(--blu-s),transparent);
+               border-color:rgba(100,181,246,.45)}
+    .eb-cowork{background:linear-gradient(135deg,var(--vio-s),transparent);
+               border-color:rgba(183,148,255,.45)}
+    .eb-swarm{background:linear-gradient(135deg,rgba(78,205,196,.13),transparent);
+              border-color:rgba(78,205,196,.45)}
+    .eb-billing{background:linear-gradient(135deg,var(--amb-s),transparent);
+                border-color:rgba(255,181,71,.4)}
+    .eb-ext{background:var(--ink2);border-color:var(--div)}
+    .eb-sibling{background:linear-gradient(135deg,var(--pink-s),transparent);
+                border-color:rgba(255,107,157,.3);opacity:.75}
+
+    .eb-label{font-size:10px;font-weight:700;letter-spacing:.07em;
+              text-transform:uppercase;margin-bottom:6px}
+    .eb-phone .eb-label{color:var(--lime)}
+    .eb-nextjs .eb-label{color:var(--blue)}
+    .eb-cowork .eb-label{color:var(--vio)}
+    .eb-swarm  .eb-label{color:var(--teal)}
+    .eb-billing .eb-label{color:var(--amber)}
+    .eb-ext    .eb-label{color:var(--t3)}
+    .eb-sibling .eb-label{color:var(--pink)}
+    .eb-name{font-weight:700;font-size:14px;color:var(--t);margin-bottom:3px}
+    .eb-role{font-size:11.5px;color:var(--t2);line-height:1.4}
+    .eb-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+    .ebc{padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600}
+    .eb-phone  .ebc{background:rgba(131,214,58,.15);color:var(--lime)}
+    .eb-nextjs .ebc{background:rgba(100,181,246,.15);color:var(--blue)}
+    .eb-cowork .ebc{background:rgba(183,148,255,.15);color:var(--vio)}
+    .eb-swarm  .ebc{background:rgba(78,205,196,.15);color:var(--teal)}
+    .eb-billing .ebc{background:rgba(255,181,71,.15);color:var(--amber)}
+    .eb-ext    .ebc{background:var(--ink3);color:var(--t3)}
+    .eb-sibling .ebc{background:rgba(255,107,157,.15);color:var(--pink)}
+
+    /* central vertical flow */
+    .eco-central{display:flex;flex-direction:column;align-items:center;gap:0;margin:16px 0}
+    .eco-connector{display:flex;align-items:center;justify-content:center;padding:4px 0;gap:8px}
+    .eco-conn-line{width:2px;height:22px;background:var(--div)}
+    .eco-conn-arrow{border-left:6px solid transparent;border-right:6px solid transparent;
+                    border-top:7px solid var(--div)}
+    .eco-conn-label{font-size:10.5px;color:var(--t3);font-family:'JetBrains Mono',monospace}
+
+    /* backends split */
+    .eco-backends{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0;width:100%}
+    @media(max-width:600px){.eco-backends{grid-template-columns:1fr}}
+    .eco-services{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0;width:100%}
+    .eco-sibling-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+                     gap:10px;margin-top:16px;padding-top:16px;
+                     border-top:1px solid var(--div)}
+
+    /* CAPABILITY CARDS */
+    .cap-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:18px 0}
+    @media(min-width:660px){.cap-grid{grid-template-columns:repeat(3,1fr)}}
+    @media(min-width:900px){.cap-grid{grid-template-columns:repeat(5,1fr)}}
+    .cap{border-radius:13px;padding:16px;display:flex;flex-direction:column;gap:7px;
+         border:1px solid var(--div);background:var(--ink2)}
+    .cap.ok{border-color:var(--lime-e);background:linear-gradient(160deg,var(--lime-s),transparent)}
+    .cap.wa{border-color:rgba(255,181,71,.5);background:linear-gradient(160deg,var(--amb-s),transparent)}
+    .cap.bl{border-color:rgba(255,107,107,.5);background:linear-gradient(160deg,var(--red-s),transparent)}
+    .cap-ico{font-size:26px;line-height:1}
+    .cap-nm{font-weight:700;font-size:13px}
+    .cap-st{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+    .cap.ok .cap-st{color:var(--lime)}
+    .cap.wa .cap-st{color:var(--amber)}
+    .cap.bl .cap-st{color:var(--red)}
+    .cap-ep{font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace}
+    .cap-d{font-size:11.5px;color:var(--t2);line-height:1.4}
+
+    /* SEQUENCE DIAGRAMS */
+    .seq-wrap{overflow-x:auto;margin:18px 0}
+    .seq{display:grid;min-width:520px;border-radius:12px;overflow:hidden;border:1px solid var(--div)}
+    .seq.c5{grid-template-columns:80px 1fr 1fr 1fr 80px}
+    .seq.c4{grid-template-columns:80px 1fr 1fr 80px}
+    .sq-h{padding:9px 12px;font-size:10px;font-weight:700;letter-spacing:.06em;
+          text-transform:uppercase;text-align:center;border-bottom:2px solid}
+    .sq-h.hb{color:var(--lime);border-color:var(--lime)}
+    .sq-h.hn{color:var(--blue);border-color:var(--blue)}
+    .sq-h.hc{color:var(--vio);border-color:var(--vio)}
+    .sq-h.hs{color:var(--teal);border-color:var(--teal)}
+    .sq-h.hl{color:var(--amber);border-color:var(--amber)}
+    .sq-h.hx{color:var(--t3);border-color:var(--div);font-size:9px}
+    .sq-l{padding:7px 9px;font-size:10px;color:var(--t3);
+          font-family:'JetBrains Mono',monospace;display:flex;align-items:center;
+          border-bottom:1px solid var(--div);background:rgba(0,0,0,.15)}
+    .sq-c{padding:7px 5px;border-bottom:1px solid var(--div);
+          display:flex;align-items:center;justify-content:center;min-height:40px}
+    .sq-c.nb{background:rgba(131,214,58,.05)}
+    .sq-c.nn{background:rgba(100,181,246,.06)}
+    .sq-c.nc{background:rgba(183,148,255,.06)}
+    .sq-c.ns{background:rgba(78,205,196,.06)}
+    .arr{display:flex;align-items:center;width:100%;font-size:9.5px;
+         font-family:'JetBrains Mono',monospace}
+    .arr-l{flex:1;height:2px;position:relative}
+    .arr-l::after{content:'';position:absolute;top:-3.5px;width:8px;height:8px;
+                  border-top:2px solid;border-right:2px solid}
+    .arr-l.r::after{right:-1px;transform:rotate(45deg);border-color:currentColor}
+    .arr-l.l::after{left:-1px;transform:rotate(-135deg);border-color:currentColor}
+    .arr-tx{font-size:9px;padding:0 4px;white-space:nowrap}
+
+    .a-bn .arr-l{background:var(--lime);color:var(--blue)}
+    .a-bn .arr-tx{color:var(--blue)}
+    .a-bs .arr-l{background:var(--lime);color:var(--teal)}
+    .a-bs .arr-tx{color:var(--teal)}
+    .a-nc .arr-l{background:var(--blue);color:var(--vio)}
+    .a-nc .arr-tx{color:var(--vio)}
+    .a-ns .arr-l{background:var(--blue);color:var(--teal)}
+    .a-ns .arr-tx{color:var(--teal)}
+    .a-cl .arr-l{background:var(--vio);color:var(--amber)}
+    .a-cl .arr-tx{color:var(--amber)}
+    .a-back .arr-l{background:var(--div);color:var(--t3)}
+    .a-back .arr-tx{color:var(--t3);font-style:italic}
+    .ev{display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;
+        font-family:'JetBrains Mono',monospace;white-space:nowrap}
+    .ev-g{background:var(--lime-s);color:var(--lime)}
+    .ev-b{background:var(--blu-s);color:var(--blue)}
+    .ev-v{background:var(--vio-s);color:var(--vio)}
+    .ev-a{background:var(--amb-s);color:var(--amber)}
+    .ev-r{background:var(--red-s);color:var(--red)}
+    .ev-t{background:var(--teal-s);color:var(--teal)}
+
+    /* ROUTE TABLE */
+    .rt{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--lime)}
+    .rt-t{font-size:12px;color:var(--t2)}
+    .tag{display:inline-block;padding:1px 7px;border-radius:4px;
+         font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+    .tag.ok{background:var(--lime-s);color:var(--lime)}
+    .tag.wa{background:var(--amb-s);color:var(--amber)}
+    .tag.bl{background:var(--red-s);color:var(--red)}
+    .tag.def{background:var(--ink3);color:var(--t3);border:1px solid var(--div)}
+
+    /* BLOCKER BOX */
+    .blocker-wrap{border:2px solid rgba(255,107,107,.5);border-radius:15px;
+                  background:linear-gradient(160deg,var(--red-s),transparent),var(--ink2);
+                  padding:22px;margin:14px 0}
+    .blocker-wrap h2{margin-top:0;color:var(--red);border-bottom-color:rgba(255,107,107,.25)}
+    .bl-card{border:1px solid rgba(255,107,107,.35);border-radius:11px;
+             background:rgba(255,107,107,.06);padding:16px 18px;margin:12px 0}
+    .bl-num{display:inline-block;width:22px;height:22px;border-radius:50%;
+            background:var(--red);color:#fff;font-weight:700;font-size:11px;
+            text-align:center;line-height:22px;margin-bottom:8px}
+    .bl-title{font-weight:700;font-size:14px;color:var(--red);margin-bottom:5px}
+    .bl-desc{font-size:12.5px;color:var(--t2);margin-bottom:10px}
+    .bl-wa{background:rgba(255,181,71,.08);border:1px solid rgba(255,181,71,.3);
+           border-radius:7px;padding:9px 12px;margin-bottom:10px}
+    .bl-wa-l{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+             color:var(--amber);margin-bottom:3px}
+    .bl-wa-t{font-size:12px;color:var(--t)}
+    .bl-need{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+             color:var(--red);margin-bottom:5px}
+    .bl-pre{margin:0;font-size:10.5px;background:var(--ink);
+            border-color:rgba(255,107,107,.2);padding:12px 14px}
+
+    /* EP CARDS */
+    .epc{border:1px solid var(--div);border-radius:11px;background:var(--ink2);
+         padding:14px 18px;margin:10px 0}
+    .ep-path{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--lime);font-weight:600}
+    .mth{padding:2px 7px;border-radius:4px;margin-right:7px;font-size:9.5px;font-weight:700;text-transform:uppercase}
+    .mth.G{background:var(--blu-s);color:var(--blue)}
+    .mth.P{background:var(--amb-s);color:var(--amber)}
+    .mth.S{background:var(--vio-s);color:var(--vio)}
+    .ep-d{font-size:12.5px;color:var(--t);margin:6px 0 3px}
+    .ep-s{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace}
+
+    /* Q LIST */
+    .ql{list-style:none;padding:0;margin:10px 0}
+    .ql li{padding:9px 12px 9px 32px;margin:7px 0;border:1px solid var(--div);
+           background:var(--ink2);border-radius:9px;position:relative;
+           font-size:13px;color:var(--t)}
+    .ql li::before{content:'?';position:absolute;left:12px;top:9px;
+                   color:var(--amber);font-weight:700}
+
+    footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--div);
+           color:var(--t3);font-size:11.5px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+    /* NAV */
+    .nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:36px}
+    .nav a{padding:4px 12px;border-radius:999px;border:1px solid var(--div);
+           font-size:11px;color:var(--t2);text-decoration:none;background:var(--ink2)}
+    .nav a:hover{background:var(--lime-s);color:var(--lime);border-color:var(--lime-e)}
+
+    @media print{
+      body{background:white;color:black}
+      .eco-box,.cap,.epc,.bl-card,.blocker-wrap{background:#fafafa!important;border-color:#ccc!important}
+      pre{background:#f6f6f6!important;color:#000!important;border:1px solid #ccc!important}
+      p,.lead,.ss,.rt-t,.ep-d{color:#222!important}
+      h1,h2,h3{color:#000!important}
+      h2{page-break-after:avoid}
+      .cap,.epc,.bl-card,table{page-break-inside:avoid}
+    }
+  </style>
+</head>
+<body>
+<div class="w">
+
+  <!-- ─── HEADER ─── -->
+  <header>
+    <div class="brand">
+      <svg class="bm" viewBox="0 0 100 100">
+        <path d="M18 28L38 50L18 72" stroke="white" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M82 28L62 50L82 72" stroke="white" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M32 28L52 50L32 72" stroke="#83d63a" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M68 28L48 50L68 72" stroke="#83d63a" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="bt">XO Phone — Backend API Design</span>
+    </div>
+    <h1>Full backend API design</h1>
+    <p class="lead">All repos, how they interact, every endpoint xo-phone-os calls, and the data flows behind each one.</p>
+    <div class="pills">
+      <span class="p g">ADR-001</span>
+      <span class="p g">xo-cowork-api :5002</span>
+      <span class="p g">xo-swarm-api cloud</span>
+      <span class="p a">2 cowork blockers</span>
+      <span class="p a">1 swarm blocker</span>
+      <span class="p">2026-05-20</span>
+    </div>
+  </header>
+
+  <!-- ─── NAV ─── -->
+  <div class="nav">
+    <a href="#ecosystem">Ecosystem map</a>
+    <a href="#arch">Architecture</a>
+    <a href="#caps">Capabilities</a>
+    <a href="#routes">All routes</a>
+    <a href="#chat-flow">Chat flow</a>
+    <a href="#auth-flow">Auth flow</a>
+    <a href="#workspace-flow">Workspace creation</a>
+    <a href="#files-flow">Files flow</a>
+    <a href="#blockers">Blockers</a>
+    <a href="#catalog">Endpoint catalog</a>
+    <a href="#questions">Open questions</a>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       1. ECOSYSTEM MAP — ALL REPOS
+  ═══════════════════════════════════════════ -->
+  <h2 id="ecosystem"><span class="ico">🗺️</span>Ecosystem map</h2>
+  <p class="ss">Every repo in the XO platform, what it does, and which ones xo-phone-os talks to. Dimmed = sibling repos not called by phone-os.</p>
+
+  <div class="eco">
+
+    <!-- Row 1: phone-os -->
+    <div style="display:flex;justify-content:center;margin-bottom:0">
+      <div class="eco-box eb-phone" style="max-width:480px;width:100%">
+        <div class="eb-label">This Repo</div>
+        <div class="eb-name">xo-phone-os</div>
+        <div class="eb-role">Next.js 16 phone OS UI. Browser never calls external APIs directly — all calls proxied through its own Route Handlers.</div>
+        <div class="eb-chips">
+          <span class="ebc">Next.js 16</span><span class="ebc">React 19</span>
+          <span class="ebc">Clerk SDK</span><span class="ebc">port 18002</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrow down to proxy -->
+    <div style="display:flex;justify-content:center;padding:6px 0">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:0">
+        <div style="width:2px;height:18px;background:var(--div)"></div>
+        <div style="border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid var(--div)"></div>
+      </div>
+    </div>
+
+    <!-- Row 2: Next.js proxy -->
+    <div style="display:flex;justify-content:center;margin-bottom:0">
+      <div class="eco-box eb-nextjs" style="max-width:480px;width:100%">
+        <div class="eb-label">Proxy layer (same process)</div>
+        <div class="eb-name">Next.js Route Handlers</div>
+        <div class="eb-role">Reads Clerk session → injects <code>Authorization: Bearer XO_API_KEY</code> + <code>X-XO-Username</code> → forwards to downstream APIs.</div>
+        <div class="eb-chips">
+          <span class="ebc">POST /api/chat</span><span class="ebc">GET /api/cowork/*</span>
+          <span class="ebc">GET /api/swarm/*</span><span class="ebc">GET /api/widgets/*</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrow down, then fork -->
+    <div style="display:flex;justify-content:center;padding:6px 0">
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div style="width:2px;height:14px;background:var(--div)"></div>
+        <div style="display:flex;gap:120px;position:relative">
+          <div style="width:2px;height:14px;background:var(--div)"></div>
+          <!-- horizontal connector -->
+          <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--div)"></div>
+          <div style="width:2px;height:14px;background:var(--div)"></div>
+        </div>
+        <div style="display:flex;gap:120px">
+          <div style="border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid var(--div)"></div>
+          <div style="border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid var(--div)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: Backends -->
+    <div class="eco-backends">
+      <div class="eco-box eb-cowork">
+        <div class="eb-label">In-Workspace Backend</div>
+        <div class="eb-name">xo-cowork-api</div>
+        <div class="eb-role">Runs inside a Coworker workspace. Manages agent sessions, files, chat streams, connectors. One instance per workspace.</div>
+        <div class="eb-chips">
+          <span class="ebc">FastAPI</span><span class="ebc">port 5002</span>
+          <span class="ebc">Chat SSE</span><span class="ebc">Files</span><span class="ebc">Agents</span>
+        </div>
+      </div>
+      <div class="eco-box eb-swarm">
+        <div class="eb-label">Platform Backend (cloud)</div>
+        <div class="eb-name">xo-swarm-api</div>
+        <div class="eb-role">Cloud control plane. Identity (Clerk), project ledger, workspace provisioning, MCP config, OAuth flows, S3/Postgres state.</div>
+        <div class="eb-chips">
+          <span class="ebc">FastAPI</span><span class="ebc">cloud</span>
+          <span class="ebc">Postgres</span><span class="ebc">S3</span><span class="ebc">Clerk</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 4: Services under each backend -->
+    <div class="eco-backends" style="margin-top:10px">
+      <!-- Under cowork-api -->
+      <div class="eco-box eb-ext">
+        <div class="eb-label">AI Providers</div>
+        <div class="eb-name">LLM Backends</div>
+        <div class="eb-role">Called by cowork-api only. Phone OS never reaches these directly.</div>
+        <div class="eb-chips">
+          <span class="ebc">Anthropic</span><span class="ebc">OpenAI</span>
+          <span class="ebc">OpenClaw</span><span class="ebc">Codex CLI</span>
+        </div>
+      </div>
+      <!-- Under swarm-api -->
+      <div class="eco-box eb-billing">
+        <div class="eb-label">Payments service</div>
+        <div class="eb-name">xo-billing</div>
+        <div class="eb-role">Stripe webhook handler. Called by xo-swarm-api only. Phone OS checks subscription via swarm-api, never billing directly.</div>
+        <div class="eb-chips">
+          <span class="ebc">Bun/TS</span><span class="ebc">Stripe webhooks</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sibling repos (not called by phone-os) -->
+    <div class="eco-sibling-row">
+      <div style="grid-column:1/-1;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3);margin-bottom:2px;">
+        Sibling repos — not called by xo-phone-os
+      </div>
+      <div class="eco-box eb-sibling">
+        <div class="eb-label">Platform UI</div>
+        <div class="eb-name">xo-swarm</div>
+        <div class="eb-role">Next.js launchpad. Talks to xo-swarm-api. Separate from phone-os.</div>
+      </div>
+      <div class="eco-box eb-sibling">
+        <div class="eb-label">Desktop chat</div>
+        <div class="eb-name">xo-coworker</div>
+        <div class="eb-role">Tauri desktop app. Talks to xo-cowork-api. Separate from phone-os.</div>
+      </div>
+      <div class="eco-box eb-sibling">
+        <div class="eb-label">Marketing</div>
+        <div class="eb-name">xo-main</div>
+        <div class="eb-role">xo.builders marketing site. Static Next.js + Clerk.</div>
+      </div>
+      <div class="eco-box eb-sibling">
+        <div class="eb-label">Investor room</div>
+        <div class="eb-name">xo-room</div>
+        <div class="eb-role">Fumadocs + Clerk-gated data room. Not an API consumer.</div>
+      </div>
+    </div>
+
+  </div><!-- /eco -->
+
+  <!-- ═══════════════════════════════════════════
+       2. ARCHITECTURE (3-tier with both backends)
+  ═══════════════════════════════════════════ -->
+  <h2 id="arch"><span class="ico">📐</span>Architecture — browser to backend</h2>
+  <p class="ss">Two backend paths from the Next.js proxy. All calls share the same header injection pattern.</p>
+
+  <!-- Tier boxes + connectors -->
+  <div style="display:flex;flex-direction:column;align-items:stretch;gap:0;margin:18px 0">
+
+    <div class="eco-box eb-phone">
+      <div class="eb-label">Browser — xo-phone-os</div>
+      <div class="eb-chips" style="margin-bottom:8px">
+        <span class="ebc">Pager · modes</span><span class="ebc">ChatExpanded</span>
+        <span class="ebc">Widgets</span><span class="ebc">Overlay</span>
+        <span class="ebc">ActionDispatcher</span><span class="ebc">LockScreen</span>
+        <span class="ebc">Clerk session cookie (auto)</span>
+      </div>
+      <div style="font-size:11.5px;color:var(--t3)">All HTTP goes to <code>/api/*</code> on Next.js. Never to :5002 or swarm directly. Keys never in bundle.</div>
+    </div>
+
+    <div style="display:flex;justify-content:center;padding:5px 0">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:2px;height:20px;background:var(--div);position:relative;">
+          <div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid var(--div)"></div>
+        </div>
+        <span style="font-size:10.5px;color:var(--t3);font-family:'JetBrains Mono',monospace">Clerk cookie + /api/* only</span>
+      </div>
+    </div>
+
+    <div class="eco-box eb-nextjs">
+      <div class="eb-label">Next.js Route Handlers (same server)</div>
+      <div style="font-size:11.5px;color:var(--t);margin-bottom:10px">
+        <strong>Pattern (every route):</strong> read Clerk session → get username → attach auth headers → forward
+      </div>
+      <div class="eco-backends" style="gap:10px">
+        <div style="background:rgba(183,148,255,.1);border:1px solid rgba(183,148,255,.3);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:var(--vio);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">→ cowork-api</div>
+          <div style="font-size:10.5px;font-family:'JetBrains Mono',monospace;color:var(--t2);line-height:1.7">
+            POST /api/chat<br>GET /api/chat/stream/[id]<br>
+            POST /api/chat/abort<br>GET /api/cowork/health<br>
+            GET /api/cowork/workspace<br>POST /api/cowork/projects<br>
+            GET /api/cowork/projects/[id]<br>
+            GET /api/cowork/projects/[id]/files<br>
+            GET /api/widgets/quip
+          </div>
+        </div>
+        <div style="background:rgba(78,205,196,.1);border:1px solid rgba(78,205,196,.3);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">→ swarm-api</div>
+          <div style="font-size:10.5px;font-family:'JetBrains Mono',monospace;color:var(--t2);line-height:1.7">
+            GET /api/swarm/me<br>GET /api/swarm/workspaces<br>
+            POST /api/swarm/workspaces<br>
+            GET /api/swarm/workspaces/[id]/connect<br>
+            GET /api/swarm/billing
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:100px;justify-content:center;padding:5px 0">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="width:2px;height:18px;background:var(--div);position:relative;"><div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid var(--div)"></div></div>
+        <span style="font-size:9.5px;color:var(--t3);font-family:'JetBrains Mono',monospace">XO_API_KEY + X-XO-Username</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="width:2px;height:18px;background:var(--div);position:relative;"><div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid var(--div)"></div></div>
+        <span style="font-size:9.5px;color:var(--t3);font-family:'JetBrains Mono',monospace">Clerk JWT + swarm key</span>
+      </div>
+    </div>
+
+    <div class="eco-backends" style="gap:12px">
+      <div class="eco-box eb-cowork">
+        <div class="eb-label">xo-cowork-api :5002</div>
+        <div class="eb-chips">
+          <span class="ebc">Chat SSE + client-action</span><span class="ebc">Files + scaffold</span>
+          <span class="ebc">Agents · Config</span><span class="ebc">Health</span>
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-top:6px">Scopes data by X-XO-Username. One workspace per user.</div>
+      </div>
+      <div class="eco-box eb-swarm">
+        <div class="eb-label">xo-swarm-api (cloud)</div>
+        <div class="eb-chips">
+          <span class="ebc">User profile</span><span class="ebc">Workspaces CRUD</span>
+          <span class="ebc">Billing status</span><span class="ebc">Workspace URL</span>
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-top:6px">Manages platform-level state. Returns workspace connection info.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       3. CAPABILITIES GRID (all 9)
+  ═══════════════════════════════════════════ -->
+  <h2 id="caps"><span class="ico">✦</span>All capabilities needed</h2>
+  <p class="ss">Five from cowork-api (in-workspace). Four from swarm-api (platform). Status at a glance.</p>
+
+  <h3>From xo-cowork-api</h3>
+  <div class="cap-grid">
+    <div class="cap ok"><div class="cap-ico">✅</div><div class="cap-nm">Health</div><div class="cap-st">Exists</div><div class="cap-ep">GET /health</div></div>
+    <div class="cap ok"><div class="cap-ico">✅</div><div class="cap-nm">Chat (SSE)</div><div class="cap-st">Exists</div><div class="cap-ep">POST /api/chat/prompt<br>GET /api/chat/stream/{id}</div></div>
+    <div class="cap ok"><div class="cap-ico">✅</div><div class="cap-nm">All files</div><div class="cap-st">Exists</div><div class="cap-ep">POST /api/files/list-directory<br>POST /api/files/content</div></div>
+    <div class="cap wa"><div class="cap-ico">⚠️</div><div class="cap-nm">Create project</div><div class="cap-st">Partial / workaround</div><div class="cap-ep">mkdir scaffold + agents register</div><div class="cap-d">Two-step, fragile. Blocker 1 needed.</div></div>
+    <div class="cap bl"><div class="cap-ico">🚧</div><div class="cap-nm">Get project</div><div class="cap-st">Blocker</div><div class="cap-ep">3-call composition</div><div class="cap-d">No unified endpoint. Blocker 2 needed.</div></div>
+  </div>
+
+  <h3>From xo-swarm-api</h3>
+  <div class="cap-grid">
+    <div class="cap bl"><div class="cap-ico">🚧</div><div class="cap-nm">User profile</div><div class="cap-st">Blocker</div><div class="cap-ep">GET /api/users/me</div><div class="cap-d">Endpoint needs confirming / building.</div></div>
+    <div class="cap bl"><div class="cap-ico">🚧</div><div class="cap-nm">List workspaces</div><div class="cap-st">Blocker</div><div class="cap-ep">GET /api/workspaces</div><div class="cap-d">Returns user's workspaces with connection URLs.</div></div>
+    <div class="cap bl"><div class="cap-ico">🚧</div><div class="cap-nm">Create workspace</div><div class="cap-st">Blocker</div><div class="cap-ep">POST /api/workspaces</div><div class="cap-d">"Create Your Own" CTA. Provisions Coworker.</div></div>
+    <div class="cap bl"><div class="cap-ico">🚧</div><div class="cap-nm">Billing status</div><div class="cap-st">Blocker</div><div class="cap-ep">GET /api/billing/subscription</div><div class="cap-d">Shows plan in settings. Deferred.</div></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       4. ALL ROUTES TABLE
+  ═══════════════════════════════════════════ -->
+  <h2 id="routes"><span class="ico">🛣️</span>All Next.js routes</h2>
+  <p class="ss">One route per capability. Browser calls these. Next.js proxies with auth headers.</p>
+
+  <h3>cowork-api routes</h3>
+  <table>
+    <thead><tr><th>Next.js route</th><th>cowork-api endpoint</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td class="rt">GET /api/cowork/health</td><td class="rt-t"><code>GET /health</code></td><td><span class="tag ok">exists</span></td></tr>
+      <tr><td class="rt">GET /api/cowork/workspace</td><td class="rt-t"><code>GET /api/config/workspace</code> — discover projects root on boot</td><td><span class="tag ok">exists</span></td></tr>
+      <tr><td class="rt">POST /api/cowork/projects</td><td class="rt-t"><code>POST /api/files/mkdir (scaffold:true)</code> + <code>POST /api/agents</code></td><td><span class="tag wa">workaround</span></td></tr>
+      <tr><td class="rt">GET /api/cowork/projects/[id]</td><td class="rt-t">Composed: <code>GET /api/agents/{id}</code> + <code>POST /api/files/list-directory</code> + config</td><td><span class="tag bl">blocker</span></td></tr>
+      <tr><td class="rt">GET /api/cowork/projects/[id]/files</td><td class="rt-t"><code>POST /api/files/list-directory</code> with project path</td><td><span class="tag ok">exists</span></td></tr>
+      <tr><td class="rt">GET /api/cowork/projects/[id]/files/read</td><td class="rt-t"><code>POST /api/files/content</code> with file path</td><td><span class="tag ok">exists</span></td></tr>
+      <tr><td class="rt">POST /api/chat</td><td class="rt-t"><code>POST /api/chat/prompt</code> → returns <code>{stream_id, session_id}</code></td><td><span class="tag ok">exists</span></td></tr>
+      <tr><td class="rt">GET /api/chat/stream/[id]</td><td class="rt-t"><code>GET /api/chat/stream/{id}</code> SSE pipe, 600s reconnect</td><td><span class="tag ok">exists</span></td></tr>
+      <tr><td class="rt">POST /api/chat/abort</td><td class="rt-t"><code>POST /api/chat/abort</code></td><td><span class="tag ok">exists</span></td></tr>
+      <tr><td class="rt">GET /api/widgets/quip</td><td class="rt-t">local <code>data/quips.ts</code> or <code>/api/quip</code> (TBD)</td><td><span class="tag def">tbd</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>swarm-api routes</h3>
+  <table>
+    <thead><tr><th>Next.js route</th><th>swarm-api endpoint</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td class="rt">GET /api/swarm/me</td><td class="rt-t"><code>GET /api/users/me</code> — current user profile, plan, name</td><td><span class="tag bl">blocker</span></td></tr>
+      <tr><td class="rt">GET /api/swarm/workspaces</td><td class="rt-t"><code>GET /api/workspaces</code> — list user's Coworker workspaces with URLs</td><td><span class="tag bl">blocker</span></td></tr>
+      <tr><td class="rt">POST /api/swarm/workspaces</td><td class="rt-t"><code>POST /api/workspaces</code> — provision new Coworker ("Create Your Own")</td><td><span class="tag bl">blocker</span></td></tr>
+      <tr><td class="rt">GET /api/swarm/workspaces/[id]/connect</td><td class="rt-t"><code>GET /api/workspaces/{id}/connection</code> — returns cowork-api URL for this workspace</td><td><span class="tag bl">blocker</span></td></tr>
+      <tr><td class="rt">GET /api/swarm/billing</td><td class="rt-t"><code>GET /api/billing/subscription</code> — plan, limits, renewal</td><td><span class="tag bl">blocker</span></td></tr>
+    </tbody>
+  </table>
+
+  <!-- ═══════════════════════════════════════════
+       5. CHAT FLOW (sequence diagram)
+  ═══════════════════════════════════════════ -->
+  <h2 id="chat-flow"><span class="ico">💬</span>Chat turn flow</h2>
+  <p class="ss">One session per user. session_id resolved server-side from username. Two HTTP calls, one long-lived SSE stream.</p>
+
+  <div class="seq-wrap">
+    <div class="seq c5">
+      <div class="sq-h hx">Step</div><div class="sq-h hb">Browser</div><div class="sq-h hn">Next.js</div><div class="sq-h hc">cowork-api</div><div class="sq-h hl">LLM</div>
+
+      <div class="sq-l">1 send</div>
+      <div class="sq-c nb"><div class="arr a-bn r"><div class="arr-l r"></div><span class="arr-tx">POST /api/chat</span></div></div>
+      <div class="sq-c nn"></div><div class="sq-c"></div><div class="sq-c"></div>
+
+      <div class="sq-l">2 proxy</div>
+      <div class="sq-c"></div>
+      <div class="sq-c nn"><div class="arr a-nc r"><div class="arr-l r"></div><span class="arr-tx">POST /api/chat/prompt<br><span style="color:var(--t3);font-size:8px">+auth headers</span></span></div></div>
+      <div class="sq-c nc"></div><div class="sq-c"></div>
+
+      <div class="sq-l">3 stream_id</div>
+      <div class="sq-c"></div>
+      <div class="sq-c nn"><div class="arr a-back l"><div class="arr-l l"></div><span class="arr-tx">{stream_id, session_id}</span></div></div>
+      <div class="sq-c nc"></div><div class="sq-c"></div>
+
+      <div class="sq-l">4 open SSE</div>
+      <div class="sq-c nb"><div class="arr a-bn r"><div class="arr-l r"></div><span class="arr-tx">EventSource<br>/api/chat/stream/{id}</span></div></div>
+      <div class="sq-c nn"><div class="arr a-nc r"><div class="arr-l r"></div><span class="arr-tx">pipe SSE</span></div></div>
+      <div class="sq-c nc"><div class="arr a-cl r"><div class="arr-l r"></div><span class="arr-tx">start turn</span></div></div>
+      <div class="sq-c"></div>
+
+      <div class="sq-l">5 tokens</div>
+      <div class="sq-c nb"><span class="ev ev-g">text-delta ×N</span></div>
+      <div class="sq-c nn"><span class="ev ev-b">pipe</span></div>
+      <div class="sq-c nc"><span class="ev ev-v">tokens</span></div>
+      <div class="sq-c" style="color:var(--amber);font-size:10px">LLM output</div>
+
+      <div class="sq-l">6 action?</div>
+      <div class="sq-c nb"><span class="ev ev-a">client-action</span></div>
+      <div class="sq-c nn"><span class="ev ev-a">pipe</span></div>
+      <div class="sq-c nc"><span class="ev ev-a">agent emits</span></div>
+      <div class="sq-c" style="color:var(--t3);font-size:9px">agent decides</div>
+
+      <div class="sq-l">7 done</div>
+      <div class="sq-c nb"><span class="ev ev-v">done</span></div>
+      <div class="sq-c nn"><span class="ev ev-v">pipe · close</span></div>
+      <div class="sq-c nc"><span class="ev ev-v">done</span></div>
+      <div class="sq-c" style="color:var(--t3);font-size:9px">complete</div>
+    </div>
+  </div>
+  <p style="font-size:11.5px;color:var(--t3)">SSE event types: <code>session-created</code> <code>text-delta</code> <code>heartbeat</code> <code>done</code> <code>agent-error</code> <code>client-action</code></p>
+
+  <!-- ═══════════════════════════════════════════
+       6. AUTH + WORKSPACE DISCOVERY FLOW
+  ═══════════════════════════════════════════ -->
+  <h2 id="auth-flow"><span class="ico">🔐</span>Auth + workspace discovery flow</h2>
+  <p class="ss">Sign-in resolves the user's workspace URL from swarm-api. All subsequent cowork-api calls use that URL.</p>
+
+  <div class="seq-wrap">
+    <div class="seq c4">
+      <div class="sq-h hx">Step</div><div class="sq-h hb">Browser</div><div class="sq-h hn">Next.js</div><div class="sq-h hs">swarm-api</div>
+
+      <div class="sq-l">1 sign in</div>
+      <div class="sq-c nb" style="flex-direction:column;gap:4px">
+        <span class="ev ev-b">Clerk modal opens</span>
+        <span style="font-size:9.5px;color:var(--t3)">user enters credentials</span>
+      </div>
+      <div class="sq-c"></div><div class="sq-c"></div>
+
+      <div class="sq-l">2 session</div>
+      <div class="sq-c nb">
+        <div class="arr a-bn r"><div class="arr-l r"></div><span class="arr-tx">GET /api/swarm/me<br>(Clerk cookie)</span></div>
+      </div>
+      <div class="sq-c nn">
+        <div class="arr a-ns r"><div class="arr-l r"></div><span class="arr-tx">GET /api/users/me<br>+Clerk JWT</span></div>
+      </div>
+      <div class="sq-c ns"></div>
+
+      <div class="sq-l">3 profile</div>
+      <div class="sq-c nb"><span class="ev ev-t">{id, name, plan}</span></div>
+      <div class="sq-c nn"><span class="ev ev-t">forward</span></div>
+      <div class="sq-c ns"><span class="ev ev-t">user profile</span></div>
+
+      <div class="sq-l">4 workspaces</div>
+      <div class="sq-c nb">
+        <div class="arr a-bn r"><div class="arr-l r"></div><span class="arr-tx">GET /api/swarm/workspaces</span></div>
+      </div>
+      <div class="sq-c nn">
+        <div class="arr a-ns r"><div class="arr-l r"></div><span class="arr-tx">GET /api/workspaces</span></div>
+      </div>
+      <div class="sq-c ns"></div>
+
+      <div class="sq-l">5 urls</div>
+      <div class="sq-c nb"><span class="ev ev-t">[{id, name, url}]</span></div>
+      <div class="sq-c nn"><span class="ev ev-t">forward</span></div>
+      <div class="sq-c ns"><span class="ev ev-t">workspace list</span></div>
+
+      <div class="sq-l">6 store</div>
+      <div class="sq-c nb" style="flex-direction:column;gap:3px">
+        <span class="ev ev-g">session: workspaceUrl set</span>
+        <span style="font-size:9px;color:var(--t3)">all cowork calls now use this URL</span>
+      </div>
+      <div class="sq-c"></div><div class="sq-c"></div>
+
+      <div class="sq-l">7 mode gate</div>
+      <div class="sq-c nb" style="flex-direction:column;gap:3px">
+        <span class="ev ev-g">Pager allows Agent mode</span>
+        <span style="font-size:9px;color:var(--t3)">auth:required passed</span>
+      </div>
+      <div class="sq-c"></div><div class="sq-c"></div>
+    </div>
+  </div>
+  <p style="font-size:11.5px;color:var(--t3)">
+    The <strong>workspace URL</strong> is the cowork-api host for this user. Stored in session after sign-in.
+    Next.js routes use <code>process.env.COWORK_API_URL</code> as the default (operator workspace) and override with the user's workspace URL once signed in.
+  </p>
+
+  <!-- ═══════════════════════════════════════════
+       7. WORKSPACE CREATION FLOW
+  ═══════════════════════════════════════════ -->
+  <h2 id="workspace-flow"><span class="ico">🏗️</span>Workspace creation flow</h2>
+  <p class="ss">User taps "Create Your Own" dock button (signed in). swarm-api provisions a new Coworker, returns the workspace URL.</p>
+
+  <div class="seq-wrap">
+    <div class="seq c4">
+      <div class="sq-h hx">Step</div><div class="sq-h hb">Browser</div><div class="sq-h hn">Next.js</div><div class="sq-h hs">swarm-api</div>
+
+      <div class="sq-l">1 tap CTA</div>
+      <div class="sq-c nb" style="flex-direction:column;gap:3px">
+        <span class="ev ev-g">Tap "Create Your Own"</span>
+        <span style="font-size:9px;color:var(--t3)">rightmost dock button, signed-in state</span>
+      </div>
+      <div class="sq-c"></div><div class="sq-c"></div>
+
+      <div class="sq-l">2 provision</div>
+      <div class="sq-c nb">
+        <div class="arr a-bn r"><div class="arr-l r"></div><span class="arr-tx">POST /api/swarm/workspaces<br>{name?, template?}</span></div>
+      </div>
+      <div class="sq-c nn">
+        <div class="arr a-ns r"><div class="arr-l r"></div><span class="arr-tx">POST /api/workspaces<br>+Clerk JWT</span></div>
+      </div>
+      <div class="sq-c ns"></div>
+
+      <div class="sq-l">3 spawn</div>
+      <div class="sq-c"></div><div class="sq-c"></div>
+      <div class="sq-c ns" style="flex-direction:column;gap:3px">
+        <span class="ev ev-t">Launches Coworker</span>
+        <span style="font-size:9px;color:var(--t3)">Docker / Coder / Vercel Sandbox</span>
+      </div>
+
+      <div class="sq-l">4 ready</div>
+      <div class="sq-c nb"><span class="ev ev-t">{id, url, status}</span></div>
+      <div class="sq-c nn"><span class="ev ev-t">forward</span></div>
+      <div class="sq-c ns"><span class="ev ev-t">workspace ready</span></div>
+
+      <div class="sq-l">5 connect</div>
+      <div class="sq-c nb">
+        <div class="arr a-bn r"><div class="arr-l r"></div><span class="arr-tx">GET /api/swarm/workspaces/{id}/connect</span></div>
+      </div>
+      <div class="sq-c nn">
+        <div class="arr a-ns r"><div class="arr-l r"></div><span class="arr-tx">GET connection info</span></div>
+      </div>
+      <div class="sq-c ns"></div>
+
+      <div class="sq-l">6 use</div>
+      <div class="sq-c nb" style="flex-direction:column;gap:3px">
+        <span class="ev ev-g">session: workspaceUrl updated</span>
+        <span style="font-size:9px;color:var(--t3)">chat, files, projects now use new workspace</span>
+      </div>
+      <div class="sq-c"></div><div class="sq-c"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       8. FILES + PROJECT LOAD FLOW
+  ═══════════════════════════════════════════ -->
+  <h2 id="files-flow"><span class="ico">📁</span>Project load + files flow</h2>
+  <p class="ss">Opening the Files app or a project. Composed from multiple cowork-api calls until the unified GET /api/projects/{id} blocker lands.</p>
+
+  <div class="seq-wrap">
+    <div class="seq c4">
+      <div class="sq-h hx">Step</div><div class="sq-h hb">Browser</div><div class="sq-h hn">Next.js</div><div class="sq-h hc">cowork-api</div>
+
+      <div class="sq-l">1 boot</div>
+      <div class="sq-c nb">
+        <div class="arr a-bn r"><div class="arr-l r"></div><span class="arr-tx">GET /api/cowork/workspace<br>(once on mount)</span></div>
+      </div>
+      <div class="sq-c nn">
+        <div class="arr a-nc r"><div class="arr-l r"></div><span class="arr-tx">GET /api/config/workspace</span></div>
+      </div>
+      <div class="sq-c nc"></div>
+
+      <div class="sq-l">2 root</div>
+      <div class="sq-c nb"><span class="ev ev-v">{roots: {default: "/home/..."}}</span></div>
+      <div class="sq-c nn"><span class="ev ev-v">forward</span></div>
+      <div class="sq-c nc"><span class="ev ev-v">projects root</span></div>
+
+      <div class="sq-l">3 open project</div>
+      <div class="sq-c nb">
+        <div class="arr a-bn r"><div class="arr-l r"></div><span class="arr-tx">GET /api/cowork/projects/{id}</span></div>
+      </div>
+      <div class="sq-c nn" style="flex-direction:column;gap:3px">
+        <span class="ev ev-b">GET /api/agents/{id}</span>
+        <span class="ev ev-b">POST /api/files/list-directory</span>
+        <span style="font-size:8.5px;color:var(--amber)">⚠️ workaround: 2 calls</span>
+      </div>
+      <div class="sq-c nc"></div>
+
+      <div class="sq-l">4 project data</div>
+      <div class="sq-c nb"><span class="ev ev-v">{agent, files, path}</span></div>
+      <div class="sq-c nn"><span class="ev ev-v">compose + return</span></div>
+      <div class="sq-c nc"><span class="ev ev-v">2 responses merged</span></div>
+
+      <div class="sq-l">5 navigate dir</div>
+      <div class="sq-c nb">
+        <div class="arr a-bn r"><div class="arr-l r"></div><span class="arr-tx">GET /api/cowork/projects/{id}/files?path=src</span></div>
+      </div>
+      <div class="sq-c nn">
+        <div class="arr a-nc r"><div class="arr-l r"></div><span class="arr-tx">POST /api/files/list-directory<br>{path: "project/src"}</span></div>
+      </div>
+      <div class="sq-c nc"></div>
+
+      <div class="sq-l">6 file list</div>
+      <div class="sq-c nb"><span class="ev ev-g">{dirs[], files[]}</span></div>
+      <div class="sq-c nn"><span class="ev ev-g">forward</span></div>
+      <div class="sq-c nc"><span class="ev ev-g">directory listing</span></div>
+
+      <div class="sq-l">7 read file</div>
+      <div class="sq-c nb">
+        <div class="arr a-bn r"><div class="arr-l r"></div><span class="arr-tx">GET .../files/read?path=README.md</span></div>
+      </div>
+      <div class="sq-c nn">
+        <div class="arr a-nc r"><div class="arr-l r"></div><span class="arr-tx">POST /api/files/content<br>{path}</span></div>
+      </div>
+      <div class="sq-c nc"></div>
+
+      <div class="sq-l">8 content</div>
+      <div class="sq-c nb"><span class="ev ev-g">{path, content}</span></div>
+      <div class="sq-c nn"><span class="ev ev-g">forward</span></div>
+      <div class="sq-c nc"><span class="ev ev-g">file text</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       9. AUTH HEADER DIAGRAM
+  ═══════════════════════════════════════════ -->
+  <h2><span class="ico">🔑</span>Auth header injection</h2>
+  <table>
+    <thead><tr><th>Tier</th><th>Has</th><th>Does not have</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Browser</strong></td>
+        <td style="color:var(--lime)">Clerk session cookie (auto)</td>
+        <td style="color:var(--t3)">XO_API_KEY · COWORK_API_URL · swarm URL</td>
+        <td style="color:var(--t2)">Calls <code>/api/*</code> on Next.js only</td>
+      </tr>
+      <tr>
+        <td><strong>Next.js</strong></td>
+        <td style="color:var(--lime)">Reads Clerk session · XO_API_KEY env · COWORK_API_URL env</td>
+        <td style="color:var(--t3)">—</td>
+        <td style="color:var(--t2)">Injects <code>Authorization: Bearer XO_API_KEY</code> + <code>X-XO-Username</code> on every forward</td>
+      </tr>
+      <tr>
+        <td><strong>cowork-api</strong></td>
+        <td style="color:var(--lime)">Receives Authorization + X-XO-Username</td>
+        <td style="color:var(--t3)">—</td>
+        <td style="color:var(--t2)">Validates key, scopes all data to username</td>
+      </tr>
+      <tr>
+        <td><strong>swarm-api</strong></td>
+        <td style="color:var(--lime)">Receives Clerk JWT in Authorization</td>
+        <td style="color:var(--t3)">—</td>
+        <td style="color:var(--t2)">Validates Clerk JWT, returns user-scoped data</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ═══════════════════════════════════════════
+       10. BLOCKERS (cowork + swarm)
+  ═══════════════════════════════════════════ -->
+  <div class="blocker-wrap" id="blockers">
+    <h2><span class="ico">🚧</span>All blockers</h2>
+    <p>These endpoints must be built before xo-phone-os v.Next+ can fully ship. Planned in dedicated sessions with each backend team.</p>
+
+    <h3 style="color:var(--vio);margin-top:16px">On xo-cowork-api</h3>
+    <div class="bl-card">
+      <span class="bl-num">1</span>
+      <div class="bl-title">POST /api/projects</div>
+      <div class="bl-desc">Atomic project creation: mkdir scaffold + agent registration in one call. No rollback risk.</div>
+      <div class="bl-wa"><div class="bl-wa-l">⚠️ workaround</div><div class="bl-wa-t"><code>POST /api/files/mkdir (scaffold:true)</code> then <code>POST /api/agents</code></div></div>
+      <div class="bl-need">contract needed</div>
+      <pre class="bl-pre">POST /api/projects
+{ "name": "my-project", "template"?: "default" }
+→ { "id": "my-project", "path": "/home/…/xo-projects/my-project", "created_at": "…" }</pre>
+    </div>
+    <div class="bl-card">
+      <span class="bl-num">2</span>
+      <div class="bl-title">GET /api/projects/{id}</div>
+      <div class="bl-desc">Unified project response: agent config + file tree + metadata in one call. Currently 3 serial calls.</div>
+      <div class="bl-wa"><div class="bl-wa-l">⚠️ workaround</div><div class="bl-wa-t"><code>GET /api/agents/{id}</code> + <code>POST /api/files/list-directory</code> + <code>GET /api/config/workspace</code></div></div>
+      <div class="bl-need">contract needed</div>
+      <pre class="bl-pre">GET /api/projects/{id}
+→ { "id", "name", "path", "files": {dirs[], files[]},
+    "agent": {name, backend, workspace}, "updated_at" }</pre>
+    </div>
+
+    <h3 style="color:var(--teal);margin-top:20px">On xo-swarm-api</h3>
+    <div class="bl-card">
+      <span class="bl-num">3</span>
+      <div class="bl-title">GET /api/users/me</div>
+      <div class="bl-desc">Current user profile from Clerk + swarm state. Needed for header, settings panel, plan display.</div>
+      <div class="bl-need">contract needed</div>
+      <pre class="bl-pre">GET /api/users/me  (Authorization: Bearer &lt;Clerk JWT&gt;)
+→ { "id", "username", "email", "plan": "free|pro|team",
+    "created_at", "avatar_url"? }</pre>
+    </div>
+    <div class="bl-card">
+      <span class="bl-num">4</span>
+      <div class="bl-title">GET + POST /api/workspaces</div>
+      <div class="bl-desc">List user workspaces (with cowork-api URLs) and provision new ones. Required for "Create Your Own" flow and workspace switching.</div>
+      <div class="bl-need">contract needed</div>
+      <pre class="bl-pre">GET /api/workspaces
+→ [{ "id", "name", "status": "running|stopped",
+     "cowork_url": "https://…", "created_at" }]
+
+POST /api/workspaces  { "name"?, "template"?: "default" }
+→ { "id", "cowork_url", "status": "provisioning" }</pre>
+    </div>
+    <div class="bl-card">
+      <span class="bl-num">5</span>
+      <div class="bl-title">GET /api/workspaces/{id}/connection</div>
+      <div class="bl-desc">Returns the live cowork-api URL for a workspace. Next.js uses this URL for all subsequent cowork calls for the signed-in user.</div>
+      <div class="bl-need">contract needed</div>
+      <pre class="bl-pre">GET /api/workspaces/{id}/connection
+→ { "cowork_url": "http://…:5002", "status": "running",
+    "token"?: "…short-lived workspace token if needed…" }</pre>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       11. ENDPOINT CATALOG (detail)
+  ═══════════════════════════════════════════ -->
+  <h2 id="catalog"><span class="ico">📋</span>Endpoint catalog</h2>
+
+  <h3>Chat — xo-cowork-api</h3>
+  <div class="epc"><div class="ep-path"><span class="mth P">POST</span><code>/api/chat/prompt</code></div>
+    <div class="ep-d">Prepare a turn. Fast, returns <code>{stream_id, session_id}</code> before LLM starts.</div>
+    <div class="ep-s">Phone-OS route: POST /api/chat</div></div>
+  <div class="epc"><div class="ep-path"><span class="mth S">SSE</span><code>/api/chat/stream/{stream_id}</code></div>
+    <div class="ep-d">Long-lived SSE. Events: <code>session-created</code> <code>text-delta</code> <code>heartbeat</code> <code>done</code> <code>agent-error</code> <code>client-action {kind,...}</code>. 600s reconnect window.</div>
+    <div class="ep-s">Phone-OS route: GET /api/chat/stream/[id] (piped)</div></div>
+  <div class="epc"><div class="ep-path"><span class="mth P">POST</span><code>/api/chat/abort</code></div>
+    <div class="ep-d">Cancel in-flight stream. Called when user taps Stop button.</div>
+    <div class="ep-s">Phone-OS route: POST /api/chat/abort</div></div>
+
+  <h3>Files — xo-cowork-api</h3>
+  <div class="epc"><div class="ep-path"><span class="mth P">POST</span><code>/api/files/list-directory</code></div>
+    <div class="ep-d">List dir. Body: <code>{path}</code>. Returns <code>{path, parent, dirs[], files[]}</code>. Clamped to $HOME. Never recurse — call per subdir.</div>
+    <div class="ep-s">Phone-OS route: GET /api/cowork/projects/[id]/files</div></div>
+  <div class="epc"><div class="ep-path"><span class="mth P">POST</span><code>/api/files/content</code></div>
+    <div class="ep-d">Read text file. Body: <code>{path}</code>. Returns <code>{path, content}</code>. For binary use <code>/api/files/content-binary</code>.</div>
+    <div class="ep-s">Phone-OS route: GET /api/cowork/projects/[id]/files/read</div></div>
+  <div class="epc"><div class="ep-path"><span class="mth P">POST</span><code>/api/files/mkdir</code> <span style="color:var(--amber);font-size:10px">scaffold:true</span></div>
+    <div class="ep-d">Create dir and optionally scaffold xo-project tree from <code>project_template/</code>. Used as workaround for create-project (step 1 of 2).</div>
+    <div class="ep-s">Phone-OS route: POST /api/cowork/projects (workaround step 1)</div></div>
+
+  <h3>Config + health — xo-cowork-api</h3>
+  <div class="epc"><div class="ep-path"><span class="mth G">GET</span><code>/api/config/workspace</code></div>
+    <div class="ep-d">Returns <code>{roots: {default: "/home/user/xo-projects"}, default: "openclaw"}</code>. <strong>Call this first on boot.</strong> Never hardcode the projects root.</div>
+    <div class="ep-s">Phone-OS route: GET /api/cowork/workspace</div></div>
+  <div class="epc"><div class="ep-path"><span class="mth G">GET</span><code>/health</code></div>
+    <div class="ep-d">Liveness probe. Returns <code>{status: "ok"}</code>. Used for the offline detector.</div>
+    <div class="ep-s">Phone-OS route: GET /api/cowork/health</div></div>
+
+  <h3>User + workspaces — xo-swarm-api</h3>
+  <div class="epc"><div class="ep-path"><span class="mth G">GET</span><code>/api/users/me</code> <span class="tag bl" style="font-size:9px">blocker 3</span></div>
+    <div class="ep-d">Current user profile. Expects Clerk JWT in Authorization. Returns id, username, email, plan.</div>
+    <div class="ep-s">Phone-OS route: GET /api/swarm/me</div></div>
+  <div class="epc"><div class="ep-path"><span class="mth G">GET</span><code>/api/workspaces</code> <span class="tag bl" style="font-size:9px">blocker 4</span></div>
+    <div class="ep-d">List user's Coworker workspaces with their cowork-api URLs and status.</div>
+    <div class="ep-s">Phone-OS route: GET /api/swarm/workspaces</div></div>
+  <div class="epc"><div class="ep-path"><span class="mth P">POST</span><code>/api/workspaces</code> <span class="tag bl" style="font-size:9px">blocker 4</span></div>
+    <div class="ep-d">Provision new Coworker workspace. Returns id + cowork_url once ready. "Create Your Own" CTA triggers this.</div>
+    <div class="ep-s">Phone-OS route: POST /api/swarm/workspaces</div></div>
+  <div class="epc"><div class="ep-path"><span class="mth G">GET</span><code>/api/workspaces/{id}/connection</code> <span class="tag bl" style="font-size:9px">blocker 5</span></div>
+    <div class="ep-d">Returns live cowork-api URL for a workspace. Next.js uses this URL for all cowork calls for the signed-in user.</div>
+    <div class="ep-s">Phone-OS route: GET /api/swarm/workspaces/[id]/connect</div></div>
+
+  <!-- ═══════════════════════════════════════════
+       12. OPEN QUESTIONS
+  ═══════════════════════════════════════════ -->
+  <h2 id="questions"><span class="ico">❓</span>Open questions</h2>
+  <ul class="ql">
+    <li><strong>X-XO-Username header.</strong> Does xo-cowork-api currently scope data per this header, or is that new work?</li>
+    <li><strong>Operator fallback.</strong> When signed out, should Next.js send <code>X-XO-Username: __operator__</code> or omit the header entirely?</li>
+    <li><strong>Workspace URL per user.</strong> After sign-in, is the user's cowork-api URL always <code>:5002</code> (same host), or a different URL per provisioned workspace (e.g., a Coder or Vercel Sandbox URL)?</li>
+    <li><strong>client-action events.</strong> How does the cowork-api agent infrastructure emit <code>client-action</code> events — tool call, structured output, or special token? This determines whether action-driven navigation needs backend work.</li>
+    <li><strong>swarm-api auth scheme.</strong> Does swarm-api accept Clerk JWT directly in Authorization, or does it need a specific swarm-issued token?</li>
+    <li><strong>Single session per user.</strong> Does cowork-api auto-resolve the user's single session from <code>X-XO-Username</code> on chat calls, or does the phone OS need to discover + pass a <code>session_id</code> first?</li>
+    <li><strong>Quip source.</strong> Is there (or will there be) a <code>/api/quip</code> endpoint on cowork-api or swarm-api for Thought of the day, or does the phone OS keep a local <code>data/quips.ts</code>?</li>
+    <li><strong>Workspace provisioning time.</strong> How long does <code>POST /api/workspaces</code> take? If it's async, how does the phone OS know when the workspace is ready (polling? webhook? SSE)?</li>
+    <li><strong>Blockers timeline.</strong> Blockers 1+2 on cowork-api, and blockers 3–5 on swarm-api — which land first, and in what order?</li>
+  </ul>
+
+  <footer>
+    <span>XO Phone — Full backend API design · companion to ADR_001_COWORK_INTEGRATION.html · V_NEXT_PLAN.html</span>
+    <span>Last updated 2026-05-20</span>
+  </footer>
+
+</div>
+</body>
+</html>

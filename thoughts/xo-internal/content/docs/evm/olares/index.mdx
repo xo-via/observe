@@ -1,0 +1,145 @@
+---
+title: Olares Overview
+description: Research overview of Olares — open-source personal cloud OS with AI-first infrastructure, GPU scheduling, and an app marketplace.
+---
+
+# Olares — Platform Overview
+
+**Website:** [olares.com](https://olares.com)  
+**GitHub:** [github.com/beclab/Olares](https://github.com/beclab/Olares) (4.2k stars, Apache 2.0)  
+**HQ:** Singapore  
+**Founded:** 2024  
+**Funding:** $45M Series A (SIG, Nov 2025) + $1.5M Kickstarter  
+**Founder:** Peng Peng
+
+---
+
+## What Olares Is
+
+Olares is an open-source, Kubernetes-based **personal cloud operating system**. It mirrors the traditional cloud model (IaaS, PaaS, SaaS) but runs entirely on user-owned hardware. The core thesis is data sovereignty — users own their data, run their own AI models, and control their own infrastructure.
+
+They ship two products:
+
+**Olares OS** — The open-source operating system. Installs on any x86-64 Linux machine, Raspberry Pi, or virtualized environment. Provides Kubernetes orchestration, app sandboxing, cross-device identity (LarePass), and an app marketplace with 100+ self-hosted applications.
+
+**Olares One** — A premium hardware device shipping April 2026. Intel Core Ultra 9 275HX (24 cores), NVIDIA RTX 5090 Mobile (24GB GDDR7, 1824 AI TOPS), 96GB DDR5 RAM, 2TB NVMe SSD. Compact 3.5L form factor, 175W TGP. Designed as a personal AI workstation.
+
+---
+
+## Technical Architecture
+
+Olares runs a full Kubernetes stack organized into namespaces:
+
+| Namespace | Purpose |
+|---|---|
+| `os-framework` | System-wide shared services |
+| `os-platform` | Infrastructure: NATS, Citus PostgreSQL, Redis, LLDAP |
+| `os-network` | Networking, L4 proxying |
+| `user-system-\{username\}` | Per-user isolated namespace with apps and BFL StatefulSet |
+
+### Platform Services (already running)
+
+These services are deployed in `os-platform` and available to all apps via Kubernetes cluster DNS:
+
+| Service | What It Does | Relevance to XO |
+|---|---|---|
+| **NATS** | Message broker (pub/sub, request-reply, JetStream) | Agent mesh communication layer |
+| **Citus PostgreSQL** | Distributed relational database | State storage for agent registry, tasks, audit |
+| **Redis** | Caching and session storage | Session cache, rate limiting |
+| **LLDAP** | Lightweight LDAP directory | User identity (part of LarePass auth) |
+
+### Key System Applications
+
+| App | Purpose |
+|---|---|
+| **LarePass** | Cross-platform identity and SSO across all Olares apps |
+| **Market** | App discovery and one-click installation (100+ apps) |
+| **Control Hub** | Workload and container management |
+| **Vault** | Password and credential management |
+| **Settings** | User roles, GPU management, backup/restore |
+
+### Tech Stack
+
+Primary languages: Go (43.5%), Vue (25.5%), TypeScript (20.4%). Core daemon is `olaresd`. All apps run containerized within Kubernetes.
+
+---
+
+## AI & GPU Capabilities
+
+This is where Olares becomes directly relevant to XO.
+
+### GPU Management (HAMi)
+
+Olares uses **HAMi** (Heterogeneous AI Computing Virtualization Middleware) for GPU scheduling:
+
+- **Three allocation modes:** exclusive, time-slicing, and memory-slicing
+- **Multi-node GPU distribution** across cluster nodes
+- **NVIDIA-specific:** Turing architecture or newer (GTX 16xx, RTX 20xx/30xx/40xx/50xx+)
+- **Minimum 8GB VRAM** recommended
+
+This means Olares can slice a single RTX 5090 (24GB) into multiple concurrent GPU allocations for different agents — exactly what XO needs for multi-agent GPU scheduling.
+
+### AI Runtime
+
+- **Ollama** is the primary LLM runtime — pre-integrated for local model hosting
+- Supports concurrent model execution with GPU memory management
+- MCP (Model Context Protocol) compatible
+- Can host inference for multiple models simultaneously (codellama, mistral, llama, etc.)
+
+### The Gap
+
+Olares handles infrastructure-level AI (run models, allocate GPU, host inference endpoints). It does **not** handle coordination-level AI (which agent works on what, how agents communicate, how to compose agents into teams). This is the exact gap XO-PAN fills.
+
+---
+
+## App Marketplace
+
+Olares has a permissionless app marketplace with 100+ applications. Apps are defined by an `OlaresManifest.yaml` that declares:
+
+- Metadata (name, description, version, category)
+- Permission requirements (which system services the app needs)
+- Middleware dependencies (PostgreSQL database, NATS access, Redis)
+- Resource requirements (CPU, memory, GPU)
+
+Apps install with one click and run sandboxed within the user's Kubernetes namespace. This is the distribution mechanism for XO-PAN — it ships as a marketplace app.
+
+---
+
+## Target Users
+
+| Segment | Description |
+|---|---|
+| Privacy-conscious developers | Want local AI without cloud dependency |
+| AI researchers and ML engineers | Need GPU-accelerated local inference and training |
+| Home lab enthusiasts | Self-hosting everything, replacing SaaS |
+| Small teams | Shared infrastructure for collaborative AI work |
+| Enterprises (emerging) | On-premise AI with data sovereignty requirements |
+
+---
+
+## Competitive Landscape
+
+Olares competes with other self-hosted platforms:
+
+| Platform | Key Difference from Olares |
+|---|---|
+| **CasaOS** | Simpler, Docker-only (no Kubernetes). No GPU scheduling. |
+| **Umbrel** | Bitcoin/Lightning focused. Limited AI capabilities. |
+| **Unraid** | NAS-first. No native Kubernetes or AI orchestration. |
+| **TrueNAS** | Storage-first. No app marketplace or AI focus. |
+
+Olares is the only self-hosted OS with native Kubernetes, GPU scheduling (HAMi), and an AI-first app ecosystem. Adding XO-PAN's agent orchestration would make it the only platform with **multi-agent coordination** — a differentiator none of the competitors can match.
+
+---
+
+## Key Numbers
+
+| Metric | Value |
+|---|---|
+| GitHub stars | 4,200+ |
+| Marketplace apps | 100+ |
+| Series A | $45M (SIG) |
+| Kickstarter | $1.5M+ |
+| Olares One price | ~$3,000 (estimated) |
+| Minimum hardware | 4 cores, 8GB RAM, 150GB SSD |
+| Olares One specs | 24 cores, 96GB RAM, RTX 5090 24GB |

@@ -1,0 +1,193 @@
+---
+title: Competitive Landscape
+description: How XO sits in a market of agent runtimes, sandbox infrastructure, and one-click agent platforms — and where the white space is.
+icon: Target
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Competitive Landscape
+
+The market XO is in did not exist eighteen months ago. As of May 2026, "where do my agents actually run?" has become a genuine product category — with sandbox infrastructure startups, hosted coding-agent products, and big-cloud agent runtimes all converging from different angles toward the same question.
+
+This page maps that landscape, then locates XO inside it.
+
+<Callout>
+  **No competitor today combines all four of XO's wedges: agent-agnostic, fully managed, true 1-click for non-developers, and bundled all-inclusive pricing.** Most pick one or two. Big-cloud runtimes lock you in. Sandbox infra makes you wire it yourself. Vertical agent products work with one agent only.
+</Callout>
+
+## How to read this market
+
+The space breaks cleanly into five categories. Each category is solving a different version of "let me run an agent in the cloud."
+
+| # | Category | Question it answers | Examples |
+|---|---|---|---|
+| 1 | **Direct agent products** | "I want a specific agent — give me the whole thing." | Devin, Replit Agent, Cursor Cloud Agents, Factory.ai, Cosine Genie, OpenHands Cloud |
+| 2 | **Sandbox / runtime infrastructure** | "I'm building agents — give me a sandbox API." | E2B, Daytona, Modal, Vercel Sandbox, Cloudflare Sandbox SDK, Runloop, Northflank, Coder, Gitpod Flex, Beam Cloud, Fly.io |
+| 3 | **Browser / computer-use clouds** | "My agent needs a remote browser or desktop." | Browserbase, Steel.dev, Hyperbrowser, Scrapybara, Browser Use Cloud |
+| 4 | **No-code agent builders** | "Build me an agent — I won't write code." | Lindy, Manus, Beam.ai, Relevance AI, Sema4.ai, Stack AI, Cassidy, LangGraph Platform |
+| 5 | **Hyperscaler agent runtimes** | "I'm in AWS / Azure / Google / OpenAI — give me an agent layer." | AWS Bedrock AgentCore, Azure AI Foundry Hosted Agents, Vertex AI Agent Engine, OpenAI Workspace Agents |
+
+XO competes against pieces of all five — but is structurally different from each. The next sections explain why.
+
+---
+
+## Category 1 — Direct agent products
+
+Closed-loop products where the agent and the runtime ship together. You don't choose the agent; you buy *that* agent.
+
+| Product | Who it is | Pricing | Where it overlaps with XO | Where XO is different |
+|---|---|---|---|---|
+| **Devin (Cognition)** | Autonomous AI software engineer with built-in sandboxed execution. | Core $20/mo, Team $500/mo (250 ACUs, $2/ACU overage), Enterprise. | Cloud-hosted agent with managed compute. | Devin runs Devin only. XO runs OpenClaw, Claude Code, Codex, Kimi K-2, custom — same workspace, same UX. |
+| **Replit Agent + Ghostwriter** | Agent-driven app builder layered on Replit's IDE. | Ghostwriter $10/mo; Agent usage on top of Replit subscription. | One-click web app generation in a hosted environment. | Replit is IDE-and-web-app first. XO is agent-and-workspace first; the agent isn't bound to a code editor or to web-app output. |
+| **Cursor Cloud Agents / Background Agents** | Background agents that clone repos, work on branches, open PRs in isolated cloud VMs. | Bundled in Cursor Pro; self-hosted variant for enterprise. | Async agent execution in cloud sandboxes against your repo. | Cursor agents only run inside the Cursor product. XO runs them as one of many agents on a neutral workspace surface. |
+| **Factory.ai (Droid Computers)** | Managed remote computers running "Droid" agent personas across CLI, web, Slack, Linear/Jira. | Enterprise; not publicly tiered. | Managed cloud computers for asynchronous agent work. | Factory locks you into its Droid personas. XO is open: any agent in, any agent out, no persona system to buy into. |
+| **Cosine Genie** | Async coding agent built on a proprietary model; CLI-first, no IDE. | Enterprise. | Background autonomous coding agent runtime. | Cosine = the agent itself. XO = the runtime under any agent, including a Cosine-style one. |
+| **OpenHands (All Hands AI)** | Open-source agent platform; Docker/Kubernetes sandbox; self-host or OpenHands Cloud. | Free self-hosted; OpenHands Cloud free tier; enterprise VPC custom. | Sandbox-isolated agent execution, MCP-friendly. | OpenHands ships its *own* agent. XO is agent-neutral — an OpenHands user could host OpenHands inside an XO workspace. |
+
+**Pattern:** these are vertical products. They bundle a single agent with a single runtime. They win on "best-in-class for that one agent" and lose on "what about the other ten agents I want to run?"
+
+---
+
+## Category 2 — Sandbox / runtime infrastructure
+
+The closest peers. These are the companies selling the literal layer XO sells — but most of them sell it as a developer API, not as a product.
+
+| Product | What you get | Pricing model | Closest tension with XO |
+|---|---|---|---|
+| **E2B** | Linux sandboxes via SDK; per-second billing for code interpreters. | Pay-per-second (~$0.0003–$0.0010/sec); Enterprise floor ~$3K/mo. | The leading agent-sandbox API. But E2B is *infrastructure for builders*. XO is *product for users.* You build on E2B; you click on XO. |
+| **Daytona** | Composable dev-environment sandboxes; sub-100ms spin-up; snapshots; MCP integration. | OSS self-host + hosted cloud (negotiated). | Same low-level primitive — fast sandboxes for agents. XO sits a layer above: orchestration, agent-aware UX, bundled pricing, no devops setup. |
+| **Modal Sandboxes** | Serverless containers, Python/JS/Go SDKs, autoscale to 50K+. | Usage-based compute/storage. | General-purpose serverless. XO is opinionated for agent workflows: workspaces persist, agents are the unit, the UI is the product. |
+| **Vercel Sandbox** | Secure microVM sandboxes inside Vercel's Fluid compute; 5 min – 5 hr lifetimes by tier. | Bundled in Vercel Pro/Enterprise. | Vercel's answer to "where does the AI run?" Tied to Next.js / frontend workflows. XO is framework- and host-neutral. |
+| **Cloudflare Sandbox SDK** | Workers + Containers-based sandboxes; persistent code interpreters, snapshots; GA April 2026. | Workers Paid + container compute. | Edge-locked. XO is region- and provider-agnostic and runs in customer cloud or on-prem when needed. |
+| **Runloop** | Enterprise "Devboxes" — Blueprints, Snapshots, arm64/x86, 100ms execs. | Enterprise. | The closest peer in spirit: agent-aware sandboxes that boot fast and snapshot state. XO competes on simpler onboarding, bundled pricing, and product-grade UX vs. SDK-grade. |
+| **Northflank** | Microvm-based deploy platform; Kata/gVisor; multi-cloud + BYO-cloud. | Enterprise / BYO-cloud. | Strong infra-team product. XO targets the developer / AI-team buyer who does not have an infra team. |
+| **Coder** | Self-hosted CDEs with AI Workspaces, AI Bridge, Agent Boundaries policies. | Enterprise license. | Same shape — isolated workspaces for agents — but Coder is self-hosted-first. XO is managed-first, with a self-host path on the Business/Enterprise tier. |
+| **Gitpod Flex** | Ephemeral dev environments in your VPC / on-prem / local; Dev Container standard. | Freemium + paid teams. | BYOI. XO is "we run it." Gitpod Flex is great when you have an infra team; XO is for when you don't. |
+| **Beam Cloud** | Serverless GPU + sandboxes; custom container runtime, distributed storage. | Usage-based. | GPU-heavy inference workloads. XO targets CPU-heavy, long-running coding/operator agents. |
+| **Fly.io Machines** | Hardware-virtualized containers, instant start, per-second billing. | ~$0.0027/hr shared 256MB; per-GB storage and egress. | General-purpose infra. XO bundles agent management, observability, and one-click templates around the same primitive. |
+
+**Pattern:** all of these sell a primitive. None of them sells a product where a non-engineer can land, click "OpenClaw," and be working in 60 seconds. That gap is the XO product.
+
+---
+
+## Category 3 — Browser and computer-use clouds
+
+A specialised slice: cloud surfaces purpose-built for agents that drive a browser or a remote desktop.
+
+| Product | What it is | Where XO overlaps | Where XO is different |
+|---|---|---|---|
+| **Browserbase** | Cloud Chrome fleet; ~50M sessions in 2025; Series B at ~$300M valuation. | Cloud-hosted execution surface for agents. | Browser-only. XO is a full workspace. An agent inside an XO workspace can call Browserbase; they're complements as often as competitors. |
+| **Steel.dev** | Open-source browser API for AI agents. | Hosted execution for agents. | Same pattern — narrow on browser, deep on browser. XO is broader: code, files, MCPs, models, browser if needed. |
+| **Hyperbrowser** | Cloud browser with stealth, proxy rotation, 10K concurrency. | Cloud agent execution at scale. | Vertical to scraping / web automation. XO is horizontal across agent types. |
+| **Scrapybara** | Remote desktop instances for Claude Computer Use / OpenAI CUA agents. | Autoscaled agent execution. | Desktop/GUI specific. XO can host a desktop agent inside a workspace, but the workspace is the unit. |
+| **Browser Use Cloud** | Cloud deployment for the browser-use framework. | Hosted runtime for an agent framework. | Framework-specific. XO is framework-agnostic. |
+
+**Pattern:** these are best understood as *peripheral surfaces* an agent uses. The right framing is that XO workspaces consume them, not that they replace XO.
+
+---
+
+## Category 4 — No-code agent builders
+
+Different buyer, different shape, but they overlap in the marketing line "deploy your agent in one click."
+
+| Product | What it sells | Where XO overlaps | Where XO is different |
+|---|---|---|---|
+| **Lindy** | No-code automations across Slack/email/CRM. Free tier + Starter $19.99/mo + Pro $49.99/mo. | Click-and-go agent setup for non-engineers. | Lindy is integration-first (connect SaaS apps). XO is execution-first (run real code in real environments). |
+| **Manus** | Autonomous end-to-end work agent in a managed sandbox. Acquired by Meta. | Async agent execution in a managed environment. | Manus = the agent product. XO = the runtime any agent, including a Manus-style one, would use. |
+| **Beam.ai** | Upload an SOP, get an agent. Several Fortune 500 deployments. | One-click agent provisioning. | Document/SOP-driven. XO is code- and framework-driven. Different buyer; some overlap on enterprise sale. |
+| **Relevance AI** | Workflow-builder agents wired into Salesforce/Hubspot/etc. | One-click agent creation. | CRM/ops surface. XO is dev/infra surface. |
+| **Sema4.ai** | Enterprise runbook-driven agents — Studio, Control Room, Work Room. | Managed agent platform with full lifecycle. | Runbook-centric for enterprise ops. XO is workspace-centric for any agent. |
+| **Stack AI** | No-code AI workflows + integrations; on-prem option; SOC 2/HIPAA/GDPR. | Visual no-code path; on-prem option. | Workflow tool. XO is infrastructure under any workflow tool. |
+| **Cassidy** | No-code knowledge agents inside Slack/Teams/Chrome/Word/Outlook. | Easy agent rollout for teams. | Knowledge + extension surface. XO is the runtime layer beneath. |
+| **LangGraph Platform (LangSmith)** | Hosted runtime for LangGraph agents; Plus $39/user/mo + $0.005 per run + standby per minute. | Managed agent deployment + observability. | LangGraph-only. XO is framework-agnostic — LangGraph, CrewAI, Strands, OpenClaw, raw Anthropic SDK, anything. |
+
+**Pattern:** these compete with XO at the marketing level (everyone says "one click"), but the buyer is usually different — business ops vs. engineers and AI builders. Where they collide with XO is on the same exec who is asking "do we standardise on Lindy for the business team and XO for the engineering team?"
+
+---
+
+## Category 5 — Hyperscaler agent runtimes
+
+The structural threat. Every major cloud and every major model lab has now shipped (or is shipping) an agent runtime. They are slower, more locked-in, and more expensive than XO — but they have the distribution.
+
+| Provider | Product | Pricing | Lock-in |
+|---|---|---|---|
+| **AWS** | Bedrock AgentCore — serverless agent runtime, dedicated microVM per session, supports LangGraph / Strands / CrewAI. | ~$0.0994/vCPU-hr + $0.0118/GiB-hr (compute pricing live since March 2026). | Bedrock-first; multi-model only inside the AWS perimeter. |
+| **Microsoft** | Copilot Studio (low-code) + Azure AI Foundry Hosted Agents (pro-code, autoscaling, preview pricing matches AWS). | M365-bundled (Copilot Studio); ~$0.0994/vCPU-hr (Foundry, preview). | Azure + M365 stack. |
+| **Google** | Vertex AI Agent Builder + Agent Engine + ADK (model-agnostic SDK). | Usage-based, undisclosed. | GCP-locked deployment surface. |
+| **OpenAI** | Workspace Agents in ChatGPT — shared, cloud-hosted, 24/7. | Free through May 6 2026, then credit-based; requires Plus/Pro/Team. | ChatGPT-only. |
+| **Anthropic** | Claude Code (CLI) — runs locally or against Claude API; bundled with Pro $20 / Max $200 / Team / Enterprise. | Subscription + API tokens. | Anthropic-only model; no managed runtime — *that's the XO opening for Claude Code in particular.* |
+
+**Pattern:** every hyperscaler is racing to be the agent runtime *for their own ecosystem.* That is exactly what makes XO defensible: XO is the **cross-ecosystem** runtime. The bet is that customers want a single agent layer that works across providers, not five different agent layers each tied to one stack.
+
+---
+
+## Closest analogues to XO
+
+Of the 40+ companies above, seven sit closest to XO's positioning today.
+
+| # | Competitor | Why they overlap | Why XO wins (or where it has to) |
+|---|---|---|---|
+| 1 | **E2B** | Sandboxes for AI code execution. Best-known agent infra brand. | E2B sells an SDK to builders. XO sells a workspace to operators. The non-engineer can't use E2B alone; XO is what's on top. |
+| 2 | **Daytona** | Composable agent sandboxes, sub-100ms spin-up, OSS-friendly. | Daytona is the closest peer at the primitive level. XO wins on packaging — bundled pricing, managed UX, agent templates, no setup. |
+| 3 | **Runloop** | Enterprise agent Devboxes; Blueprints; Snapshots. | Runloop is enterprise-led and SDK-centric. XO is product-led and self-serve, which keeps the funnel wide. |
+| 4 | **Cursor Cloud Agents** | Async cloud-hosted code agents on your repo. | Cursor agents only exist inside Cursor. XO is the neutral surface — Cursor *and* Claude Code *and* OpenClaw *and* Codex on the same workspace. |
+| 5 | **Factory.ai** | Managed remote computers for agents. | Factory ties you to its Droid personas. XO is bring-your-own-agent, including custom. |
+| 6 | **OpenAI Workspace Agents + Azure Foundry Hosted Agents** | Managed cloud agents from a hyperscaler. | Hyperscaler lock-in is the trade. XO is the way to run agents *across* OpenAI, Anthropic, Google, open-source — without picking a side. |
+| 7 | **Coder** | Isolated agent workspaces; AI Bridge; Agent Boundaries. | Coder is self-hosted-first. XO is managed-first with a self-host path — the inverse onboarding shape, which matters for the long tail. |
+
+---
+
+## Differentiation
+
+The XO product line draws on four positions that no single competitor combines.
+
+**1. Agent-agnostic, fully managed.** Everyone else picks a side. Devin, Cosine, Manus, Replit Agent each ship one agent. E2B, Daytona, Modal each ship raw infra. XO ships *a product* that runs *any agent.* OpenClaw, Claude Code, Codex, Kimi K-2, and bring-your-own — same workspace, same one-click flow.
+
+**2. 60-second, no-DevOps onboarding.** The XO promise — pick an agent, click once, get a live workspace — is what every category is *trying* to achieve, and what none has actually shipped for the non-engineer. Devin is closest but only for Devin. Replit is closest but only for web apps. XO has it generally, today, in production.
+
+**3. All-inclusive, bundled pricing.** Per-second metering (E2B, Daytona, Modal, Fly), per-run + standby (LangGraph), per-vCPU-hour (AWS, Azure), per-seat + per-token (Anthropic, OpenAI). All of this scares non-engineers and slows down adoption. XO's bundled tiers — known monthly cost, all-inclusive compute and storage and integrations — collapse that friction.
+
+**4. Cross-cloud, cross-model, cross-framework.** Hyperscaler agent runtimes are the structural competitor and the structural opening at the same time. AWS, Azure, GCP, and OpenAI each want you on *their* runtime for *their* models. XO is the Switzerland: any model, any framework, any cloud, any agent. That positioning is the only one that scales with the agent ecosystem rather than against it.
+
+<Callout>
+  **The category we're in is "agent runtime."** The category we're trying to own is "the agent runtime that works with everything, runs anywhere, and a non-engineer can use." Nobody else is reaching for that combination.
+</Callout>
+
+---
+
+## Moats and defensibility
+
+The competitive defensibility lives in five places.
+
+**Workspace-as-product surface area.** Sandbox infra companies (E2B, Daytona, Modal) sell a primitive and depend on customers to build the surface around it. XO sells the surface. Every UX decision — the one-click flow, the workspace persistence model, the templates, the inline cowork view — compounds as a moat that an SDK provider would have to spend years building.
+
+**Agent template library + community defaults.** As more agents land on XO with one-click templates (OpenClaw today; Claude Code, Codex, Kimi K-2, AI Assistant on the roadmap), the library itself becomes a discovery surface. Pick one. Click. Working. Lindy and Beam.ai have analogues here for business workflows, but no one has it for *real coding and operator agents.*
+
+**Cross-cloud portability.** The same three-layer stack runs on XO's cloud, the customer's cloud, on-prem, or air-gapped. That portability is the answer to enterprise procurement and the answer to hyperscaler lock-in at the same time. AWS Bedrock cannot offer "we'll run on Azure for you." XO can.
+
+**Resale + partner channel.** Every partner running on XO — Pharos, EVM, Multi-Gen — extends the platform to their customers under their own brand without expanding XO's sales motion. The same workspace primitive earns revenue from XO direct, partner end-customers, and partner-to-enterprise expansions. That's a flywheel sandbox-API competitors structurally can't run, because their product isn't a product.
+
+**Agent-to-agent communication layer (forward bet).** Every competitor today optimises for *one agent in one sandbox.* As agents get good enough to work in coordination — code agent + reviewer + monitoring + customer-facing — the network problem becomes the dominant problem. XO's investment in a secure, identity-aware, cross-workspace agent communication layer is the long moat: the trusted network where agents discover each other, share state, and hand off work. None of the competitors above have shipped this. Most are not even framing the question yet.
+
+<Callout>
+  **The short moat is the workspace product. The long moat is the agent network.** Both compound. Both are XO's to lose.
+</Callout>
+
+---
+
+## Where we have to keep moving
+
+Honest read of the threats.
+
+**Hyperscalers are commoditising the bottom layer fast.** AWS Bedrock AgentCore, Azure Foundry Hosted Agents, Vertex Agent Engine are all priced at ~$0.0994/vCPU-hour and improving monthly. XO's defence is *not* trying to undercut them on raw compute — it's that nobody picks a hyperscaler agent runtime for "I want to run any agent across any cloud."
+
+**Sandbox infra is moving up the stack.** E2B, Daytona, Modal all have incentive to add orchestration, templates, and a UI. The XO answer is to ship product faster than they ship product, because that is not where they're strongest. The sandbox companies are SDK-shaped organisations.
+
+**Vertical agent products will keep winning their verticals.** Devin will be the best Devin. Cursor will be the best Cursor. The XO answer is not to compete with them at "best version of agent X" — it is to be the place where agent X, agent Y, and agent Z all run on a single surface, with a single bill, and a single UX.
+
+**Big-model labs will keep launching their own runtimes.** OpenAI Workspace Agents and Anthropic's eventual hosted Claude Code surface are the real ones to watch. XO's answer is to be the multi-model, multi-framework default before any single lab can claim that ground.
+
+<Callout type="info">
+  This is a category that gets clearer every month. Re-read this page in 90 days.
+</Callout>

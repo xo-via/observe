@@ -1,0 +1,36 @@
+---
+title: Platform Architecture
+description: "Proposed platform architecture for XO v1 — four-layer system from auth foundation through user entry and workspace execution to backend services"
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+<Callout title="Internal Technical Documentation" type="warn">
+Engineering reference — v1.0, March 2026 | xo.builders
+</Callout>
+
+## Overview
+
+This document describes the **Proposed platform architecture** of XO starting v1 — from the moment a user creates a workspace on XO Swarm through provisioning on the Workspace layer to the backend services that power agent intelligence and data persistence. It also defines the two project types (Agent and Org) that shape how workspaces behave.
+
+XO builds **pre-configured workspaces for AI agents**. The platform is designed so that agents — whether autonomous coding agents or organization-level multi-agent teams — get a ready environment with tools, knowledge, integrations, and deployment pipelines. No setup overhead, no wasted tokens.
+
+## Platform Flow
+
+How a user on XO Swarm launches a workspace and how each layer connects — from Layer 0 (Auth & Billing) at the foundation, through Layer 1 (Swarm) as entry, to the workspace runtime (Layer 2) with Layer 3 backend services.
+
+<PlatformFlowDiagram title="XO Platform — From Swarm to Workspace" />
+
+**Layer 0 (foundation):** Auth & Billing underpins everything. Clerk provides JWT tokens, API keys, and role metadata. XO Billing syncs subscription state from Stripe into Clerk. Every service in every layer reads identity and permissions from Layer 0.
+
+**Layer 1 → Layer 2:** XO Swarm calls the Coder API (via Layer 3) to provision isolated workspaces, then routes user messages to the Cowork API running inside each workspace. Swarm is the control plane; the workspace is the execution plane.
+
+**Layer 1 → Layer 3:** Swarm routes @xo messages to Swarm API's agent teams, and reads/writes project data to PostgreSQL and S3.
+
+**Layer 2 → Layer 3:** The Cowork API inside each workspace calls back to Swarm API to persist chat history and query knowledge bases.
+
+## Inside the Workspace
+
+Each workspace is an isolated Coder environment containing the Cowork API (agent broker), Dashboard, agent runtimes (Claude Code / OpenClaw), and a full suite of backend skills. Here's what lives inside:
+
+<WorkspaceInternalsDiagram title="Inside an XO Workspace — Component Architecture" />

@@ -1,0 +1,196 @@
+---
+title: API Contracts
+description: "XO-PAN API surface — MCP tools for agent registration, REST endpoints for task management, and Org template format."
+---
+
+# API Contracts
+
+XO-PAN exposes three interfaces: MCP tools (for agents), REST API (for dashboard and integrations), and Org templates (for one-click multi-agent deployment).
+
+---
+
+## Agent Registration (MCP + REST)
+
+**MCP Tool: `register_agent`**
+
+```json
+{
+  "name": "register_agent",
+  "description": "Register an agent to the XO Private Agent Network",
+  "inputSchema": {
+    "type": "object",
+    "required": ["name", "adapterType", "capabilities"],
+    "properties": {
+      "name": { "type": "string", "description": "Agent display name" },
+      "adapterType": {
+        "type": "string",
+        "enum": ["mcp", "ollama", "claude_local", "process", "http"]
+      },
+      "capabilities": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "mcpEndpoint": {
+        "type": "string",
+        "description": "MCP server endpoint (for mcp adapter type)"
+      },
+      "resourceRequirements": {
+        "type": "object",
+        "properties": {
+          "gpu": { "type": "boolean" },
+          "vramMinMB": { "type": "integer" },
+          "modelId": { "type": "string" }
+        }
+      }
+    }
+  }
+}
+```
+
+**REST equivalent:** `POST /api/network/agents/register`
+
+**Response:**
+
+```json
+{
+  "agentId": "uuid",
+  "apiKey": "xo-pan-sk-...",
+  "natsCredentials": {
+    "subjects": {
+      "inbox": "xo.agent.{agentId}.inbox",
+      "wakeup": "xo.agent.{agentId}.wakeup"
+    }
+  },
+  "status": "active"
+}
+```
+
+---
+
+## Task Management
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/issues` | Create a new task (issue) |
+| `POST` | `/api/issues/{id}/checkout` | Checkout task for exclusive execution (returns 409 if locked) |
+| `POST` | `/api/issues/{id}/checkin` | Release checkout, update status and result |
+| `PATCH` | `/api/issues/{id}` | Update task status, assignee, labels |
+| `GET` | `/api/agents/{id}/inbox` | Get pending tasks and messages for an agent |
+| `POST` | `/api/issues/{id}/delegate` | Delegate task to a sub-agent (creates subtask) |
+| `POST` | `/api/issues/{id}/escalate` | Escalate blocked task up chain of command |
+
+The checkout protocol is critical: `POST /api/issues/{id}/checkout` returns `200` with the issue object on success, or `409 Conflict` if another agent already holds the lock. Agents must never retry a 409 — they move to the next task.
+
+---
+
+## Agent Discovery
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/network/agents` | List all registered agents (filter by capabilities, role, status) |
+| `GET` | `/api/network/agents/capabilities` | List all unique capabilities in the network |
+| `POST` | `/api/network/agents/find` | Find agents matching a capability query |
+
+**Example — find an agent that can review Python code:**
+
+```json
+POST /api/network/agents/find
+{
+  "capabilities": ["code-review", "python"],
+  "status": "active",
+  "gpuRequired": false
+}
+```
+
+---
+
+## Org Templates
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/orgs/templates` | List available Org templates |
+| `POST` | `/api/orgs/deploy` | Deploy an Org template (creates company + agents + goals) |
+| `DELETE` | `/api/orgs/{id}` | Tear down an Org and all its agents |
+
+**Example — deploy a "Dev Team" Org:**
+
+```json
+POST /api/orgs/deploy
+{
+  "templateId": "dev-team-v1",
+  "config": {
+    "name": "My Dev Team",
+    "codebaseUrl": "file:///home/user/projects/myapp",
+    "agents": {
+      "ceo": { "model": "codellama:34b", "gpu": true },
+      "engineer": { "model": "codellama:13b", "gpu": true },
+      "reviewer": { "model": "codellama:7b", "gpu": false }
+    }
+  }
+}
+```
+
+This creates a full company with 3 agents, RBAC chain of command, a project linked to the codebase, and an initial goal. All agents are registered to the network and begin accepting tasks.
+
+---
+
+## Org Template Format
+
+Templates are YAML definitions that encode a complete company structure:
+
+```yaml
+id: dev-team-v1
+name: "Dev Team"
+description: "A 3-agent development team for building software"
+version: "1.0.0"
+
+agents:
+  - name: "Tech Lead"
+    role: ceo
+    reportsTo: null
+    adapterType: ollama
+    defaultModel: "codellama:34b"
+    capabilities: ["planning", "architecture", "code-review", "delegation"]
+    gpu: true
+    budgetMonthlyCents: 10000
+    instructions:
+      soul: "You are a senior tech lead. You decompose goals into actionable tasks..."
+      heartbeat: |
+        1. Check inbox for new goals or escalations
+        2. Review in-progress tasks for blockers
+        3. Decompose any new goals into issues
+        4. Assign issues to appropriate team members
+        5. Update goal progress
+
+  - name: "Engineer"
+    role: engineer
+    reportsTo: "Tech Lead"
+    adapterType: ollama
+    defaultModel: "codellama:13b"
+    capabilities: ["code-generation", "debugging", "testing", "ci-cd"]
+    gpu: true
+    budgetMonthlyCents: 5000
+
+  - name: "Code Reviewer"
+    role: qa
+    reportsTo: "Tech Lead"
+    adapterType: ollama
+    defaultModel: "codellama:7b"
+    capabilities: ["code-review", "documentation", "testing"]
+    gpu: false
+    budgetMonthlyCents: 3000
+
+defaults:
+  requireBoardApproval: true
+  heartbeatIntervalSec: 300
+  maxConcurrentRuns: 2
+```
+
+**Planned templates:**
+
+| Template | Agents | Use Case |
+|---|---|---|
+| `dev-team-v1` | Tech Lead + Engineer + Reviewer | Software development |
+| `research-crew-v1` | Director + Researcher + Writer | Research and analysis |
+| `content-engine-v1` | Editor + Writer + SEO Analyst | Content production |
+| `devops-squad-v1` | SRE Lead + Infra Engineer + Monitor | Infrastructure management |

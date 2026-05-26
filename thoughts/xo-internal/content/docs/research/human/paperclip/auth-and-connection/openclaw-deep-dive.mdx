@@ -1,0 +1,808 @@
+---
+title: "OpenClaw Gateway Adapter — Deep Dive"
+description: "Complete internals of the OpenClaw Gateway adapter in Paperclip. WebSocket protocol, device authentication, connection handshake, session routing, streaming events, and the full execute() pipeline — explained from scratch with diagrams."
+---
+
+# OpenClaw Gateway Adapter — Deep Dive
+
+This page explains how the `openclaw_gateway` adapter is **actually built** inside Paperclip — the real WebSocket protocol, the ED25519 device authentication, the connection handshake, the streaming event system, and every step of the `execute()` pipeline.
+
+---
+
+## What Makes OpenClaw Different From Every Other Adapter
+
+Most Paperclip adapters spawn a **local CLI process** (claude, codex, gemini) or fire an **HTTP webhook** (http adapter). OpenClaw Gateway does neither — it opens a **persistent WebSocket connection** to a remote gateway server, authenticates via a cryptographic handshake, then sends agent work requests over that connection and streams results back in real time.
+
+```
+LOCAL CLI ADAPTERS                    HTTP ADAPTER
+──────────────────                    ────────────
+
+Paperclip                             Paperclip
+    │                                     │
+    │ spawn("claude", args)               │ POST https://agent.com/invoke
+    │                                     │
+    ▼                                     ▼
+┌──────────┐                         ┌──────────┐
+│ CLI      │ (same machine)          │ HTTP     │ (any server)
+│ Process  │                         │ Endpoint │
+└──────────┘                         └──────────┘
+    │ stdout                              │ JSON response
+    ▼                                     ▼
+Paperclip                             Paperclip
+
+
+OPENCLAW GATEWAY ADAPTER
+────────────────────────
+
+Paperclip
+    │
+    │ WebSocket (wss://gateway.openclaw.com)
+    │
+    ▼
+┌──────────────────────────────────────────────┐
+│              OPENCLAW GATEWAY                 │
+│                                               │
+│  1. connect.challenge (nonce)                 │
+│  2. connect (auth + device signature)         │
+│  3. agent (request work)                      │
+│  4. ◀── agent events (streaming)              │
+│  5. agent.wait (poll for completion)           │
+│  6. ◀── final result                          │
+│                                               │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐      │
+│  │ AI Model│  │  Tools  │  │ Memory  │      │
+│  │ (Claude,│  │(browser,│  │(sessions│      │
+│  │  GPT…)  │  │ code…)  │  │ state…) │      │
+│  └─────────┘  └─────────┘  └─────────┘      │
+└──────────────────────────────────────────────┘
+    Runs ANYWHERE (cloud, container, remote server)
+```
+
+---
+
+## Package Structure
+
+```
+packages/adapters/openclaw-gateway/
+│
+├── package.json
+│   ├── dependencies:
+│   │   ├── @paperclipai/adapter-utils    (shared interfaces)
+│   │   ├── ws                            (WebSocket client)
+│   │   └── picocolors                    (terminal colors)
+│   └── exports: root, /server, /ui, /cli
+│
+└── src/
+    ├── index.ts ─────────── ROOT METADATA
+    │   type: "openclaw_gateway"
+    │   label: "OpenClaw Gateway"
+    │   models: [] (dynamic — gateway reports available models)
+    │   agentConfigurationDoc: (extensive config reference)
+    │
+    ├── server/
+    │   ├── index.ts ─────── Barrel: re-exports execute, testEnvironment
+    │   ├── execute.ts ────── THE HEART: ~800+ lines
+    │   │   ├── GatewayWsClient class (WebSocket management)
+    │   │   ├── execute() function (main pipeline)
+    │   │   ├── autoApproveDevicePairing() (auto-pair flow)
+    │   │   ├── 30+ utility functions (auth, crypto, payload, parsing)
+    │   │   └── Frame types (req/res/event protocol)
+    │   └── test.ts ───────── Environment validation
+    │       └── probeGateway() (live WebSocket connectivity test)
+    │
+    ├── ui/
+    │   ├── index.ts
+    │   └── parse-stdout.ts ── Parse gateway events → TranscriptEntry[]
+    │       └── parseOpenClawGatewayStdoutLine()
+    │
+    └── cli/
+        ├── index.ts
+        └── format-event.ts ── Color-coded terminal output
+            └── printOpenClawGatewayStreamEvent()
+```
+
+---
+
+## The Gateway Protocol (V3)
+
+OpenClaw uses a custom WebSocket frame protocol with three frame types:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                  GATEWAY FRAME TYPES                          │
+│                                                               │
+│  REQUEST FRAME (client → gateway)                             │
+│  ─────────────────────────────────                            │
+│  { type: "req", id: "uuid", method: "agent", params: {...} } │
+│                                                               │
+│  RESPONSE FRAME (gateway → client)                            │
+│  ──────────────────────────────────                           │
+│  { type: "res", id: "uuid", ok: true, payload: {...} }       │
+│  { type: "res", id: "uuid", ok: false,                       │
+│    error: { code: "pairing_required", message: "..." } }     │
+│                                                               │
+│  EVENT FRAME (gateway → client, unsolicited)                  │
+│  ────────────────────────────────────────────                 │
+│  { type: "event", event: "connect.challenge",                 │
+│    payload: { nonce: "abc123" }, seq: 1 }                     │
+│  { type: "event", event: "agent",                             │
+│    payload: { runId: "...", stream: "assistant",               │
+│               data: { delta: "Hello..." } }, seq: 42 }        │
+│                                                               │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### TypeScript Definitions
+
+```typescript
+// Frames
+type GatewayRequestFrame  = { type: "req";   id: string; method: string; params: unknown }
+type GatewayResponseFrame = { type: "res";   id: string; ok: boolean; payload?: unknown; error?: { code: string; message: string } }
+type GatewayEventFrame    = { type: "event"; event: string; payload?: unknown; seq?: number }
+
+// Errors
+class GatewayResponseError extends Error {
+  gatewayCode: string;
+  gatewayDetails: Record<string, unknown>;
+}
+
+// Constants
+const PROTOCOL_VERSION = 3;
+const DEFAULT_SCOPES   = ["operator.admin"];
+const DEFAULT_ROLE     = "operator";
+const DEFAULT_CLIENT_ID      = "gateway-client";
+const DEFAULT_CLIENT_MODE    = "backend";
+const DEFAULT_CLIENT_VERSION = "paperclip";
+```
+
+---
+
+## The Full Connection & Execution Flow
+
+This is the complete lifecycle of a single OpenClaw heartbeat run, step by step:
+
+```
+PAPERCLIP HEARTBEAT SERVICE
+         │
+         │  adapter.execute(ctx)
+         ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  STEP 1: VALIDATE CONFIG                                                │
+│  ────────────────────────                                               │
+│                                                                         │
+│  ├── url present?         → error: "openclaw_gateway_url_missing"       │
+│  ├── url parseable?       → error: "openclaw_gateway_url_invalid"       │
+│  └── protocol ws/wss?     → error: "openclaw_gateway_url_protocol"      │
+│                                                                         │
+│  Extract config:                                                        │
+│  ┌──────────────────────────────────────────────────────────┐           │
+│  │ url:            "wss://gateway.openclaw.com"              │           │
+│  │ timeoutSec:     120 (min 120, configurable)               │           │
+│  │ connectTimeout: min(15s, timeoutMs) or 10s                │           │
+│  │ waitTimeoutMs:  from config or timeoutMs or 30s           │           │
+│  │ authToken:      from config.authToken OR headers           │           │
+│  │ password:       from config.password                       │           │
+│  │ deviceToken:    from config.deviceToken                    │           │
+│  │ clientId:       "gateway-client" (default)                │           │
+│  │ clientMode:     "backend" (default)                       │           │
+│  │ role:           "operator" (default)                      │           │
+│  │ scopes:         ["operator.admin"] (default)              │           │
+│  │ sessionKey:     resolved by strategy (issue/fixed/run)    │           │
+│  │ autoPair:       true (default)                            │           │
+│  └──────────────────────────────────────────────────────────┘           │
+│                                                                         │
+└────────────────────────────────────────┬────────────────────────────────┘
+                                         │
+                                         ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  STEP 2: BUILD PAYLOADS                                                 │
+│  ──────────────────────                                                 │
+│                                                                         │
+│  wakePayload = {                                                        │
+│    runId, agentId, companyId, taskId, issueId,                          │
+│    wakeReason, wakeCommentId, approvalId, approvalStatus, issueIds      │
+│  }                                                                      │
+│                                                                         │
+│  paperclipEnv = {                  // Environment variables              │
+│    PAPERCLIP_API_URL,  PAPERCLIP_RUN_ID,  PAPERCLIP_TASK_ID,           │
+│    PAPERCLIP_WAKE_REASON,  PAPERCLIP_WAKE_COMMENT_ID,                  │
+│    PAPERCLIP_APPROVAL_ID,  PAPERCLIP_APPROVAL_STATUS,                  │
+│    PAPERCLIP_LINKED_ISSUE_IDS                                           │
+│  }                                                                      │
+│                                                                         │
+│  wakeText = "You've been woken by Paperclip...                          │
+│              Workflow steps: 1. Check assignments  2. Pick work          │
+│              3. Checkout  4. Do work  5. Update status..."              │
+│                                                                         │
+│  paperclipPayload = {              // Nested under "paperclip" key       │
+│    runId, companyId, agentId, agentName,                                │
+│    taskId, issueId, issueIds, wakeReason,                               │
+│    wakeCommentId, approvalId, approvalStatus,                           │
+│    apiUrl, workspace, workspaces, workspaceRuntime                      │
+│  }                                                                      │
+│                                                                         │
+│  agentParams = {                   // Sent to gateway "agent" method     │
+│    ...payloadTemplate,             // User-provided extra fields         │
+│    message: promptTemplate + wakeText,                                  │
+│    sessionKey: "paperclip:issue:{issueId}",                             │
+│    idempotencyKey: runId,                                               │
+│    timeout: waitTimeoutMs,                                              │
+│    paperclip: paperclipPayload     // Standard context                  │
+│  }                                                                      │
+│                                                                         │
+└────────────────────────────────────────┬────────────────────────────────┘
+                                         │
+                                         ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  STEP 3: RESOLVE DEVICE IDENTITY (ED25519)                              │
+│  ─────────────────────────────────────────                              │
+│                                                                         │
+│  if (!disableDeviceAuth) {                                              │
+│    deviceIdentity = resolveDeviceIdentity(config)                       │
+│                                                                         │
+│    if (config has privateKeyPem) {                                      │
+│      → Use configured key pair                                          │
+│      → source: "configured"                                             │
+│    } else {                                                             │
+│      → Generate ephemeral ED25519 keypair                               │
+│      → source: "ephemeral"                                              │
+│    }                                                                    │
+│                                                                         │
+│    deviceIdentity = {                                                   │
+│      deviceId:             "uuid-...",                                  │
+│      publicKeyRawBase64Url: "base64url-32-bytes",                      │
+│      privateKeyPem:         "-----BEGIN PRIVATE KEY-----...",          │
+│      source:               "configured" | "ephemeral"                  │
+│    }                                                                    │
+│  }                                                                      │
+│                                                                         │
+└────────────────────────────────────────┬────────────────────────────────┘
+                                         │
+                                         ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  STEP 4: WEBSOCKET CONNECTION + CHALLENGE HANDSHAKE                     │
+│  ──────────────────────────────────────────────────                     │
+│                                                                         │
+│  Paperclip                          OpenClaw Gateway                    │
+│      │                                     │                            │
+│      │──── WebSocket OPEN ────────────────▶│                            │
+│      │     (wss://gateway.openclaw.com)    │                            │
+│      │     Headers: x-openclaw-token       │                            │
+│      │     maxPayload: 25MB                │                            │
+│      │                                     │                            │
+│      │◀──── EVENT: connect.challenge ──────│                            │
+│      │      { nonce: "random-string" }     │                            │
+│      │                                     │                            │
+│      │  ┌─ buildConnectParams(nonce) ──┐   │                            │
+│      │  │                              │   │                            │
+│      │  │  Sign device payload (V3):   │   │                            │
+│      │  │  "v3|deviceId|clientId|      │   │                            │
+│      │  │   clientMode|role|scopes|    │   │                            │
+│      │  │   signedAtMs|token|nonce|    │   │                            │
+│      │  │   platform|deviceFamily"     │   │                            │
+│      │  │                              │   │                            │
+│      │  │  ED25519 sign with           │   │                            │
+│      │  │  privateKeyPem               │   │                            │
+│      │  └──────────────────────────────┘   │                            │
+│      │                                     │                            │
+│      │──── REQ: "connect" ────────────────▶│                            │
+│      │     {                               │                            │
+│      │       minProtocol: 3,               │                            │
+│      │       maxProtocol: 3,               │                            │
+│      │       client: {                     │                            │
+│      │         id, version, platform,      │                            │
+│      │         mode, deviceFamily          │                            │
+│      │       },                            │                            │
+│      │       role: "operator",             │                            │
+│      │       scopes: ["operator.admin"],   │                            │
+│      │       auth: {                       │                            │
+│      │         token?,                     │                            │
+│      │         deviceToken?,               │                            │
+│      │         password?                   │                            │
+│      │       },                            │                            │
+│      │       device: {                     │                            │
+│      │         id, publicKey,              │                            │
+│      │         signature, signedAt,        │                            │
+│      │         nonce                       │                            │
+│      │       }                             │                            │
+│      │     }                               │                            │
+│      │                                     │                            │
+│      │◀──── RES: { ok: true } ─────────────│                            │
+│      │      (hello payload with protocol)  │                            │
+│      │                                     │  ✓ CONNECTED                │
+│                                                                         │
+└────────────────────────────────────────┬────────────────────────────────┘
+                                         │
+                                         ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  STEP 5: SEND AGENT REQUEST                                             │
+│  ──────────────────────────                                             │
+│                                                                         │
+│  Paperclip                          OpenClaw Gateway                    │
+│      │                                     │                            │
+│      │──── REQ: "agent" ──────────────────▶│                            │
+│      │     {                               │                            │
+│      │       message: "You are Ada CEO..." │                            │
+│      │       sessionKey: "paperclip:       │                            │
+│      │         issue:task_123",            │                            │
+│      │       idempotencyKey: "run_abc",    │                            │
+│      │       timeout: 120000,              │                            │
+│      │       paperclip: {                  │                            │
+│      │         runId, agentId, companyId,  │                            │
+│      │         taskId, wakeReason, ...     │                            │
+│      │       },                            │                            │
+│      │       ...payloadTemplate extras     │                            │
+│      │     }                               │                            │
+│      │                                     │                            │
+│      │  (expectFinal: true — waits for     │                            │
+│      │   final "ok" not just "accepted")   │                            │
+│      │                                     │                            │
+│      │◀──── RES: { ok: true,              │                            │
+│      │       status: "accepted",           │                            │
+│      │       payload: { runId, meta } }    │                            │
+│      │                                     │  Agent is now working...   │
+│                                                                         │
+└────────────────────────────────────────┬────────────────────────────────┘
+                                         │
+                                         ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  STEP 6: STREAM AGENT EVENTS (real-time)                                │
+│  ───────────────────────────────────────                                │
+│                                                                         │
+│  While the agent works, the gateway streams events:                     │
+│                                                                         │
+│  Paperclip                          OpenClaw Gateway                    │
+│      │                                     │                            │
+│      │◀──── EVENT: "agent" ────────────────│                            │
+│      │  { runId: "run_abc",                │                            │
+│      │    stream: "assistant",             │  Agent thinking &           │
+│      │    data: { delta: "Let me " } }     │  generating response        │
+│      │                                     │                            │
+│      │◀──── EVENT: "agent" ────────────────│                            │
+│      │  { stream: "assistant",             │                            │
+│      │    data: { delta: "check the " } }  │                            │
+│      │                                     │                            │
+│      │◀──── EVENT: "agent" ────────────────│                            │
+│      │  { stream: "assistant",             │                            │
+│      │    data: { delta: "tasks..." } }    │                            │
+│      │                                     │                            │
+│      │◀──── EVENT: "agent" ────────────────│                            │
+│      │  { stream: "lifecycle",             │  Agent finished or          │
+│      │    data: { phase: "completed" } }   │  encountered error          │
+│      │                                     │                            │
+│  Events are:                                                            │
+│  ├── Filtered by matching runId                                         │
+│  ├── Logged to stdout via onLog()                                       │
+│  ├── Collected in assistantChunks[] (text deltas)                       │
+│  └── Tracked for lifecycle (error/failed/cancelled)                     │
+│                                                                         │
+│  Stream types:                                                          │
+│  ┌──────────────┬───────────────────────────────────────┐               │
+│  │ "assistant"  │ Text content from agent (delta/text)  │               │
+│  │ "error"      │ Error message from agent              │               │
+│  │ "lifecycle"  │ Phase changes (completed/failed/etc)  │               │
+│  └──────────────┴───────────────────────────────────────┘               │
+│                                                                         │
+└────────────────────────────────────────┬────────────────────────────────┘
+                                         │
+                                         ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  STEP 7: WAIT FOR COMPLETION (if needed)                                │
+│  ───────────────────────────────────────                                │
+│                                                                         │
+│  If initial agent request returned status="accepted" (not "ok"):        │
+│                                                                         │
+│  Paperclip                          OpenClaw Gateway                    │
+│      │                                     │                            │
+│      │──── REQ: "agent.wait" ─────────────▶│                            │
+│      │     { runId: "run_abc",             │                            │
+│      │       timeout: 120000 }             │                            │
+│      │                                     │                            │
+│      │        ... gateway waits for        │                            │
+│      │        agent to finish ...          │                            │
+│      │                                     │                            │
+│      │◀──── RES: { ok: true,              │                            │
+│      │       status: "ok",                 │                            │
+│      │       payload: {                    │                            │
+│      │         result: {                   │                            │
+│      │           payloads: [               │                            │
+│      │             { text: "Done..." }     │                            │
+│      │           ],                        │                            │
+│      │           summary: "..."            │                            │
+│      │         },                          │                            │
+│      │         meta: {                     │                            │
+│      │           usage: { in, out, cached },│                           │
+│      │           provider: "anthropic",    │                            │
+│      │           model: "claude-sonnet",   │                            │
+│      │           costUsd: 0.045,           │                            │
+│      │           runtimeServices: [...]    │                            │
+│      │         }                           │                            │
+│      │       }                             │                            │
+│      │     }                               │                            │
+│      │                                     │                            │
+│                                                                         │
+│  Wait error codes:                                                      │
+│  ├── status="timeout"  → "openclaw_gateway_wait_timeout" (timedOut)     │
+│  ├── status="error"    → "openclaw_gateway_wait_error"                  │
+│  └── unexpected status → "openclaw_gateway_wait_status_unexpected"      │
+│                                                                         │
+└────────────────────────────────────────┬────────────────────────────────┘
+                                         │
+                                         ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  STEP 8: ASSEMBLE RESULT                                                │
+│  ───────────────────────                                                │
+│                                                                         │
+│  Result text priority chain:                                            │
+│  ┌─────────────────────────────────────────────────────┐                │
+│  │  1. assistantChunks[] (collected from stream events) │                │
+│  │  2. acceptedPayload.result.payloads[].text           │                │
+│  │  3. acceptedPayload.text or .summary                 │                │
+│  │  4. latestResultPayload.result.payloads[].text       │                │
+│  │  5. latestResultPayload.text or .summary             │                │
+│  │  6. null                                             │                │
+│  └─────────────────────────────────────────────────────┘                │
+│                                                                         │
+│  Final AdapterExecutionResult:                                          │
+│  {                                                                      │
+│    exitCode: 0,                                                         │
+│    signal: null,                                                        │
+│    timedOut: false,                                                     │
+│    provider: "anthropic",       // from agentMeta                       │
+│    model: "claude-sonnet-4-5",  // from agentMeta                       │
+│    usage: {                                                             │
+│      inputTokens: 1234,                                                 │
+│      outputTokens: 567,                                                 │
+│      cachedInputTokens: 100                                             │
+│    },                                                                   │
+│    costUsd: 0.045,                                                      │
+│    resultJson: { ...full gateway response },                            │
+│    runtimeServices: [...],      // if reported                          │
+│    summary: "Task completed"                                            │
+│  }                                                                      │
+│                                                                         │
+└────────────────────────────────────────┬────────────────────────────────┘
+                                         │
+                                         ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  STEP 9: CLEANUP                                                        │
+│  ───────────────                                                        │
+│                                                                         │
+│  finally {                                                              │
+│    client.close()  // WebSocket close(1000, "paperclip-complete")       │
+│  }                                                                      │
+│                                                                         │
+│  → Result returned to Paperclip heartbeat service                       │
+│  → Session state persisted to DB                                        │
+│  → Cost event recorded                                                  │
+│  → Agent status updated (running → idle)                                │
+│  → Dashboard updated with transcript                                    │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Device Authentication (ED25519 Protocol V3)
+
+OpenClaw uses **cryptographic device authentication** — each Paperclip server proves its identity by signing a challenge nonce with an ED25519 private key.
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  HOW DEVICE AUTH WORKS                                                │
+│                                                                      │
+│  Gateway sends nonce ──────────────────────────────────────┐         │
+│                                                             │         │
+│  Paperclip builds payload string (pipe-delimited):          │         │
+│  ┌──────────────────────────────────────────────────────┐  │         │
+│  │ v3 | deviceId | clientId | clientMode | role |       │  │         │
+│  │ scopes | signedAtMs | authToken | nonce |            │  │         │
+│  │ platform | deviceFamily                              │  │         │
+│  └──────────────────────────────────────────────────────┘  │         │
+│                         │                                   │         │
+│                         ▼                                   │         │
+│              ED25519 Sign with privateKeyPem                │         │
+│                         │                                   │         │
+│                         ▼                                   │         │
+│              Base64URL encode (no padding)                   │         │
+│                         │                                   │         │
+│                         ▼                                   │         │
+│  Send in connect request:                                    │         │
+│  {                                                           │         │
+│    device: {                                                 │         │
+│      id: "device-uuid",                                     │         │
+│      publicKey: "base64url-32-bytes",  ◀── raw public key   │         │
+│      signature: "base64url-sig",       ◀── signed payload   │         │
+│      signedAt: 1712150400000,          ◀── timestamp ms     │         │
+│      nonce: "abc123"                   ◀── from challenge ──┘         │
+│    }                                                                  │
+│  }                                                                    │
+│                                                                      │
+│  Device identity sources:                                             │
+│  ┌────────────────────────────────────────────────────────────┐      │
+│  │ CONFIGURED: privateKeyPem in adapterConfig                  │      │
+│  │   → Persistent identity, survives restarts                  │      │
+│  │   → Used for pre-paired devices                             │      │
+│  │                                                             │      │
+│  │ EPHEMERAL: Auto-generated ED25519 keypair                   │      │
+│  │   → New identity each run (needs auto-pairing)              │      │
+│  │   → Default when no key configured                          │      │
+│  └────────────────────────────────────────────────────────────┘      │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Auto Device Pairing Flow
+
+When a new device connects for the first time, the gateway requires **pairing approval**. The adapter can auto-approve this:
+
+```
+execute() attempt #1
+    │
+    │──── WebSocket connect ────▶ Gateway
+    │◀──── ERROR: "pairing required" ────│
+    │       (extractPairingRequestId)
+    │
+    ├── Is autoPairOnFirstConnect? YES
+    ├── Has authToken or password? YES
+    ├── Already attempted? NO
+    │
+    ▼
+autoApproveDevicePairing()
+    │
+    │  1. Open NEW WebSocket (with "operator.pairing" scope)
+    │  2. Connect with auth credentials
+    │  3. If no requestId known:
+    │     ├── REQ: "device.pair.list" → get pending requests
+    │     └── Filter to matching deviceId or pick latest
+    │  4. REQ: "device.pair.approve" { requestId }
+    │  5. Close pairing WebSocket
+    │
+    ├── ok: true  → log success, RETRY execute (continue while loop)
+    └── ok: false → log failure, return error result
+
+execute() attempt #2 (after successful pairing)
+    │
+    │──── WebSocket connect ────▶ Gateway
+    │◀──── RES: { ok: true } ──────│  ✓ Device now paired!
+    │
+    │──── REQ: "agent" ────────────▶ (normal flow continues)
+    │
+    ...
+```
+
+---
+
+## Session Routing Strategies
+
+OpenClaw sessions are keyed differently depending on the strategy:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   SESSION KEY STRATEGIES                          │
+│                                                                  │
+│  STRATEGY: "issue" (default)                                     │
+│  ────────────────────────────                                    │
+│  Key format: "paperclip:issue:{issueId}"                         │
+│  Behavior:  Same agent + same task = same session                │
+│             Different tasks get different sessions                │
+│  Best for:  Most use cases — context per task                    │
+│                                                                  │
+│  STRATEGY: "fixed"                                               │
+│  ────────────────                                                │
+│  Key format: configuredSessionKey or "paperclip"                 │
+│  Behavior:  ALL runs share ONE session                           │
+│  Best for:  Agents with global context (CEO, monitor)            │
+│                                                                  │
+│  STRATEGY: "run"                                                 │
+│  ───────────────                                                 │
+│  Key format: "paperclip:run:{runId}"                             │
+│  Behavior:  Every heartbeat gets a FRESH session                 │
+│  Best for:  Stateless tasks, one-shot operations                 │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────┐       │
+│  │                    EXAMPLE                            │       │
+│  │                                                       │       │
+│  │  Agent: CTO (claude)                                  │       │
+│  │  Strategy: "issue"                                    │       │
+│  │                                                       │       │
+│  │  Heartbeat 1 (task_A):  session = "paperclip:issue:A" │       │
+│  │  Heartbeat 2 (task_A):  session = "paperclip:issue:A" │ ← resume│
+│  │  Heartbeat 3 (task_B):  session = "paperclip:issue:B" │ ← new  │
+│  │  Heartbeat 4 (task_A):  session = "paperclip:issue:A" │ ← resume│
+│  └──────────────────────────────────────────────────────┘       │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## How Events Flow to Dashboard & CLI
+
+```
+Gateway sends EVENT frames
+         │
+         ▼
+onEvent callback in execute()
+         │
+         ├── Filter: runId matches?
+         ├── Classify: stream = "assistant" | "error" | "lifecycle"
+         ├── Collect: assistantChunks.push(delta or text)
+         ├── Track: lifecycleError if phase is error/failed/cancelled
+         │
+         ▼
+onLog("stdout", "[openclaw-gateway:event] ...")
+         │
+         ├─────────────────────────────────┐
+         │                                 │
+         ▼                                 ▼
+   ┌───────────────┐               ┌───────────────┐
+   │  DB: heartbeat│               │  CLI: format- │
+   │  _run_events  │               │  event.ts     │
+   │               │               │               │
+   │  Stored as    │               │  Debug mode:  │
+   │  raw lines    │               │  cyan  events │
+   │  with seq #   │               │  blue  logs   │
+   └───────┬───────┘               │  gray  other  │
+           │                       └───────────────┘
+           ▼
+   ┌───────────────┐
+   │  UI: parse-   │
+   │  stdout.ts    │
+   │               │
+   │  Detects      │
+   │  "[openclaw-  │
+   │   gateway:    │
+   │   event]"     │
+   │  prefix       │
+   │               │
+   │  Regex parse: │
+   │  runId +      │
+   │  stream +     │
+   │  JSON data    │
+   │               │
+   │  Maps to:     │
+   │  TranscriptEntry│
+   │  { kind:      │
+   │    "assistant" │
+   │    | "stderr" │
+   │    | "system" │
+   │    | "stdout" }│
+   └───────────────┘
+```
+
+---
+
+## Environment Test: probeGateway()
+
+Before running agents, `testEnvironment()` validates the gateway is reachable:
+
+```
+testEnvironment(config)
+    │
+    ├── Check: url present?
+    ├── Check: url valid? (ws:// or wss://)
+    ├── Check: wss:// for remote hosts? (warn if ws:// to non-localhost)
+    ├── Check: auth token present?
+    │
+    ├── probeGateway():
+    │   │
+    │   ├── Open WebSocket (3-second timeout)
+    │   ├── Receive "connect.challenge" event
+    │   ├── Send "connect" request with credentials
+    │   │
+    │   ├── Result: "ok"             → info: "Gateway authenticated"
+    │   ├── Result: "challenge_only" → warn: "Connected but auth failed"
+    │   └── Result: "failed"         → error: "Cannot reach gateway"
+    │
+    └── Return: { status: "pass"|"fail", checks: [...] }
+```
+
+---
+
+## Complete Error Code Reference
+
+| Error Code | When | Action |
+|------------|------|--------|
+| `openclaw_gateway_url_missing` | No `url` in config | Run fails immediately |
+| `openclaw_gateway_url_invalid` | URL cannot be parsed | Run fails immediately |
+| `openclaw_gateway_url_protocol` | URL is not `ws://` or `wss://` | Run fails immediately |
+| `openclaw_gateway_agent_error` | Gateway returns error on "agent" request | Run fails |
+| `openclaw_gateway_wait_timeout` | `agent.wait` times out | Run marked timedOut |
+| `openclaw_gateway_wait_error` | `agent.wait` returns error | Run fails |
+| `openclaw_gateway_wait_status_unexpected` | Unknown status from wait | Run fails |
+| `openclaw_gateway_timeout` | Overall execution timeout | Run marked timedOut |
+| `openclaw_gateway_pairing_required` | Device needs pairing | May auto-retry |
+| `openclaw_gateway_request_failed` | WebSocket/network error | Run fails |
+
+---
+
+## Configuration Reference
+
+### Connection
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `url` | string | **required** | Gateway WebSocket URL (`wss://...`) |
+| `headers` | object | `{}` | Handshake headers |
+| `timeoutSec` | number | `120` | Overall adapter timeout (min 120) |
+| `waitTimeoutMs` | number | `timeoutSec*1000` | `agent.wait` timeout override |
+
+### Authentication
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `authToken` | string | — | Shared gateway token |
+| `password` | string | — | Gateway shared password |
+| `deviceToken` | string | — | Device-specific token |
+| `disableDeviceAuth` | boolean | `false` | Skip ED25519 device signing |
+| `autoPairOnFirstConnect` | boolean | `true` | Auto-approve device pairing |
+
+### Client Identity
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `clientId` | string | `"gateway-client"` | Gateway client identifier |
+| `clientMode` | string | `"backend"` | Client mode |
+| `clientVersion` | string | `"paperclip"` | Client version |
+| `role` | string | `"operator"` | Gateway role |
+| `scopes` | string[] | `["operator.admin"]` | Granted scopes |
+| `deviceFamily` | string | — | Device family metadata |
+
+### Session Routing
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `sessionKeyStrategy` | `"issue"` \| `"fixed"` \| `"run"` | `"issue"` | How sessions are keyed |
+| `sessionKey` | string | `"paperclip"` | Fixed session key (when strategy=`"fixed"`) |
+
+### Payload
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `payloadTemplate` | object | `{}` | Extra fields merged into agent request |
+| `paperclipApiUrl` | string | — | Override API URL advertised to agent |
+| `workspaceRuntime` | object | — | Reserved workspace runtime metadata |
+
+---
+
+## Comparison: OpenClaw Gateway vs HTTP Adapter vs Process Adapter
+
+```
+┌──────────────────┬────────────────────┬──────────────────┬───────────────────┐
+│                  │ OPENCLAW GATEWAY   │ HTTP ADAPTER     │ PROCESS ADAPTER   │
+├──────────────────┼────────────────────┼──────────────────┼───────────────────┤
+│ Transport        │ WebSocket (wss://) │ HTTP POST        │ Child process     │
+│ Connection       │ Persistent,        │ Fire-and-forget  │ Spawn + exit      │
+│                  │ bidirectional      │ (or callback)    │                   │
+│ Streaming        │ ✓ Real-time events │ ✗ (poll or       │ ✓ stdout pipe     │
+│                  │                    │   callback)      │                   │
+│ Authentication   │ ED25519 device     │ Bearer token /   │ Env vars          │
+│                  │ auth + token       │ API key header   │ (ANTHROPIC_API_KEY│
+│                  │                    │                  │  etc.)            │
+│ Session          │ Gateway-managed    │ Not built-in     │ CLI-managed       │
+│                  │ (sessionKey)       │ (use callbacks)  │ (sessionId + cwd) │
+│ Agent location   │ Remote (anywhere)  │ Remote (anywhere)│ Local (same       │
+│                  │                    │                  │  machine)         │
+│ Full agent?      │ ✓ Tools, memory,   │ Depends on       │ ✓ Full CLI agent  │
+│                  │   skills           │ service          │                   │
+│ Device pairing   │ ✓ Auto-pair        │ ✗                │ ✗                 │
+│ Protocol version │ V3 (negotiated)    │ HTTP/1.1+        │ N/A               │
+│ Max payload      │ 25MB               │ Unlimited        │ Unlimited (stdout)│
+│ Error recovery   │ Auto-retry on      │ Retry via        │ Auto-retry on     │
+│                  │ pairing, session   │ callback         │ unknown_session   │
+│                  │ clear              │                  │                   │
+└──────────────────┴────────────────────┴──────────────────┴───────────────────┘
+```

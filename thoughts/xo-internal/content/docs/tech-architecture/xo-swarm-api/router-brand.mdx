@@ -1,0 +1,67 @@
+---
+title: "Router: Brand"
+description: "Website crawling and brand extraction — Firecrawl-powered"
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+## Brand Router
+
+**File:** `routes/brand_endpoints.py` · **Prefix:** none (root paths) · **Auth:** Clerk JWT on all endpoints
+
+Extracts brand identity information from websites using Firecrawl for crawling and AI agents for analysis. Results are cached in the `BrandDetails` database table.
+
+### POST /site-crawl-data
+
+Raw website crawl — returns markdown, HTML, and metadata from Firecrawl.
+
+**Request Body:** `{ "url": "string (http:// or https://)" }`
+
+**Response:**
+```json
+{
+  "success": true,
+  "url": "string",
+  "markdown": "string",
+  "html": "string",
+  "metadata": {},
+  "crawled_at": "ISO timestamp"
+}
+```
+
+Uses the Firecrawl API via `crawl_website()` helper.
+
+### POST /extract-brand-info
+
+Full brand extraction pipeline — crawls the website, extracts brand info via AI, generates a Q&A feed, and caches the result.
+
+**Request Body:** `{ "url": "string" }`
+
+**Processing Flow:**
+
+```
+1. Extract project_id from domain (youtube.com → youtube_com)
+2. Check BrandDetails cache
+   ├── Cache hit (brand_info + feed exist) → return cached
+   └── Cache miss:
+       ├── Create BrandDetails record (status: 'processing')
+       ├── Crawl website via Firecrawl
+       ├── extract_brand_info_from_content() → AI analysis
+       ├── generate_qa_feed() → Q&A pairs
+       ├── Save to DB (status: 'completed')
+       └── Return response with cached: false
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "url": "string",
+  "brand_info": {},
+  "feed": [],
+  "metadata": {},
+  "cached": false
+}
+```
+
+Handles race conditions with upsert logic when multiple requests hit the same URL concurrently.

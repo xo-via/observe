@@ -1,0 +1,156 @@
+---
+title: Agents API
+icon: Bot
+description: CRUD over the OpenClaw agent registry at ~/.openclaw/openclaw.json.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+The agents API is a CRUD wrapper over a single JSON file: `~/.openclaw/openclaw.json`. Each agent is an entry under `agents[]` with a unique `id`. The file is the source of truth for which OpenClaw agents the workspace knows about.
+
+```
+~/.openclaw/openclaw.json                    ← the only file these routes touch
+{
+  "agents": [
+    {
+      "id":           "main",
+      "name":         "Main Agent",
+      "model":        "anthropic/claude-sonnet-4-5",
+      "systemPrompt": "...",
+      ...
+    },
+    ...
+  ],
+  ...
+}
+```
+
+Every write is a **full read-merge-write** of the entire file. There is no record-level locking. The workspace's single-user assumption keeps this fine in practice.
+
+## Endpoint summary
+
+| Verb | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/agents` | List all agents. |
+| `POST` | `/api/agents` | Create or upsert by `id`. |
+| `GET` | `/api/agents/{id}` | Read one agent. |
+| `PATCH` | `/api/agents/{id}` | Partial update; merges fields. |
+
+## 1. GET /api/agents
+
+### Response (200 OK)
+
+```jsonc
+{
+  "agents": [
+    {
+      "id":           "main",
+      "name":         "Main Agent",
+      "model":        "anthropic/claude-sonnet-4-5",
+      "systemPrompt": "You are a helpful assistant…",
+      "tools":        [...],
+      "env_file":     "/Users/me/.openclaw/.env",
+      "created_at":   "2026-04-01T00:00:00+00:00"
+    }
+  ]
+}
+```
+
+The exact set of fields per agent depends on what was written. The router does not enforce a schema beyond requiring `id` and `name` on create.
+
+## 2. POST /api/agents
+
+Create or upsert an agent.
+
+### Request
+
+```jsonc
+{
+  "id":           "research",                  // optional. If omitted, a new uuid is generated.
+  "name":         "Research Agent",            // required
+  "model":        "openrouter/anthropic/claude-sonnet-4-5",
+  "systemPrompt": "Focus on synthesis and citation. Always link sources.",
+  "tools":        ["web_search", "filesystem"]
+  // any additional fields are stored as-is on the agent record
+}
+```
+
+### Behavior
+
+```
+1. Read ~/.openclaw/openclaw.json (initialize {agents:[]} if missing).
+2. If `id` matches an existing agent: merge the new body into the existing record.
+3. Else: append a new record with the given (or generated) id.
+4. Atomically write the file back.
+```
+
+### Response (200 OK)
+
+The full agent record (post-merge), including any server-set fields like `created_at` or `id` (when generated).
+
+## 3. GET /api/agents/&#123;id&#125;
+
+### Response (200 OK)
+
+The agent record:
+
+```jsonc
+{
+  "id":     "research",
+  "name":   "Research Agent",
+  "model":  "openrouter/anthropic/claude-sonnet-4-5",
+  ...
+}
+```
+
+### Errors
+
+| Code | Body | Cause |
+|---|---|---|
+| 404 | `{ "detail": "Agent not found" }` | No record with this `id` |
+
+## 4. PATCH /api/agents/&#123;id&#125;
+
+Partial update. Body fields are shallow-merged into the existing agent record.
+
+### Request
+
+```jsonc
+{
+  "systemPrompt": "Updated system prompt",
+  "model":        "openrouter/anthropic/claude-opus-4-6"
+}
+```
+
+Only the keys you send get touched. Other fields are preserved.
+
+### Response (200 OK)
+
+The merged agent record.
+
+### Errors
+
+| Code | Body | Cause |
+|---|---|---|
+| 404 | `{ "detail": "Agent not found" }` | No record with this `id` |
+
+## Concurrency caveat
+
+<Callout type="warn">
+Two concurrent `PATCH` calls can race because the implementation does a full read-merge-write of `openclaw.json` per call. The workspace assumption is one writer (the single user driving the UI), so this is fine in practice. If you build a multi-writer client, serialize calls client-side.
+</Callout>
+
+## Related: agent selection in chat
+
+The agents listed here are OpenClaw agents (the `services.cowork_agent.openclaw_store` registry). They are what `agent_id` and `agent_name` in `POST /api/chat/prompt` reference when running OpenClaw turns.
+
+Claude Code agents are tracked separately under `~/xo-projects/<id>/.xo/sessions/sessionslist.json` (per-project) and in `config/agents/claude_code/commands.json` (skill registry). They are not exposed through `/api/agents/*`.
+
+## Related: skills and personas
+
+Skills (`/skill-name` for Claude, `$skill-name` for Codex) live in:
+
+- `config/agents/claude_code/commands.json`
+- `config/agents/openclaw/commands.json`
+
+These are read-only at the `/api/skills` and `/api/tools` endpoints (in `routers/cowork_agent/misc.py`). To list or modify skills you would edit the manifest files on disk; there is no PATCH endpoint for them today.

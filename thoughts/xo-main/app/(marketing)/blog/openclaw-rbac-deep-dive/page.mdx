@@ -1,0 +1,207 @@
+import { BlogLayout } from "@/components/blog-layout";
+
+export const blog = {
+  author: { name: "Manus AI", src: "/manus-logo.svg" },
+  date: "2026-01-31",
+  title: "Securing the Swarm: A Deep Dive into RBAC for OpenClaw",
+  description:
+    "A comprehensive guide to implementing Role-Based Access Control (RBAC) in OpenClaw, from native features to enterprise-grade solutions. Learn how to secure your multi-user AI agent deployments.",
+  image:
+    "./thumbnail.jpeg",
+  category: "Engineering",
+};
+
+export const metadata = {
+  title: blog.title,
+  description: blog.description,
+  openGraph: {
+    images: [blog.image],
+  },
+};
+
+export default (props) => <BlogLayout blog={blog} {...props} />;
+
+<div className="my-8 p-6 rounded-2xl bg-gradient-to-r from-secondary/10 via-secondary/5 to-transparent border border-secondary/20">
+  <div className="flex items-center gap-4">
+    <div className="h-12 w-12 rounded-xl bg-secondary/20 flex items-center justify-center">
+      <svg className="w-6 h-6 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+    </div>
+    <div>
+      <div className="text-secondary font-bold text-sm tracking-wide">DEEP DIVE</div>
+      <div className="text-neutral-400 text-sm mt-1">This is a technical guide to implementing RBAC in OpenClaw. For a high-level overview of AI agent security, check out our other posts.</div>
+    </div>
+  </div>
+</div>
+
+OpenClaw has taken the AI world by storm, offering a powerful, self-hosted autonomous agent that can be extended and customized. But with great power comes great responsibility. As more users and teams adopt OpenClaw, the need for robust access control becomes critical. This guide provides a deep dive into implementing Role-Based Access Control (RBAC) in OpenClaw, from leveraging its native features to integrating enterprise-grade solutions.
+
+---
+
+## 1. Understanding OpenClaw's Native Access Control
+
+While OpenClaw doesn't ship with a formal RBAC system, it provides a powerful set of primitives that, when combined, offer a robust foundation for access control. The key is to think in terms of **agent isolation**.
+
+<div className="my-10 p-8 rounded-2xl bg-charcoal border border-neutral-800">
+  <div className="text-center mb-8">
+    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-sky-500/10 border border-sky-500/30">
+      <svg className="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+      <span className="text-sky-400 font-medium text-sm">AGENT ISOLATION STACK</span>
+    </div>
+  </div>
+  <div className="flex flex-col items-center gap-2">
+    <div className="w-full max-w-lg p-4 rounded-xl bg-neutral-900/80 border border-neutral-700 text-center">
+      <div className="text-neutral-300 font-medium">Multi-Agent Architecture</div>
+      <div className="text-neutral-600 text-xs mt-1">Separate agents for different roles</div>
+    </div>
+    <svg className="w-5 h-5 text-sky-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+    <div className="w-full max-w-lg p-4 rounded-xl bg-gradient-to-r from-sky-500/10 to-sky-500/5 border border-sky-500/40 text-center">
+      <div className="text-sky-400 font-medium">Per-Agent Configuration</div>
+      <div className="text-neutral-500 text-xs mt-1">Different tools and sandboxing for each agent</div>
+    </div>
+    <svg className="w-5 h-5 text-sky-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+    <div className="w-full max-w-lg p-4 rounded-xl bg-neutral-900/80 border border-neutral-700 text-center">
+      <div className="text-neutral-300 font-medium">Session & User Management</div>
+      <div className="text-neutral-600 text-xs mt-1">DM pairing, session scoping, and channel allowlists</div>
+    </div>
+  </div>
+</div>
+
+### Multi-Agent Architecture
+
+An "agent" in OpenClaw is a fully-scoped entity with its own workspace, state, and session store. This is the foundation of RBAC in OpenClaw.
+
+| Component | Path | Description |
+|---|---|---|
+| **Workspace** | `~/.openclaw/agents/<agentId>/workspace` | Agent-specific files, persona, and skills. |
+| **State Directory** | `~/.openclaw/agents/<agentId>/` | Auth profiles, model registry, and per-agent configs. |
+| **Session Store** | `~/.openclaw/agents/<agentId>/sessions` | Isolated chat history and routing state. |
+
+By creating different agents for different roles (e.g., `dev-agent`, `marketing-agent`), you can assign different capabilities and permissions to each.
+
+### Per-Agent Configuration
+
+OpenClaw's `openclaw.json` allows you to define per-agent access profiles, including tool policies and sandboxing.
+
+```json
+"agents": {
+  "personal-assistant": {
+    "sandbox": { "mode": "all" },
+    "tools": { "policy": "allowlist", "allow": ["web.search", "calendar.read"] }
+  },
+  "devops-agent": {
+    "sandbox": { "mode": "non-main" },
+    "tools": { "policy": "allowlist", "allow": ["web.search", "browser", "exec"] }
+  }
+}
+```
+
+| Config | Setting | Description |
+|---|---|---|
+| **Sandboxing** | `sandbox.mode` | `off` (no sandbox), `non-main` (sandbox non-main sessions), `all` (sandbox everything). |
+| **Tool Policy** | `tools.policy` | `allowlist` (only specified tools) or `denylist` (all except specified). |
+
+### User and Session Management
+
+- **DM Pairing (`dmPolicy`)**: `pairing` policy requires admin approval for new users.
+- **Session Scoping (`session.dmScope`)**: `per-channel-peer` isolates conversations to prevent context leakage.
+- **Channel Allowlists**: `allowFrom` lists restrict access to specific users or groups.
+
+---
+
+## 2. Best Practices for RBAC in AI Systems
+
+To build a truly robust RBAC implementation, you need to go beyond OpenClaw's native features and adopt established security principles.
+
+<div className="my-10 grid grid-cols-3 gap-4">
+  <div className="p-5 rounded-xl bg-neutral-900 border border-neutral-800 border-t-4 border-t-secondary">
+    <div className="text-secondary font-bold mb-3 flex items-center gap-2">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      Least Privilege
+    </div>
+    <div className="text-neutral-500 text-sm space-y-1">
+      Grant only the minimum permissions necessary. Avoid "superuser" agents.
+    </div>
+  </div>
+  <div className="p-5 rounded-xl bg-neutral-900 border border-neutral-800 border-t-4 border-t-sky-500">
+    <div className="text-sky-400 font-bold mb-3 flex items-center gap-2">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H5v-2H3v-2H1v-4a6 6 0 017.743-5.743L15 7z" /></svg>
+      Secure Auth
+    </div>
+    <div className="text-neutral-500 text-sm space-y-1">
+      Use short-lived tokens and secure credential storage. Delegate user permissions with OAuth 2.0.
+    </div>
+  </div>
+  <div className="p-5 rounded-xl bg-neutral-900 border border-neutral-800 border-t-4 border-t-violet-500">
+    <div className="text-violet-400 font-bold mb-3 flex items-center gap-2">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+      Auditing
+    </div>
+    <div className="text-neutral-500 text-sm space-y-1">
+      Implement comprehensive auditing to track agent actions and detect anomalies.
+    </div>
+  </div>
+</div>
+
+<div className="my-8 p-5 bg-emerald-950/30 border-l-4 border-emerald-500 rounded-r-lg">
+  <div className="font-bold text-emerald-400 mb-2">STATISTIC</div>
+  <div className="text-neutral-300">As of 2025, only 52% of enterprises could track and audit all data accessed by their AI agents, a major security gap.</div>
+</div>
+
+---
+
+## 3. Integrating Third-Party RBAC Solutions
+
+For enterprise-grade deployments, integrating a dedicated RBAC library is the way to go. **Casbin** is a powerful, open-source choice.
+
+### Casbin: A Flexible RBAC Library
+
+Casbin lets you define your access control model in a `model.conf` file and your policies in a `policy.csv` file. This separates your authorization logic from your application code, making it easy to manage and audit.
+
+```
+# model.conf
+[request_definition]
+r = sub, obj, act
+
+[policy_definition]
+p = sub, obj, act
+
+[role_definition]
+g = _, _
+
+[policy_effect]
+e = some(where (p.eft == allow))
+
+[matchers]
+m = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act
+```
+
+```
+# policy.csv
+p, marketing, /api/posts, read
+p, developer, /api/posts, write
+g, alice, developer
+```
+
+### Real-World Example: Sendbird's AI Agent RBAC
+
+Sendbird uses a two-layer model for their AI agents:
+
+| Layer | Definition | Scope |
+|---|---|---|
+| **Role** | A label for a job function (e.g., "AI Admin"). | Broad |
+| **Permission Set** | Specific actions a user can perform (e.g., "view performance data"). | Granular |
+
+This allows for a clear separation of duties and fine-grained control over agent capabilities.
+
+---
+
+## 4. Conclusion: From Chaos to Control
+
+Securing your OpenClaw deployment is not just about preventing attacks; it's about building a scalable and manageable system. By combining OpenClaw's native features with proven RBAC best practices and, when necessary, third-party libraries like Casbin, you can create a secure and powerful multi-user AI environment.
+
+<div className="my-8 p-5 bg-sky-950/30 border-l-4 border-sky-500 rounded-r-lg">
+  <div className="font-bold text-sky-400 mb-2">XO: THE AGENTIC WORKSPACE</div>
+  <div className="text-neutral-300">XO provides the enterprise-grade infrastructure to deploy and manage agentic workloads like OpenClaw at scale. With containerized environments, centralized knowledge bases, and a robust security model, XO is the operating system for the next generation of AI-powered teams.</div>
+</div>
+
+**Ready to build secure, scalable agentic workspaces?** [Talk to XO →](/contact)

@@ -1,0 +1,287 @@
+---
+title: Olares K3s Internals
+description: "How Olares uses K3s internally — bootstrap process, namespace architecture, platform services, networking, storage, GPU, and app deployment model."
+---
+
+# Olares K3s Internals
+
+Olares runs a full Kubernetes cluster (K3s by default) as its foundation. Every Olares component — from identity to GPU scheduling — runs as a containerized workload inside this cluster. This page documents how the internal K3s cluster works.
+
+---
+
+## Three-Layer Installation Architecture
+
+Olares installs in three layers, bottom-up:
+
+```
+┌──────────────────────────────────────────────────┐
+│             Containerization Layer                 │
+│  All components run as K8s workloads              │
+│  (Deployments, StatefulSets, DaemonSets)          │
+├──────────────────────────────────────────────────┤
+│          Container Orchestration Layer             │
+│  K3s (default) | full Kubernetes | Minikube       │
+│  Manages deployment, scaling, service routing     │
+├──────────────────────────────────────────────────┤
+│               Native Layer                         │
+│  Linux settings, containerd runtime, olaresd       │
+│  File system (LocalFS or JuiceFS), DNS, SSH, NTP  │
+└──────────────────────────────────────────────────┘
+```
+
+**Native Layer** configures the host Linux system: installs dependencies, manages the file system (LocalFS for single-node, JuiceFS for multi-node), deploys the `containerd` runtime, and runs the `olaresd` daemon.
+
+**Container Orchestration Layer** is K3s by default (full Kubernetes or Minikube are alternatives). K3s is chosen for resource efficiency — it's a single binary optimized for edge and single-node deployments.
+
+**Containerization Layer** — everything runs in containers. The K8s control plane manages lifecycle, scaling, and service discovery for all Olares components.
+
+---
+
+## Namespace Architecture
+
+Olares organizes its K3s cluster into five namespace types, each with a clear isolation boundary:
+
+```
+K3s Cluster
+├── os-platform          ← Infrastructure (one instance, entire system)
+│   ├── NATS
+│   ├── Citus PostgreSQL
+│   ├── KVRocks (Redis-compatible)
+│   └── LLDAP
+│
+├── os-framework         ← System services (shared across all users)
+│   ├── app-service
+│   ├── market-backend
+│   ├── files
+│   ├── authelia-backend
+│   ├── vault-server
+│   ├── notifications-server
+│   └── image-server
+│
+├── os-network           ← Networking
+│   └── l4-bfl-proxy
+│
+├── user-system-alice    ← Per-user infrastructure
+│   ├── BFL StatefulSet (Backend For Launcher)
+│   ├── Dashboard, Settings, Profile
+│   ├── Authelia instance
+│   └── Per-user middleware (PG databases, Redis, NATS subjects)
+│
+└── user-space-alice     ← Per-user applications
+    ├── olares-app Deployment (Nginx + app containers)
+    └── User-installed apps from marketplace
+```
+
+### os-platform (Infrastructure)
+
+Single instance for the entire system. Contains the core data infrastructure that all other namespaces consume:
+
+| Service | Type | What It Does |
+|---|---|---|
+| **NATS** | Message broker | Pub/sub messaging, queue groups, topic-based routing. Lightweight, high-performance. |
+| **Citus PostgreSQL** | Distributed database | Row-based and schema-based sharding. Coordinator routes queries to worker nodes. |
+| **KVRocks** | Key-value store | Redis protocol compatible, but uses RocksDB (disk-based, not memory-only). Better resource balance than Redis. |
+| **LLDAP** | Directory service | Lightweight LDAP for user account management. Single instance serves all users. |
+
+Apps access these via Kubernetes cluster DNS (e.g., `nats.os-platform.svc.cluster.local:4222`).
+
+### os-framework (System Services)
+
+Shared services that provide OS-level functionality:
+
+| Service | Purpose |
+|---|---|
+| **app-service** | Application lifecycle management (install, update, remove) |
+| **market-backend** | App marketplace — discovery, search, install flow |
+| **files** | File service — cross-app file access and management |
+| **authelia-backend** | Authentication and SSO across all applications |
+| **vault-server** | Password and credential management |
+| **notifications-server** | Event notification system |
+| **image-server** | Container image management |
+
+### os-network (Networking)
+
+Contains `l4-bfl-proxy` — a Layer 4 transport proxy that handles low-level traffic routing between namespaces and external access.
+
+### user-system-\{username\} (Per-User Infrastructure)
+
+Each user gets an isolated namespace with their own infrastructure:
+
+**BFL (Backend For Launcher) StatefulSet** — The central hub for each user. BFL aggregates backend interfaces and proxies requests for all system services. It handles authentication verification, permission checks, and API routing for every app the user runs.
+
+**Authelia Instance** — Per-user authentication, integrating with LLDAP for identity. Envoy sidecars injected into app pods route authorization checks to Authelia at `authelia-backend.user-system-\{username\}:9091`.
+
+**Per-User Middleware** — Each user gets isolated database schemas, Redis namespaces, and NATS subject spaces within the shared os-platform services.
+
+### user-space-\{username\} (Per-User Applications)
+
+Where user-installed apps run. The key component is the **olares-app Deployment**:
+
+- Contains an Nginx container that routes incoming requests to the correct app based on entrance names
+- Each installed app runs as a separate container within this deployment (or as its own Deployment/StatefulSet for complex apps)
+- Apps are sandboxed — they can only access resources declared in their `OlaresManifest.yaml`
+
+---
+
+## App Deployment Model
+
+Apps deploy via Helm Charts with an `OlaresManifest.yaml` that declares metadata, permissions, and middleware requirements:
+
+```yaml
+# Simplified OlaresManifest.yaml structure
+metadata:
+  name: my-app
+  title: "My Application"
+  category: AI
+  version: 1.0.0
+
+permission:
+  appData: true
+  sysData:
+    - group: service.nats
+      dataType: event
+      ops: ["create", "read"]
+    - group: service.postgresql
+      dataType: database
+      ops: ["create", "read", "update", "delete"]
+
+middleware:
+  postgresql:
+    database: my_app_db
+  nats: {}
+  redis: {}
+```
+
+When an app is installed from the marketplace:
+1. `app-service` processes the Helm chart
+2. Kubernetes resources (Deployments, StatefulSets, Services, PVCs) are created in `user-space-\{username\}`
+3. Middleware is provisioned (database created in Citus PG, NATS subjects configured, Redis namespace allocated)
+4. Envoy sidecar is injected for auth verification
+5. Nginx routing rules updated in `olares-app` to route traffic to the new app
+
+---
+
+## Networking
+
+### Ingress
+
+K3s includes **Traefik** as the default ingress controller. Olares uses Traefik's dynamic configuration model — it watches the Kubernetes API for IngressRoute CRD changes and updates routing in real time.
+
+Routing supports: host-based, path-based, and header-based rules.
+
+### Inter-App Communication
+
+Two patterns:
+
+**Synchronous (HTTP):** Apps communicate through BFL proxies in `user-system-\{username\}`. BFL handles auth verification and permission checks before forwarding requests. Apps can mark internal APIs to bypass authentication for trusted app-to-app calls.
+
+**Asynchronous (NATS):** Event-driven communication via pub/sub. Apps publish to NATS subjects and subscribe to topics they have permission for. Queue groups enable load-balanced consumption across multiple subscribers.
+
+### Sidecar Proxy Pattern
+
+Every app pod gets an Envoy sidecar injected via init container:
+
+```
+Incoming Request → Envoy Sidecar (port 15003)
+                      │
+                      ├── Authorization check → Authelia (port 9091)
+                      │                          in user-system-\{username\}
+                      │
+                      ├── If authorized → Forward to app container
+                      └── If denied → 403 Forbidden
+```
+
+### External Access
+
+Users access their Olares instance via:
+- **LarePass VPN** — Auto-detects same-network and switches to intranet mode
+- **.local domain** — OS-specific URL formats for LAN access
+- **Local DNS** — Configure router or machine to route the Olares domain to its IP
+
+---
+
+## Storage
+
+### Single-Node (Default)
+
+**LocalFS** — Local file system with K3s's built-in Local Path Provisioner for PVC-based persistent storage.
+
+Three storage classes for apps:
+
+| Type | Path | Characteristics | Use Case |
+|---|---|---|---|
+| **UserData** | `/Home` | Cross-app access, stable files | Documents, photos, videos |
+| **AppData** | Per-app | Cross-node accessible (in multi-node) | Config files, shared state |
+| **AppCache** | Per-app | Local SSD, high-performance, node-local | Databases, logs, caches |
+
+### Multi-Node
+
+**JuiceFS** — Cloud-native distributed POSIX file system, deployed optionally with `--with-juicefs=true`. Uses Redis for metadata and S3/MinIO for data storage. Enables cross-node file access for AppData volumes.
+
+---
+
+## GPU Integration (HAMi)
+
+Olares uses **HAMi** (Heterogeneous AI Computing Virtualization Middleware) for GPU scheduling within the K3s cluster.
+
+**How it works:**
+- HAMi loads via `/etc/ld.so.preload` into every process in GPU-enabled containers
+- Intercepts CUDA API calls at the container runtime level
+- Enforces per-container GPU memory limits and core utilization caps
+- No application code modification required — transparent to the agent
+
+**Allocation modes:**
+
+| Mode | How It Works | XO-PAN Use Case |
+|---|---|---|
+| **Memory-slicing** | Split GPU VRAM across containers (e.g., 24GB → 3×8GB) | Multiple agents running different Ollama models concurrently |
+| **Time-slicing** | Share full GPU with time-based rotation | Agents with bursty, intermittent GPU needs |
+| **Exclusive** | One container gets the entire GPU | Model training or large inference tasks |
+
+**For Proxmox/VM deployments:** GPU passthrough requires IOMMU enabled in BIOS and PCI passthrough configured in the hypervisor. The GPU is then visible to K3s and HAMi can schedule it.
+
+**App GPU declaration:** Apps request GPU in their `OlaresManifest.yaml` or via Olares Studio resource configuration. HAMi's scheduler assigns GPU resources when the pod is created.
+
+---
+
+## olaresd Daemon
+
+The `olaresd` daemon runs on the host (native layer, outside K3s) and manages:
+
+- System-level operations triggered by LarePass or `olares-cli`
+- K3s lifecycle (start, stop, upgrade)
+- Multi-node coordination: detects when the master node moves to a different LAN and triggers `changeip` events
+- Automated configuration updates
+
+It's the bridge between the host OS and the Kubernetes layer.
+
+---
+
+## K3s vs Full Kubernetes vs Minikube
+
+| Engine | Platform | Why |
+|---|---|---|
+| **K3s** (default) | Linux (bare metal, Docker, WSL, LXC, PVE, Pi) | Single binary, lightweight, optimized for edge. Best resource efficiency. |
+| **Full Kubernetes** | Linux (advanced deployments) | Higher resource overhead but more mature ecosystem. Available if K3s limitations hit. |
+| **Minikube** | macOS | Runs a Linux VM, provides consistent experience. No GPU support. |
+
+The choice is determined by platform — `olares-cli` selects the appropriate engine automatically unless overridden via `KUBE_TYPE` environment variable.
+
+---
+
+## Relevance to XO-PAN
+
+Understanding Olares' K3s internals is critical for XO-PAN integration:
+
+| XO-PAN Component | Olares Integration Point |
+|---|---|
+| Agent Registry (Citus PG) | `citus-postgresql.os-platform.svc.cluster.local` — request a database via middleware declaration |
+| Agent Mesh (NATS) | `nats.os-platform.svc.cluster.local:4222` — connect as client, use XO-prefixed subjects |
+| Auth (LarePass) | Authelia sidecar auto-injected; LarePass JWT validated against LLDAP |
+| GPU Scheduling (HAMi) | Declare GPU requirements in manifest; HAMi handles allocation transparently |
+| Dashboard | Runs in `user-space-\{username\}` as part of the XO-PAN app, routed via Nginx/Traefik |
+| Gateway API | Exposed via Traefik IngressRoute, accessible at the user's Olares domain |
+| Persistent Storage | AppData for config, AppCache for database (Citus handles XO-PAN's main state) |
+| Inter-app Communication | BFL proxy for sync calls; NATS for async agent messaging |
+
+The key insight: XO-PAN doesn't need to manage any infrastructure. It declares what it needs in `OlaresManifest.yaml`, and Olares provisions it — database, messaging, caching, GPU, auth, networking — all handled by the platform.

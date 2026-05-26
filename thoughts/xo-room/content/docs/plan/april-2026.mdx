@@ -1,0 +1,77 @@
+---
+title: April 2026
+description: First month after the March beta launch. Validate retention, read PMF signals, prep for May's public push.
+icon: Flag
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# April 2026 — Validate Retention, Find PMF
+
+**Status: committed. Beta launched March 2026. April is the retention and PMF-validation month.**
+
+The first full month after beta. M1 already shipped — OpenClaw deployable in under 60 seconds, six channels live, Cowork API operational. April isn't about shipping more. It's about reading the signal: did users come back, did cohorts retain, are we seeing the early shape of product-market fit?
+
+<Callout>
+  **What we're seeing.** Strong cohort retention from the March users, repeat workspace deployments inside existing accounts, and qualitative signals consistent with early PMF. The deployment-barrier thesis was right.
+</Callout>
+
+## Focus
+
+Read the signal. Don't over-react.
+
+M1 already removed the deployment barrier. The question this month is whether removing it actually produced the behavior we expected — repeat use, organic growth, retention strong enough to justify the public push in May. Most engineering effort this month goes into M2 build (AI Assistant template) and stability work. Most GTM effort goes into 1:1 conversations with March cohort users to understand *why* they're staying.
+
+**ICP this month.** Developers and OSS contributors already in the OpenClaw orbit — the 100K+ GitHub-star community plus solo founders and consultants who want OpenClaw running today but can't get past Docker. They're API-comfortable, infrastructure-averse, and price-sensitive at the entry tier. We reach them where they already are: GitHub, X/Twitter, OpenClaw Discord. We're not generating new demand this month — we're listening to the demand that already converted in March.
+
+## What's happening
+
+**March cohort retention measured.** 30-day retention data lands in late April. We compare to the &gt;40% target.
+
+**M2 build ramps.** AI Assistant template (WhatsApp + Google) heads toward May ship. Most engineering capacity this month goes here.
+
+**Public-push assets prepped.** 60-second deploy video edited and clipped. HN/PH copy drafted. YouTube long-form recorded. Partner co-launch announcements coordinated for early May.
+
+**Early case studies and quotes collected.** Conversations with the most active March users surface the language that converts — used in May's launch assets.
+
+**Stability work.** Edge cases from real beta traffic patched. Monitoring tightened. The platform stops being "newly live" and starts being "operationally boring," which is the goal.
+
+## GTM motion
+
+| Channel | Activity |
+|---|---|
+| **March cohort 1:1s** | Direct conversations with the 20–30 most active users. Why did you stay? What would make you bring a teammate? |
+| **OpenClaw GitHub** | Banner + README update remains live. Track click-through and conversion |
+| **X / Twitter** | Build-in-public continues. 3–5 posts/week. Surface PMF signals as they emerge |
+| **xo.builders** | Beta landing page live. Live workspace counter visible. Iterating on conversion copy from March data |
+| **No public push yet** | We hold HN/PH/YouTube for May once M2 is live and we have stronger signal |
+
+## Infrastructure
+
+| Metric | Value |
+|---|---|
+| Cost per workspace | $20 |
+| Total infra cost | $4,000 / mo |
+| Total workspaces | ~200 |
+
+## KPIs to watch
+
+| Metric | Target | What it signals |
+|---|---|---|
+| 30-day cohort retention (March users) | &gt; 40% | PMF strength |
+| Repeat workspace deployments | &gt; 25% of active accounts | Existing users finding more uses |
+| Deploy time (p95) | &lt; 60 seconds | M1 promise still holds under real load |
+| Platform uptime | 99.5%+ | Operationally boring |
+| Paid conversion (signup → workspace) | &gt; 60% | No-free-tier hypothesis holds |
+| Token flow through platform | ~100M tokens | Platform utility — agents actually working |
+| Qualitative PMF signals | Captured in user 1:1s | Used to refine May messaging |
+
+## Risks
+
+**We mistake early enthusiasm for PMF.** First-cohort retention can be flattering — the people who deploy in week 1 are the most motivated subset. Mitigation: don't compress conclusions. The May public push is when the platform meets less-motivated users, and the real retention number reveals itself.
+
+**M2 slips and May misses.** AI Assistant template is on the critical path for May. Mitigation: scope guarded, OAuth and WhatsApp integration are the load-bearing pieces — both prototyped before April.
+
+**Stability regression as we patch March edge cases.** Every fix risks breaking something. Mitigation: regression test suite expanded with each March-discovered bug; on-call rotation through April.
+
+→ Next month: [May 2026 — M2 ships, M3 hits 1,000](/plan/may-2026)

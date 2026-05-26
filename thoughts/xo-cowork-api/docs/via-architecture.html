@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Via: architecture</title>
+<style>
+  :root {
+    --bg:       #0b0d0a;
+    --bg-soft:  #14181a;
+    --bg-card:  #1a1f1c;
+    --border:   #2a3329;
+    --text:     #e8efe6;
+    --muted:    #8a948a;
+    --brand:    #83d63a;
+    --xyra:     #ff8aa2;
+    --ora:      #6ac4d6;
+    --via:      #83d63a;
+    --warn:     #f0a040;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  code, pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+  code { background: var(--bg-soft); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); }
+  pre { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 20px; overflow-x: auto; white-space: pre; line-height: 1.4; }
+  h1, h2, h3 { margin: 0 0 12px; line-height: 1.25; }
+  h1 { font-size: 28px; letter-spacing: -0.01em; }
+  h2 { font-size: 22px; color: var(--brand); margin-top: 48px;
+    padding-top: 24px; border-top: 1px solid var(--border); }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 { font-size: 17px; margin-top: 20px; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 36px 28px 80px; }
+  header.hero { padding: 20px 0 24px; }
+  header.hero .eyebrow { color: var(--brand); font-weight: 600; font-size: 12px;
+    letter-spacing: 0.1em; text-transform: uppercase; }
+  header.hero h1 { margin-top: 6px; }
+  header.hero p { color: var(--muted); margin: 8px 0 0; max-width: 720px; }
+
+  .card { background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 20px; margin: 12px 0; }
+  .grid { display: grid; gap: 14px; }
+  .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+
+  .agent-card { background: var(--bg-card); border: 1px solid var(--border);
+    border-left-width: 4px; border-radius: 10px; padding: 0; overflow: hidden; }
+  .agent-card.xyra { border-left-color: var(--xyra); }
+  .agent-card.ora  { border-left-color: var(--ora); }
+  .agent-card.via  { border-left-color: var(--via); }
+  .agent-card .head { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  .agent-card .name { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .agent-card.xyra .name { color: var(--xyra); }
+  .agent-card.ora  .name { color: var(--ora); }
+  .agent-card.via  .name { color: var(--via); }
+  .agent-card .role { color: var(--muted); font-size: 13px; }
+  .agent-card .body { padding: 14px 18px; }
+  .agent-card dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; }
+  .agent-card dt { color: var(--muted); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; padding-top: 2px; }
+  .agent-card dd { margin: 0; font-size: 13px; }
+  .agent-card .quote { margin-top: 12px; padding: 8px 12px;
+    background: var(--bg-soft); border-radius: 6px;
+    font-size: 12px; color: var(--muted); font-style: italic; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
+    font-size: 14px; vertical-align: top; }
+  th { color: var(--brand); font-weight: 600; font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .callout { border-left: 3px solid var(--brand); background: rgba(131,214,58,0.06);
+    padding: 12px 16px; margin: 16px 0; border-radius: 0 6px 6px 0; }
+  .callout strong { color: var(--brand); }
+
+  ul.invariants { list-style: none; padding: 0; margin: 8px 0; }
+  ul.invariants li { padding: 10px 14px; margin: 8px 0;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-left: 3px solid var(--brand); border-radius: 0 6px 6px 0; }
+
+  .small { font-size: 12px; color: var(--muted); }
+  footer { margin-top: 60px; padding-top: 24px;
+    border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header class="hero">
+  <div class="eyebrow">Via, architecture</div>
+  <h1>What the machine looks like</h1>
+  <p>One scroll. No tabs. No decisions. Just the architecture: what's running, what's on disk, and how an event flows from human to response and back.</p>
+</header>
+
+<!-- =============================================================== -->
+<h2>1. The whole machine, one picture</h2>
+
+<pre style="font-size: 12px; line-height: 1.35;">
+   ┌─────────┐                ┌──────────────────────────────────────────────┐
+   │         │  HTTP chat     │             COWORK-API                       │
+   │  HUMAN  │ ─────────────▶ │           (FastAPI on :5002)                 │
+   │         │                │                                              │
+   │         │ ◀───────────── │                                              │
+   └─────────┘   SSE reply    │   ── ALWAYS-ON SUPERVISORS ──                │
+                              │                                              │
+                              │   ┌─────────┐    ┌─────────┐                 │
+                              │   │  ORA    │    │  XYRA   │                 │
+                              │   │claude_  │    │openclaw │                 │
+                              │   │ code    │    │         │                 │
+                              │   │ idle/   │    │ idle/   │                 │
+                              │   │ wake on │    │ wake on │                 │
+                              │   │ event   │    │ event   │                 │
+                              │   └────┬────┘    └────┬────┘                 │
+                              │        │              │                      │
+                              │   ── ON-DEMAND ──     │                      │
+                              │                       │                      │
+                              │   ┌─────────┐         │                      │
+                              │   │  VIA    │         │                      │
+                              │   │claude_  │         │                      │
+                              │   │ code    │         │                      │
+                              │   │ spawns  │         │                      │
+                              │   │ per turn│         │                      │
+                              │   └────┬────┘         │                      │
+                              │        │              │                      │
+                              │   ── BACKGROUND JOBS ──                      │
+                              │                                              │
+                              │   ticker daemon   consensus job   watcher    │
+                              │        │               │             │       │
+                              └────────┼───────────────┼─────────────┼───────┘
+                                       │ read / write  │             │
+                                       ▼               ▼             ▼
+                              ┌──────────────────────────────────────────────┐
+                              │              FILE SYSTEM                     │
+                              │           ───────────────                    │
+                              │                                              │
+                              │   ~/xo-projects/via/                         │
+                              │       IDENTITY · SOUL · OBJECTIVES           │
+                              │       life/stream.jsonl                      │
+                              │       consensus/proposals/                   │
+                              │       personas/xyra/ (full sub-persona)      │
+                              │       personas/ora/  (full sub-persona)      │
+                              │                                              │
+                              └──────────────────────┬───────────────────────┘
+                                                     │ MCP tool calls
+                                                     ▼
+                              ┌──────────────────────────────────────────────┐
+                              │             EXTERNAL TOOLS                   │
+                              │  Composio · Gmail · Calendar · GitHub · ...  │
+                              └──────────────────────────────────────────────┘
+</pre>
+
+<p>Three live processes (Ora, Xyra, Via), three background jobs (ticker, consensus, watcher), one shared file system, optional outbound to MCP tools. That's it.</p>
+
+<!-- =============================================================== -->
+<h2>2. The three agents</h2>
+
+<p>Two supervisors run continuously in the background. One presenter spawns on demand when the human talks. The human only ever sees Via.</p>
+
+<div class="grid cols-3">
+
+  <div class="agent-card ora">
+    <div class="head">
+      <h3 class="name">Ora</h3>
+      <div class="role">product · tech · stability</div>
+    </div>
+    <div class="body">
+      <dl>
+        <dt>Runtime</dt>     <dd><code>claude_code</code></dd>
+        <dt>Lifecycle</dt>   <dd>always-on background</dd>
+        <dt>cwd</dt>         <dd>this repo</dd>
+        <dt>Wakes on</dt>    <dd>system, eng, calendar.eng events</dd>
+        <dt>Talks to</dt>    <dd>Via only (never humans)</dd>
+        <dt>Lives at</dt>    <dd><code>personas/ora/</code></dd>
+      </dl>
+      <div class="quote">"I notice when we're accruing debt we'll regret."</div>
+    </div>
+  </div>
+
+  <div class="agent-card xyra">
+    <div class="head">
+      <h3 class="name">Xyra</h3>
+      <div class="role">business · sales · demos</div>
+    </div>
+    <div class="body">
+      <dl>
+        <dt>Runtime</dt>     <dd><code>openclaw</code></dd>
+        <dt>Lifecycle</dt>   <dd>always-on background</dd>
+        <dt>MCP</dt>         <dd>Composio (Gmail, Calendar, etc.)</dd>
+        <dt>Wakes on</dt>    <dd>customer, sales, calendar events</dd>
+        <dt>Talks to</dt>    <dd>Via only (never humans)</dd>
+        <dt>Lives at</dt>    <dd><code>personas/xyra/</code></dd>
+      </dl>
+      <div class="quote">"I notice when we're hiding from the market."</div>
+    </div>
+  </div>
+
+  <div class="agent-card via">
+    <div class="head">
+      <h3 class="name">Via</h3>
+      <div class="role">the voice the human hears</div>
+    </div>
+    <div class="body">
+      <dl>
+        <dt>Runtime</dt>     <dd><code>claude_code</code></dd>
+        <dt>Lifecycle</dt>   <dd>on-demand per user turn</dd>
+        <dt>cwd</dt>         <dd><code>~/xo-projects/via/</code></dd>
+        <dt>Reads</dt>       <dd>canonical state + recent positions</dd>
+        <dt>Talks to</dt>    <dd>the human directly</dd>
+        <dt>Writes</dt>      <dd>response → appends to stream</dd>
+      </dl>
+      <div class="quote">"My answers are the negotiated outcome of Xyra and Ora."</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- =============================================================== -->
+<h2>3. How an event flows</h2>
+
+<p>One user message walks the whole loop. Time runs top to bottom.</p>
+
+<pre style="font-size: 12px; line-height: 1.35;">
+  T+0     HUMAN
+            │  sends chat: "what's up with acme?"
+            ▼
+  T+0.1   cowork-api receives, appends to life/stream.jsonl
+          as {"source":"chat","kind":"user.message","text":"..."}
+            │
+            ▼
+  T+0.1   cowork-api spawns VIA subprocess
+            │  cwd: ~/xo-projects/via/
+            │  claude_code with --mcp-config (cowork local MCP)
+            │
+            ▼
+  T+0.2   VIA reads:
+            ├── IDENTITY.md, SOUL.md, OBJECTIVES.md  (canonical)
+            ├── personas/xyra/log/positions.jsonl    (recent stance)
+            ├── personas/ora/log/positions.jsonl     (recent stance)
+            ├── life/digest/since-last-turn.md       (what changed)
+            └── affect/mood.json                     (current voice)
+            │
+            ▼
+  T+1     VIA streams response back to HUMAN (SSE)
+            │
+            ▼
+  T+1     cowork-api appends response to life/stream.jsonl
+          as {"source":"chat","kind":"via.response","text":"..."}
+            │
+            ▼
+  T+1.5   STREAM event wakes both supervisors (subscribed to chat.*)
+
+          ┌─────────────────────┐    ┌─────────────────────┐
+          │  ORA                │    │  XYRA               │
+          │  observe → think    │    │  observe → think    │
+          │  act (memory.write) │    │  act (memory.write) │
+          │  may open PR        │    │  may open PR        │
+          └──────────┬──────────┘    └──────────┬──────────┘
+                     │                          │
+                     └──────────┬───────────────┘
+                                ▼
+  T+5     if PR opened: other supervisor reviews
+            │
+            ▼
+  T+6     consensus job commits to canonical (or archives)
+            │
+            ▼
+  T+next  next user turn: VIA reads updated canonical
+          (the change is now part of who she is)
+</pre>
+
+<!-- =============================================================== -->
+<h2>4. What lives on disk</h2>
+
+<pre style="font-size: 12px; line-height: 1.35;">
+~/xo-projects/via/                ← Via (a persona)
+│
+├── meta.json                     {parent: null, children: ["xyra","ora"]}
+├── IDENTITY.md · SOUL.md · OBJECTIVES.md · USER.md · ROLE.md · AGENTS.md
+│
+├── life/                         what she perceives
+│   ├── stream.jsonl              append-only event log
+│   ├── sources/                  chat, ticker, observation, calendar...
+│   ├── subscriptions/            per-persona filters
+│   └── digest/                   pre-computed "since last turn"
+│
+├── affect/                       her feelings (mood + per-entity)
+├── objectives/                   her direction (active + archived)
+├── memory/                       semantic · episodic · procedural · working
+├── cognition/                    thoughts · views · opinions
+├── knowledge/                    world model
+├── skills/                       what she can do
+│
+├── consensus/                    where her sub-personas negotiate
+│   ├── proposals/                open PRs
+│   ├── decisions/                committed PRs (with vote record)
+│   └── debates/                  rejected / full transcripts
+│
+├── personas/                     her sub-personas (recursive)
+│   │
+│   ├── xyra/                     a full persona, same shape
+│   │   ├── meta.json             {parent: "via", runtime: "openclaw"}
+│   │   ├── IDENTITY · SOUL · ROLE · ...
+│   │   ├── life/ memory/ cognition/ affect/ ...
+│   │   ├── log/positions.jsonl   ← what she tells Via
+│   │   └── parent-image/         ← her working model of Via (her "branch")
+│   │
+│   └── ora/                      another full persona
+│       └── (same shape as xyra)
+│
+└── .xo/                          cowork-api side-state
+    ├── project.json
+    └── sessions/sessionslist.json
+</pre>
+
+<p>Three things to notice:</p>
+<ul>
+  <li><strong>Every persona has the same shape.</strong> Via, Xyra, Ora are all complete. Nesting creates the hierarchy.</li>
+  <li><strong>Identity is at the root, not under .xo/.</strong> Agents can read/write it; the watcher only owns <code>.xo/</code>.</li>
+  <li><strong>Each sub-persona carries a parent-image.</strong> That's her local working copy of Via. When it diverges enough, she opens a PR.</li>
+</ul>
+
+<!-- =============================================================== -->
+<h2>5. What's running right now (snapshot view)</h2>
+
+<table>
+  <tr><th>Process</th><th>Runtime</th><th>State</th><th>Job</th></tr>
+  <tr><td><strong style="color: var(--ora);">ora</strong></td><td>claude_code subprocess</td><td>idle, watching stream</td><td>perceive, think, act on every subscribed event</td></tr>
+  <tr><td><strong style="color: var(--xyra);">xyra</strong></td><td>openclaw subprocess</td><td>idle, watching stream</td><td>same, with Composio tools attached</td></tr>
+  <tr><td><strong style="color: var(--via);">via</strong></td><td>claude_code subprocess</td><td>not running (spawns per turn)</td><td>respond to user; appends turn to stream</td></tr>
+  <tr><td>ticker daemon</td><td>cowork-api task</td><td>tick every 5 min</td><td>emit heartbeat events to make time exist</td></tr>
+  <tr><td>consensus job</td><td>cowork-api task</td><td>idle, polls proposals/</td><td>resolve PRs once both reviews land</td></tr>
+  <tr><td>progress tracker</td><td>cowork-api task</td><td>hourly batch</td><td>walk stream, update objective velocities</td></tr>
+  <tr><td>watcher</td><td>cowork-api task</td><td>watching <code>.xo/</code></td><td>own side-state; agents never touch it</td></tr>
+</table>
+
+<!-- =============================================================== -->
+<h2>6. Invariants (these are always true)</h2>
+
+<ul class="invariants">
+  <li><strong>Customers only talk to Via.</strong> Xyra and Ora never emit to the human surface. Their output goes to their own logs or to <code>consensus/proposals/</code>.</li>
+  <li><strong>Only consensus writes to canonical Via.</strong> No sub-persona can change <code>IDENTITY.md</code>, <code>SOUL.md</code>, or <code>OBJECTIVES.md</code> on her own.</li>
+  <li><strong>Every identity change has a paper trail.</strong> PR with diff, rationale, evidence (action IDs), review vote, commit decision. You can ask "why does Via think X?" and follow the chain.</li>
+  <li><strong>The watcher owns <code>.xo/</code>.</strong> Agents read it through cowork-api endpoints. They never write directly.</li>
+  <li><strong>Every persona has the same folder shape.</strong> Promote, demote, fork: structural moves never change the template.</li>
+</ul>
+
+<footer>
+  Standalone architecture view. For the full design conversation (decisions, lifespan model, persona drafts, governance flow), see <code>via-brainstorm.html</code>. This file is the picture at a glance.
+</footer>
+
+</div>
+</body>
+</html>

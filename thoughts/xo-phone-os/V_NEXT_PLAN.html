@@ -1,0 +1,1732 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>XO Phone, v0 to v.Next</title>
+  <style>
+    :root {
+      --lime: #83d63a;
+      --lime-soft: rgba(131, 214, 58, 0.15);
+      --lime-edge: rgba(131, 214, 58, 0.55);
+      --ink: #08090A;
+      --ink-2: #131416;
+      --ink-3: #1c1c1e;
+      --text: #ffffff;
+      --text-2: rgba(255,255,255,0.72);
+      --text-3: rgba(255,255,255,0.5);
+      --divider: rgba(255,255,255,0.08);
+      --amber: #ffb547;
+      --amber-soft: rgba(255, 181, 71, 0.12);
+      --red: #ff6b6b;
+      --red-soft: rgba(255, 107, 107, 0.12);
+      --blue: #64b5f6;
+      --blue-soft: rgba(100, 181, 246, 0.12);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--ink);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 1080px; margin: 0 auto; padding: 56px 24px 96px; }
+    header { border-bottom: 1px solid var(--divider); padding-bottom: 32px; margin-bottom: 48px; }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+    .brand-mark { width: 36px; height: 36px; }
+    .brand-text { font-weight: 700; letter-spacing: 0.01em; color: var(--lime); font-size: 14px; text-transform: uppercase; }
+    h1 { font-size: 38px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 10px; }
+    .sub { color: var(--text-2); font-size: 15px; margin: 0; }
+    .meta-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+    .pill { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; background: var(--ink-3); color: var(--text-2); border: 1px solid var(--divider); }
+    .pill.lime { background: var(--lime-soft); color: var(--lime); border-color: var(--lime-edge); }
+    .pill.amber { background: var(--amber-soft); color: var(--amber); border-color: rgba(255,181,71,0.4); }
+
+    h2 { font-size: 26px; font-weight: 700; letter-spacing: -0.015em; margin: 72px 0 6px; }
+    h2 .num { color: var(--lime); margin-right: 14px; font-variant-numeric: tabular-nums; }
+    .section-sub { color: var(--text-2); font-size: 14px; margin: 0 0 24px; }
+    h3 { font-size: 13px; font-weight: 700; margin: 0 0 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+    p { color: var(--text-2); margin: 14px 0; }
+    p strong { color: var(--text); font-weight: 600; }
+    code { background: var(--ink-3); padding: 1px 6px; border-radius: 4px; font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace; font-size: 12px; color: var(--lime); }
+    pre { background: var(--ink-2); border: 1px solid var(--divider); border-radius: 12px; padding: 20px; font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace; font-size: 11.5px; line-height: 1.55; overflow-x: auto; color: var(--text); }
+
+    .tldr { background: linear-gradient(180deg, var(--lime-soft), transparent); border: 1px solid var(--lime-edge); border-radius: 16px; padding: 22px 26px; margin: 24px 0 8px; }
+    .tldr p { margin: 0; color: var(--text); }
+    .tldr strong { color: var(--lime); }
+
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 4px; font-size: 13px; }
+    th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--divider); }
+    th { background: var(--ink-3); font-weight: 600; color: var(--text); letter-spacing: 0.02em; font-size: 12px; text-transform: uppercase; }
+    tbody tr:hover { background: var(--ink-2); }
+    td.status { font-weight: 600; font-size: 12px; }
+    td.status.ok   { color: var(--lime); }
+    td.status.skel { color: var(--blue); }
+    td.status.warn { color: var(--amber); }
+    td.status.no   { color: var(--red); }
+    td .meta { color: var(--text-3); font-size: 12px; }
+
+    /* Two-column compact: kill / new */
+    .col2 { display: grid; grid-template-columns: 1fr; gap: 18px; margin: 16px 0 8px; }
+    @media (min-width: 720px) { .col2 { grid-template-columns: 1fr 1fr; } }
+    .col2 .col {
+      border: 1px solid var(--divider);
+      border-radius: 14px;
+      padding: 20px 22px;
+      background: var(--ink-2);
+    }
+    .col2 .col.kill { background: linear-gradient(180deg, var(--red-soft), transparent), var(--ink-2); border-color: rgba(255,107,107,0.4); }
+    .col2 .col.new  { background: linear-gradient(180deg, var(--lime-soft), transparent), var(--ink-2); border-color: var(--lime-edge); }
+    .col2 .col h4 {
+      font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      margin: 0 0 12px;
+    }
+    .col2 .col.kill h4 { color: var(--red); }
+    .col2 .col.new  h4 { color: var(--lime); }
+    .col2 ul { list-style: none; padding: 0; margin: 0; }
+    .col2 li {
+      font-size: 13px; padding: 6px 0; line-height: 1.5; color: var(--text);
+      display: grid; grid-template-columns: 22px 1fr; gap: 4px;
+      border-top: 1px solid var(--divider);
+    }
+    .col2 li:first-child { border-top: 0; }
+    .col2 li .glyph { color: var(--text-3); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+    .col2 .col.kill li .glyph { color: var(--red); }
+    .col2 .col.new  li .glyph { color: var(--lime); }
+    .col2 li .body { color: var(--text); }
+    .col2 li .meta { color: var(--text-3); font-size: 11.5px; font-family: 'JetBrains Mono', monospace; }
+
+    /* Modes (3 cards) */
+    .mode-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin: 16px 0 24px; }
+    @media (min-width: 720px) { .mode-grid { grid-template-columns: repeat(3, 1fr); } }
+    .mode-card {
+      background: var(--ink-2);
+      border: 1px solid var(--divider);
+      border-radius: 14px;
+      padding: 20px 22px;
+    }
+    .mode-card.deferred { border-style: dashed; opacity: 0.85; }
+    .mode-num {
+      display: inline-block; background: var(--lime); color: var(--ink);
+      font-weight: 700; font-size: 10.5px; padding: 3px 10px; border-radius: 999px;
+      letter-spacing: 0.06em; margin-bottom: 10px;
+    }
+    .mode-card.deferred .mode-num { background: var(--amber); }
+    .mode-card h4 {
+      color: var(--text); font-size: 17px; font-weight: 700; letter-spacing: -0.01em;
+      text-transform: none; margin: 0 0 10px;
+    }
+    .mode-purpose { color: var(--text-2); font-size: 13px; line-height: 1.5; margin: 0 0 14px; }
+    .mode-meta {
+      font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 11px; color: var(--text-3);
+      border-top: 1px solid var(--divider); padding-top: 10px; line-height: 1.7;
+    }
+
+    /* Build plan (stage cards reused) */
+    .stage {
+      border: 1px solid var(--divider); border-radius: 16px;
+      padding: 22px 26px 24px; margin: 16px 0; background: var(--ink-2);
+    }
+    .stage-header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+    .stage-num {
+      display: inline-grid; place-items: center;
+      width: 30px; height: 30px; border-radius: 50%;
+      background: var(--lime); color: var(--ink);
+      font-weight: 700; font-size: 14px; flex-shrink: 0; align-self: center;
+    }
+    .stage.deferred .stage-num { background: var(--amber); }
+    .stage-title { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
+    .stage-meta { color: var(--text-3); font-size: 12px; font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace; }
+    .stage-goal { color: var(--text); font-size: 14px; margin: 0 0 16px; padding-left: 44px; line-height: 1.55; }
+    .stage-section { margin-top: 16px; }
+    .stage-section h4, .stage-cols .col h4 {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-3); margin: 0 0 10px;
+    }
+    .stage-flow {
+      background: var(--ink); border: 1px solid var(--divider); border-radius: 10px;
+      padding: 16px 18px; font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 11px; line-height: 1.6; overflow-x: auto; color: var(--text); margin: 0;
+    }
+    .feature-list, .crit-list, .nongoal-list, .gate-list, .dep-list {
+      list-style: none; padding: 0; margin: 0;
+    }
+    .feature-list li, .crit-list li, .nongoal-list li, .gate-list li, .dep-list li {
+      padding: 4px 0 4px 24px; font-size: 13px; color: var(--text); position: relative; line-height: 1.5;
+    }
+    .feature-list li::before { content: '\2713'; position: absolute; left: 2px; top: 4px; color: var(--lime); font-weight: 700; font-size: 13px; }
+    .crit-list li::before { content: ''; position: absolute; left: 6px; top: 12px; width: 6px; height: 6px; background: var(--blue); border-radius: 50%; }
+    .nongoal-list li::before { content: '\2715'; position: absolute; left: 2px; top: 4px; color: var(--red); font-weight: 700; font-size: 13px; }
+    .gate-list li::before { content: '\26A0'; position: absolute; left: 0; top: 4px; color: var(--amber); font-weight: 700; font-size: 12px; }
+    .dep-list li::before { content: '\21B3'; position: absolute; left: 0; top: 4px; color: var(--text-3); font-weight: 700; font-size: 12px; }
+    .stage-cols { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 16px; }
+    @media (min-width: 720px) { .stage-cols { grid-template-columns: 1fr 1fr; } }
+
+    /* Widgets */
+    .widget-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin: 16px 0 24px; }
+    @media (min-width: 720px) { .widget-grid { grid-template-columns: repeat(3, 1fr); } }
+    .widget-card { background: var(--ink-2); border: 1px solid var(--divider); border-radius: 14px; padding: 18px 20px; }
+    .widget-card h4 {
+      color: var(--lime); font-size: 14px; font-weight: 700; letter-spacing: 0.01em;
+      text-transform: none; margin: 0 0 8px;
+    }
+    .widget-card .endpoint {
+      font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 11px; color: var(--text-3); margin-bottom: 12px; word-break: break-word;
+    }
+    .widget-card p { font-size: 13px; color: var(--text); margin: 0 0 8px; line-height: 1.55; }
+    .widget-card .props {
+      font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 10.5px; color: var(--text-3);
+      border-top: 1px solid var(--divider); padding-top: 10px; margin-top: 10px; line-height: 1.7;
+    }
+
+    /* Status checklist */
+    .status-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+      margin: 16px 0 24px;
+    }
+    @media (min-width: 760px) {
+      .status-grid { grid-template-columns: 1fr 1fr; }
+    }
+    .status-box {
+      border: 1px solid var(--divider);
+      border-radius: 12px;
+      background: var(--ink-2);
+      padding: 16px 18px;
+    }
+    .status-box h4 {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text-3); margin: 0 0 12px;
+    }
+    .status-box .count {
+      color: var(--text-3); font-size: 10.5px; font-weight: 600;
+      letter-spacing: 0.02em; text-transform: none;
+      font-family: 'JetBrains Mono', monospace; margin-left: 6px;
+    }
+    .status-list { list-style: none; padding: 0; margin: 0; }
+    .status-list li {
+      padding: 6px 0 6px 30px; font-size: 12.5px;
+      color: var(--text); position: relative; line-height: 1.5;
+    }
+    .status-list li + li { border-top: 1px solid var(--divider); }
+    .status-list li::before {
+      position: absolute; left: 4px; top: 8px;
+      width: 18px; height: 18px; border-radius: 4px;
+      display: inline-grid; place-items: center;
+      font-size: 11px; font-weight: 700;
+      line-height: 1; text-align: center;
+    }
+    .status-list li.done::before {
+      content: '\2713'; background: var(--lime); color: var(--ink);
+    }
+    .status-list li.done { color: var(--text-2); }
+    .status-list li.todo::before {
+      content: ''; background: transparent;
+      border: 1.5px solid rgba(255,255,255,0.35);
+    }
+    .status-list li.inprog::before {
+      content: '\2022'; background: var(--blue); color: white; font-size: 14px;
+    }
+    .status-list li.deferred::before {
+      content: '\2026'; background: var(--amber); color: var(--ink);
+      font-size: 13px; padding-bottom: 2px;
+    }
+    .status-list li.deferred { color: var(--text-3); }
+    .status-list li.open::before {
+      content: '?'; background: var(--blue); color: white;
+    }
+    .status-legend {
+      display: flex; gap: 14px; flex-wrap: wrap;
+      margin: 8px 0 16px; font-size: 11.5px; color: var(--text-3);
+    }
+    .status-legend .item { display: flex; align-items: center; gap: 6px; }
+    .status-legend .dot {
+      width: 14px; height: 14px; border-radius: 3px;
+      display: inline-grid; place-items: center;
+      font-size: 9px; font-weight: 700; color: var(--ink);
+    }
+    .status-legend .dot.done { background: var(--lime); }
+    .status-legend .dot.done::after { content: '\2713'; }
+    .status-legend .dot.todo { background: transparent; border: 1.5px solid rgba(255,255,255,0.35); }
+    .status-legend .dot.inprog { background: var(--blue); color: white; }
+    .status-legend .dot.inprog::after { content: '\2022'; font-size: 11px; }
+    .status-legend .dot.deferred { background: var(--amber); }
+    .status-legend .dot.deferred::after { content: '\2026'; }
+    .status-legend .dot.open { background: var(--blue); color: white; }
+    .status-legend .dot.open::after { content: '?'; }
+
+    /* Open questions */
+    .q-list { list-style: none; padding: 0; margin: 8px 0; }
+    .q-list li {
+      padding: 10px 14px 10px 36px; margin: 8px 0;
+      border: 1px solid var(--divider); background: var(--ink-2); border-radius: 10px;
+      position: relative; color: var(--text); font-size: 13.5px; line-height: 1.55;
+    }
+    .q-list li::before {
+      content: '?'; position: absolute; left: 14px; top: 10px;
+      color: var(--amber); font-weight: 700; font-size: 14px;
+    }
+
+    footer {
+      margin-top: 72px; padding-top: 24px; border-top: 1px solid var(--divider);
+      color: var(--text-3); font-size: 12px;
+      display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    footer a { color: var(--lime); text-decoration: none; }
+
+    /* ── Status section ── */
+    .status-section {
+      border: 1px solid var(--lime-edge);
+      border-radius: 18px;
+      background: linear-gradient(160deg, var(--ink-3) 0%, var(--ink-2) 100%);
+      padding: 28px 28px 22px;
+      margin: 32px 0 48px;
+    }
+    .status-title {
+      font-size: 22px; font-weight: 700; letter-spacing: -0.01em;
+      color: var(--lime); margin: 0 0 4px;
+    }
+    .status-sub {
+      font-size: 13px; color: var(--text-3);
+      font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+      margin: 0 0 22px;
+    }
+    .status-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+    @media (min-width: 740px) {
+      .status-grid { grid-template-columns: 1fr 1fr; gap: 24px; }
+    }
+    @media (min-width: 1000px) {
+      .status-grid { grid-template-columns: 1fr 1fr 1fr; }
+    }
+    .status-group { }
+    .status-group-title {
+      font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text-3);
+      margin: 0 0 10px; padding-bottom: 6px;
+      border-bottom: 1px solid var(--divider);
+    }
+    .status-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 5px 0; font-size: 12.5px; color: var(--text);
+    }
+    .s-dot {
+      width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+    }
+    .s-text { flex: 1; line-height: 1.4; }
+    .s-tag {
+      font-size: 9.5px; padding: 2px 8px; border-radius: 999px;
+      font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    /* done: scene specced in detail */
+    .s-done .s-dot   { background: var(--lime); }
+    .s-done .s-tag   { background: var(--lime-soft); color: var(--lime); }
+    /* specced: plan section written, build not started */
+    .s-specced .s-dot { background: transparent; border: 2px solid var(--lime); }
+    .s-specced .s-tag { background: var(--lime-soft); color: var(--lime); }
+    /* pending: needs scene review or build work */
+    .s-pending .s-dot { background: transparent; border: 2px solid var(--amber); }
+    .s-pending .s-tag { background: var(--amber-soft); color: var(--amber); }
+    /* deferred: v.Next+ feature */
+    .s-deferred .s-dot { background: var(--ink-3); border: 1.5px solid var(--divider); }
+    .s-deferred .s-text { color: var(--text-3); }
+    .s-deferred .s-tag { background: var(--ink-3); color: var(--text-3); border: 1px solid var(--divider); }
+
+    @media print {
+      body { background: white; color: black; }
+      pre, .stage-flow { background: #f6f6f6; color: #000; border: 1px solid #ddd; font-size: 9.5px; }
+      .stage, .widget-card, .mode-card, .col2 .col { background: white !important; border: 1px solid #ccc !important; }
+      .col2 .col.kill { background: #ffe2e2 !important; }
+      .col2 .col.new  { background: #ecf6dd !important; }
+      .tldr { background: #ecf6dd !important; color: #000; border-color: #83d63a; }
+      .tldr p, .tldr strong { color: #000 !important; }
+      p, .sub, .section-sub, .meta, td, .mode-purpose, .widget-card p { color: #222 !important; }
+      h1, h2, h3, h4 { color: #000 !important; }
+      h2 .num { color: #6cbd2c !important; }
+      .col2 .col.kill h4 { color: #b13a3a !important; }
+      .col2 .col.new  h4 { color: #4a7a18 !important; }
+      code { background: #eee; color: #2a6a08; }
+      th { background: #eee; color: #000; }
+      .pill { background: #eee; color: #444; border-color: #ccc; }
+      .pill.lime { background: #ecf6dd; color: #4a7a18; }
+      .pill.amber { background: #fff5dc; color: #8b5e10; }
+      h2 { page-break-before: auto; page-break-after: avoid; }
+      pre, .stage, .widget-card, .mode-card, table { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 100 100" aria-hidden="true">
+        <path d="M18 28 L38 50 L18 72" stroke="white" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M82 28 L62 50 L82 72" stroke="white" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M32 28 L52 50 L32 72" stroke="#83d63a" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M68 28 L48 50 L68 72" stroke="#83d63a" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="brand-text">XO Phone</span>
+    </div>
+    <h1>v0 to v.Next, pivot</h1>
+    <p class="sub">Thin client over xo-cowork-api. Three modes as a swipeable pager. Widgets that pull live data. Operator-keyed.</p>
+    <div class="meta-row">
+      <span class="pill lime">v0 tagged</span>
+      <span class="pill">branch: nextjs-migration</span>
+      <span class="pill amber">pivot: 2026-05-20</span>
+      <span class="pill">target: 6 to 8 weeks</span>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════ STATUS ═══════════════════════ -->
+  <div class="status-section">
+    <div class="status-title">Status</div>
+    <div class="status-sub">v1.x shipped (commit b52d3ab) &middot; Sections A + C + G done &middot; last updated 2026-05-22</div>
+
+    <div class="status-grid">
+
+      <!-- Col 1: Build sections -->
+      <div class="status-group">
+        <div class="status-group-title">v.Next build sections</div>
+
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">A: Rip TS agent backend</span>
+          <span class="s-tag">shipped</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">C: Pager (4-layer, 3 modes)</span>
+          <span class="s-tag">shipped</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">G: Clerk auth (SignInOverlay, AuthDockTile)</span>
+          <span class="s-tag">shipped</span>
+        </div>
+        <div class="status-item s-pending">
+          <span class="s-dot"></span>
+          <span class="s-text">D: Chat dock UI shell</span>
+          <span class="s-tag">specced</span>
+        </div>
+        <div class="status-item s-pending">
+          <span class="s-dot"></span>
+          <span class="s-text">E: Widgets (Mood + Thought)</span>
+          <span class="s-tag">specced</span>
+        </div>
+        <div class="status-item s-pending">
+          <span class="s-dot"></span>
+          <span class="s-text">I: Consolidated overlay</span>
+          <span class="s-tag">specced</span>
+        </div>
+
+        <div class="status-group-title" style="margin-top: 18px;">v.Next+ deferred (cowork integration)</div>
+
+        <div class="status-item s-deferred">
+          <span class="s-dot"></span>
+          <span class="s-text">B: cowork-api Next proxy</span>
+          <span class="s-tag">deferred</span>
+        </div>
+        <div class="status-item s-deferred">
+          <span class="s-dot"></span>
+          <span class="s-text">H: cowork-derived apps</span>
+          <span class="s-tag">deferred</span>
+        </div>
+        <div class="status-item s-deferred">
+          <span class="s-dot"></span>
+          <span class="s-text">J: agent-driven OS actions</span>
+          <span class="s-tag">deferred</span>
+        </div>
+        <div class="status-item s-deferred">
+          <span class="s-dot"></span>
+          <span class="s-text">F: Feed mode (content)</span>
+          <span class="s-tag">deferred</span>
+        </div>
+      </div>
+
+      <!-- Col 2: Scenes -->
+      <div class="status-group">
+        <div class="status-group-title">Screens (v1.x)</div>
+
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Screen 01: Lockscreen (Thought + Via tap)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Screen 02: Landing (8 tiles, uniform dock)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Screen 03: Mode swipe (4-layer Pager)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Screen 04: Agent home (folders + glass)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Screen 05: Folder overlay (glass card, 2x2)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Screen 06: Feed (ComingSoon + Via)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Screen 07: Stories viewer (How-to, About)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Screen 08: Chat expand transition</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Screen 09: Chat expanded (UI shell)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Screen 10: SignInOverlay (Clerk sheet)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Screen 11: Overlay panel</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Screen 12: Error screen (Via + retry)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Screen 13: Handoff (AuthDockTile)</span>
+          <span class="s-tag">done</span>
+        </div>
+      </div>
+
+      <!-- Col 3: Milestones + docs -->
+      <div class="status-group">
+        <div class="status-group-title">Milestones</div>
+
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">v0 tagged (commit 2f41ca2)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">v1.x shipped (commit b52d3ab)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Clerk auth wired</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Folder system (kind: folder, glass card)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Stories viewer (chromeless, IG-style)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">Glass morphism on all tiles</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">20+ new apps (social, productivity, games)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">ModeIslandIndicator (pill, tappable)</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-pending">
+          <span class="s-dot"></span>
+          <span class="s-text">Chat backend (cowork, v.Next+)</span>
+          <span class="s-tag">next up</span>
+        </div>
+        <div class="status-item s-deferred">
+          <span class="s-dot"></span>
+          <span class="s-text">v.Next+ cowork integration</span>
+          <span class="s-tag">deferred</span>
+        </div>
+        <div class="status-group-title" style="margin-top: 18px;">Planning docs</div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">V_NEXT_PLAN.html</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">SCREENS.html</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">COWORK_INTERACTION.html</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-done">
+          <span class="s-dot"></span>
+          <span class="s-text">ADR_001_COWORK_INTEGRATION.html</span>
+          <span class="s-tag">done</span>
+        </div>
+        <div class="status-item s-deferred">
+          <span class="s-dot"></span>
+          <span class="s-text">cowork-api backend changes</span>
+          <span class="s-tag">deferred</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <div class="tldr">
+    <p><strong>Pivot, 2026-05-20.</strong> The TypeScript agent backend (Anthropic SDK, <code>/api/agent/*</code>, <code>lib/agent/*</code>) is deleted. v.Next ships the phone OS <strong>UI shell only</strong>: lockscreen, pager (3 modes + sub-pages), chat dock button + expand animation, widgets that work locally, consolidated overlay. <strong>cowork-api integration is a v.Next+ feature drop</strong> (Sections B, G, H, J marked deferred). This means the v.Next build plan reduces to 5 sections: A, C, D, E, I. Each can be handed off to a fresh agent.</p>
+  </div>
+
+  <!-- Big picture: master component + data flow -->
+  <h2 style="margin-top: 56px;">The big picture, components &times; data flow</h2>
+  <p class="section-sub">One map for the whole system. Three tiers (browser, Next proxy, cowork-api), all data flows, and where Clerk / XO_API_KEY / username inject. Read this top-down before diving into the section-by-section build plan below. See <strong>COWORK_INTERACTION.html</strong> for the endpoint catalog and step-by-step flows.</p>
+
+<pre class="stage-flow" style="font-size: 11px; line-height: 1.5;">
+&#9556;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9559;
+&#9553;                          BROWSER (phone OS)                            &#9553;
+&#9553;                                                                        &#9553;
+&#9553;   ClerkProvider (session cookie attached to every /api/* request)       &#9553;
+&#9553;     &#9492; ModeProvider                                                       &#9553;
+&#9553;        &#9492; LockProvider                                                    &#9553;
+&#9553;           &#9492; PhoneProvider                                                &#9553;
+&#9553;              &#9492; GestureProvider                                           &#9553;
+&#9553;                 &#9492; DeviceFrame                                            &#9553;
+&#9553;                    &#9500; StatusBar                                           &#9553;
+&#9553;                    &#9500; LockScreen   (Mood, Thought, Clock, tap-to-pat)    &#9553;
+&#9553;                    &#9500; Pager        (Landing | Agent | Public; sub-pages) &#9553;
+&#9553;                    &#9474;  &#9492; HomeScreen   (grid, widgets, dock)              &#9553;
+&#9553;                    &#9500; AppView      (kind: native | api | mdx | iframe)   &#9553;
+&#9553;                    &#9500; ChatExpanded (from dock Chat button, layoutId)     &#9553;
+&#9553;                    &#9500; Overlay      (notif + controls + search, top-pull)&#9553;
+&#9553;                    &#9492; ActionDispatcher  &#9665;&#9472; client-action events            &#9553;
+&#9553;                                                                        &#9553;
+&#9553;   All HTTP requests go to /api/*  (never to :5002 directly)             &#9553;
+&#9562;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9565;
+                          &#9474;
+                          &#9474; HTTPS, Clerk cookie attached
+                          &#9660;
+&#9556;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9559;
+&#9553;                   NEXT.JS ROUTE HANDLERS (server)                       &#9553;
+&#9553;                                                                        &#9553;
+&#9553;   Common pattern, every route, ~30 LOC:                                 &#9553;
+&#9553;     1. const username = await getUsername(req)   &#9472;&#9472; reads Clerk         &#9553;
+&#9553;     2. headers: Authorization Bearer ${process.env.XO_API_KEY}          &#9553;
+&#9553;     3. headers: X-XO-Username ${username || "__operator__"}             &#9553;
+&#9553;     4. fetch(`${process.env.COWORK_API_URL}${path}`, ...)               &#9553;
+&#9553;     5. return new Response(upstream.body, { status, headers })          &#9553;
+&#9553;                                                                        &#9553;
+&#9553;   Chat:           Widgets:              Cowork-derived apps:            &#9553;
+&#9553;     /api/chat        /api/widgets/        /api/cowork/sessions          &#9553;
+&#9553;     /api/chat/        agent-status        /api/cowork/files             &#9553;
+&#9553;        stream/[id]    /api/widgets/        /api/cowork/agents           &#9553;
+&#9553;     /api/chat/        quip                /api/cowork/channels         &#9553;
+&#9553;        abort                              /api/cowork/usage            &#9553;
+&#9562;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9565;
+                          &#9474;
+                          &#9474; HTTPS, Authorization + X-XO-Username headers
+                          &#9660;
+&#9556;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9559;
+&#9553;                       xo-cowork-api :5002                              &#9553;
+&#9553;                                                                        &#9553;
+&#9553;   Multi-tenant: scopes every read/write by X-XO-Username                &#9553;
+&#9553;   Auth: validates Authorization Bearer ${XO_API_KEY} (operator)         &#9553;
+&#9553;                                                                        &#9553;
+&#9553;   Chat (NEW: emits client-action SSE events):                           &#9553;
+&#9553;     POST /api/chat/prompt          &#8594; { stream_id, session_id }         &#9553;
+&#9553;     GET  /api/chat/stream/{id} SSE &#8594; session-created, text-delta,      &#9553;
+&#9553;                                       heartbeat, done, agent-error,    &#9553;
+&#9553;                                       client-action {kind, ...}        &#9553;
+&#9553;     POST /api/chat/abort                                                &#9553;
+&#9553;                                                                        &#9553;
+&#9553;   Read:    /api/sessions/, /api/messages/{id}                           &#9553;
+&#9553;            /api/files/list-directory, /api/files/content                &#9553;
+&#9553;            /api/agents/, /api/channels/, /api/usage                     &#9553;
+&#9553;            /api/config/workspace, /health                               &#9553;
+&#9553;   Conn:    /api/connectors/{gdrive,onedrive,github,vercel,manus}/*      &#9553;
+&#9562;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9565;
+                  &#9474;                          &#9474;
+                  &#9660;                          &#9660;
+        &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;     &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+        &#9474; Anthropic / OpenAI&#9474;     &#9474; OpenClaw / Codex&#9474;
+        &#9474;  (chat backends) &#9474;     &#9474;  (legacy runtime)&#9474;
+        &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;     &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+</pre>
+
+  <p><strong>Five major flows:</strong> chat send (POST then SSE), widget poll (periodic GET), cowork app open (Server Component fetch), agent drives the OS (<code>client-action</code> SSE event), sign-in gate (Pager intercepts swipe). All five spelled out step-by-step in <a href="COWORK_INTERACTION.html">COWORK_INTERACTION.html</a>.</p>
+
+  <!-- Status checklist -->
+  <h2 style="margin-top: 56px;">Status, where we are</h2>
+  <p class="section-sub">Progress at a glance across planning, build, scenes, and open decisions. Updates as we resolve items.</p>
+
+  <div class="status-legend">
+    <span class="item"><span class="dot done"></span>Done / decided</span>
+    <span class="item"><span class="dot inprog"></span>In progress</span>
+    <span class="item"><span class="dot todo"></span>Not started</span>
+    <span class="item"><span class="dot deferred"></span>Deferred to v.Next+</span>
+    <span class="item"><span class="dot open"></span>Open decision</span>
+  </div>
+
+  <div class="status-grid">
+
+    <div class="status-box">
+      <h4>Planning artifacts <span class="count">4 / 4</span></h4>
+      <ul class="status-list">
+        <li class="done">V_NEXT_PLAN.html (this doc)</li>
+        <li class="done">SCREENS.html, 13 phone-frame mockups</li>
+        <li class="done">COWORK_INTERACTION.html, endpoint-to-surface map</li>
+        <li class="done">Big-picture component diagram (top of plan)</li>
+      </ul>
+    </div>
+
+    <div class="status-box">
+      <h4>Architectural decisions <span class="count">12 locked</span></h4>
+      <ul class="status-list">
+        <li class="done">Thin-client architecture (no TS Anthropic SDK)</li>
+        <li class="done">3 modes as swipeable pager (landing, agent, public)</li>
+        <li class="done">iOS-style sub-pages within a mode</li>
+        <li class="done">Dock convention: Chat &middot; _ &middot; _ &middot; Sign Up/Create Your Own</li>
+        <li class="done">Chat is a dock button (expands to fullscreen)</li>
+        <li class="done">3 overlays consolidated into one (top swipe-down)</li>
+        <li class="done">Per-mode auth flag (landing public, agent required)</li>
+        <li class="done">Multi-tenancy via Clerk + X-XO-Username header</li>
+        <li class="done">Agent-driven actions via client-action SSE events</li>
+        <li class="done">Single chat session per user</li>
+        <li class="done">cowork-api integration deferred to v.Next+</li>
+        <li class="done">No client-side external API calls (CLAUDE.md rule)</li>
+      </ul>
+    </div>
+
+    <div class="status-box">
+      <h4>v.Next build, UI only <span class="count">0 / 5</span></h4>
+      <ul class="status-list">
+        <li class="todo">Step 1, Section A: Rip out TS agent backend</li>
+        <li class="todo">Step 2, Section C: Pager (modes + sub-pages)</li>
+        <li class="todo">Step 3, Section I: Consolidated overlay panel</li>
+        <li class="todo">Step 4, Section D: Chat dock + expand UI</li>
+        <li class="todo">Step 5, Section E: Mood + Thought widgets</li>
+      </ul>
+    </div>
+
+    <div class="status-box">
+      <h4>v.Next+ build, cowork drop <span class="count">0 / 5</span></h4>
+      <ul class="status-list">
+        <li class="deferred">Section B: Server proxy + browser cowork client</li>
+        <li class="deferred">Section G: Clerk multi-tenancy + per-mode auth gate</li>
+        <li class="deferred">Section H: Cowork endpoints as kind:"api" apps</li>
+        <li class="deferred">Section J: Agent-driven OS actions (client-action SSE)</li>
+        <li class="deferred">Section F: Public mode (own session)</li>
+      </ul>
+    </div>
+
+    <div class="status-box">
+      <h4>Scenes spec'd <span class="count">2 / 13</span></h4>
+      <ul class="status-list">
+        <li class="done">Scene 1: Lockscreen (Mood, Thought, tap-to-pat)</li>
+        <li class="done">Scene 2: Landing (Docs/Journal/Pricing/Demo/Get Started + dock)</li>
+        <li class="todo">Scene 3: Mode swipe transition</li>
+        <li class="todo">Scene 4: Agent home (dock middles, app ordering)</li>
+        <li class="todo">Scene 5: Agent sub-page (within-mode pagination)</li>
+        <li class="todo">Scene 6: Public placeholder</li>
+        <li class="todo">Scene 7: Chat dock button at rest</li>
+        <li class="todo">Scene 8: Chat expand transition</li>
+        <li class="todo">Scene 9: Chat expanded surface</li>
+        <li class="todo">Scene 10: Agent driving the OS</li>
+        <li class="todo">Scene 11: Consolidated overlay panel</li>
+        <li class="todo">Scene 12: Clerk sign-in gate</li>
+        <li class="todo">Scene 13: Sign up handoff</li>
+      </ul>
+    </div>
+
+    <div class="status-box">
+      <h4>Open decisions <span class="count">7 floating</span></h4>
+      <ul class="status-list">
+        <li class="open">Agent dock middles (Scene 4)</li>
+        <li class="open">Get Started tile target (setup mode hidden)</li>
+        <li class="open">Create Your Own button target (signed-in rightmost dock)</li>
+        <li class="open">Journal app full spec (new app concept)</li>
+        <li class="open">About + Via dock buttons (existing apps or new routes)</li>
+        <li class="open">Thought of the day source (local quips vs cowork)</li>
+        <li class="open">Lockscreen "more interactive" stretch scope</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- Section 1: New architecture -->
+  <h2><span class="num">1.</span>New architecture, thin client over cowork-api</h2>
+  <p class="section-sub">The phone OS no longer hosts an agent backend. xo-cowork-api owns chat, sessions, files, agents, usage. The Next.js app is UI and nothing else.</p>
+
+  <div class="col2">
+    <div class="col kill">
+      <h4>Before, v0</h4>
+<pre class="stage-flow">
+Browser (phone OS)
+   &#9474;  POST /api/agent/turn
+   &#9474;  SSE  /api/agent/stream
+   &#9474;  POST /api/agent/ack
+   &#9660;
+Next.js Route Handler
+   &#9474;  Claude Agent SDK 0.3.144
+   &#9474;  MCP: xo-os (7 tools)
+   &#9474;  MCP: xo-cowork (6 tools)
+   &#9474;  in-memory session map
+   &#9660;
+&#9500;&#9472;&#9472;&#9472;&#9472;&#9472; Anthropic API
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472; xo-cowork-api :5002
+              (HTTP wrapper, server-side)
+</pre>
+    </div>
+    <div class="col new">
+      <h4>After, v.Next</h4>
+<pre class="stage-flow">
+Browser (phone OS, thin client)
+   &#9474;  Clerk session cookie attached
+   &#9474;  POST /api/chat
+   &#9474;  GET  /api/chat/stream/{id}
+   &#9474;  GET  /api/widgets/*
+   &#9474;  GET  /api/cowork/sessions
+   &#9474;  GET  /api/cowork/files
+   &#9474;  ... (one Next route per cowork app)
+   &#9660;
+Next.js Route Handlers (thin proxy)
+   &#9474;  reads Clerk session &#8594; userId, username
+   &#9474;  adds Authorization: Bearer ${XO_API_KEY}
+   &#9474;  adds X-XO-Username: ${username}
+   &#9474;        (or operator default if signed out)
+   &#9474;  ~30 LOC each, no business logic
+   &#9660;
+xo-cowork-api :5002
+   &#9474;  multi-tenant: scopes data by username
+   &#9474;  owns chat + sessions + files +
+   &#9474;  agents + usage + connectors
+   &#9660;
+&#9500;&#9472;&#9472;&#9472;&#9472;&#9472; Anthropic / OpenAI
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472; OpenClaw / Codex
+</pre>
+    </div>
+  </div>
+
+  <p><strong>Three new architectural facts.</strong></p>
+  <p><strong>1) Client never touches cowork-api.</strong> Every cowork-api call goes through a Next.js Route Handler. <code>XO_API_KEY</code> and <code>COWORK_API_URL</code> are server-only env (no <code>NEXT_PUBLIC_</code>). Per workspace CLAUDE.md rule.</p>
+  <p><strong>2) Multi-tenant via Clerk.</strong> The phone OS wires <code>@clerk/nextjs</code>. Every Next proxy reads the Clerk session, extracts the username, and forwards it to cowork-api on every request. Signed-in users see their workspace; signed-out visitors fall back to the operator's workspace (a "demo" view of yours). cowork-api scopes data by username on its side.</p>
+  <p><strong>3) cowork endpoints render as apps.</strong> Each useful cowork-api endpoint becomes a <code>kind: "api"</code> app tile in Agent mode: Sessions, Files, Agents, Channels, Connectors, Usage, etc. Adding a new cowork app is one <code>app/&lt;route&gt;/app.ts</code> + one Next proxy route + one renderer. Adding cowork apps pushes the Agent grid past one screen, so Agent mode supports iOS-style sub-pages within the mode.</p>
+  <p><strong>4) Agent can drive the OS.</strong> The cowork-api chat stream extends its SSE event taxonomy with a new <code>client-action</code> event: <code>{kind, ...args}</code>. The phone OS listens on the same EventSource it already uses for text deltas and runs an action dispatcher. Kinds include <code>navigate</code>, <code>go-home</code>, <code>pop-back</code>, <code>open-overlay</code>, <code>close-overlay</code>, <code>collapse-chat</code>. User asks "show me my files" &#8594; agent emits <code>{kind: "navigate", route: "/files"}</code> &#8594; the OS routes there. The chat stays open while the OS reframes. This is what makes the phone feel like the agent is using it, not just answering questions in a box.</p>
+  <p><strong>5) One chat session per user.</strong> Each user has exactly one ongoing chat session with the agent, ever. No session picker, no "new chat" button, no session history list. The chat dock button always opens the user's single conversation. <code>session_id</code> is resolved server-side from Clerk username on every chat call; no client-side session_id management needed. The "Sessions" cowork app drops out of the catalog (a list of one is not an app); the conversation IS the dock chat.</p>
+
+  <!-- Section 2: 3 modes -->
+  <h2><span class="num">2.</span>Three modes, one swipeable pager</h2>
+  <p class="section-sub">No more mode toggle in Control Center. No mode banner. Modes are pages. Swiping between pages fires the <strong>existing mode-change choreography</strong> (~600ms): dock slides, wallpaper crossfades, status bar tints. The swipe is the trigger; the mode change is the substance. The lockscreen guards all three; on unlock the visitor lands on Landing (page 1).</p>
+  <p><strong>iOS-style sub-pages, within a mode.</strong> When a mode's app grid overflows one screen (Agent does, with cowork-api apps added), the mode itself paginates horizontally exactly like an iPhone home screen. Page dots above the dock, snap physics, peek-on-drag. <strong>Key departure from iOS:</strong> the dock changes between modes (not between sub-pages of the same mode). Inside a mode, dock is constant across all sub-pages.</p>
+  <p><strong>Dock convention, every mode.</strong> Leftmost slot is always <strong>Chat</strong>. Rightmost slot is <strong>auth-conditional</strong>: when signed out, it's the external <strong>Sign Up</strong> link (new tab); when signed in, it becomes <strong>Create Your Own</strong> (workspace creation flow; target TBD). The middle two slots change per mode. That convention is what makes the swipe feel coherent: visitor sees the same Chat anchor on the left and the same conversion exit on the right, only the middle moves between modes.</p>
+  <p><strong>Chat lives in the dock.</strong> The leftmost dock button on every mode is Chat. Tap it: the button expands from its position into a full-screen chat surface. The app grid icons fade out, and the rest of the dock morphs into the chat input bar. Back chevron collapses it back to the button. No separate "chat widget" above the dock; the dock Chat button is the entry point on every page. The expanded state replaces what v0 called the <code>/ask</code> page.</p>
+  <p><strong>Overlays consolidated to one.</strong> Spotlight (pull-down on grid), Control Center (top-right swipe), Notification panel (top-left swipe) collapse into <strong>one</strong> panel triggered by a single top swipe-down (anywhere along the top edge, no more corner zones). The combined panel is scrollable with sections for notifications, control toggles, and search. Renamed and unified under "Notification panel".</p>
+  <p><strong>Per-mode auth gating.</strong> Each mode declares <code>auth: "public" | "required"</code>. Landing = public, Agent = required, Public = public. Trying to swipe into a required mode while signed out fires the Clerk sign-in surface (Screen 12); successful sign-in completes the swipe. Pages inherit their mode's auth by default; per-page override comes later if needed. This replaces the "post-Via-demo trigger" with a deterministic rule: the gate fires exactly when the user crosses into a gated mode.</p>
+
+  <div class="mode-grid">
+    <div class="mode-card">
+      <span class="mode-num">PAGE 1 &middot; PUBLIC</span>
+      <h4>Landing</h4>
+      <p class="mode-purpose">First page after unlock. The 90-second introduction to XO. Anonymous visitors see operator workspace as demo. Chat in the dock is the agent entry point. Coworker + Swarm moved off Landing (they live in Agent mode now); replaced by Docs + Journal as discovery surfaces.</p>
+      <div class="mode-meta">
+        <strong>auth: "public"</strong> &middot; no sign-in required<br>
+        Apps: <strong>Docs &middot; Journal &middot; Pricing &middot; Demo &middot; Get Started</strong> (5 tiles)<br>
+        Dock: <strong>Chat &middot; About &middot; Via &middot; Sign Up</strong> (signed-out, ext) | <strong>Create Your Own</strong> (signed-in)<br>
+        Widgets: none on the grid (Mood + Thought live on lockscreen)
+      </div>
+    </div>
+    <div class="mode-card">
+      <span class="mode-num">PAGE 2 &middot; AUTH REQ.</span>
+      <h4>Agent</h4>
+      <p class="mode-purpose">The full XO app suite (what v0 calls "default mode") PLUS new <code>kind: "api"</code> apps generated from cowork-api endpoints: Sessions, Files, Agents, Channels, Connectors, Usage. With the cowork apps added, Agent mode overflows one screen, so it supports <strong>iOS-style sub-pages within the mode</strong>. Dock stays the same across sub-pages; only changes when you swipe to a different MODE. All three widgets live here. <strong>Sign-in required</strong>: attempts to swipe here while signed out trigger the Clerk gate (Screen 12).</p>
+      <div class="mode-meta">
+        <strong>auth: "required"</strong> &middot; fires Clerk gate on entry attempt<br>
+        Apps: v0 default suite (13) + cowork-derived API apps (6-10 more)<br>
+        Sub-pages: iOS-style within the mode<br>
+        Dock: Chat &middot; (empty) &middot; (empty) &middot; Sign up (ext)<br>
+        Widgets: Agent Status, Mood, Thought for the day
+      </div>
+    </div>
+    <div class="mode-card deferred">
+      <span class="mode-num">PAGE 3 &middot; PUBLIC</span>
+      <h4>Public</h4>
+      <p class="mode-purpose"><strong>Deferred.</strong> Public agent folders exposed for an agent-improvement loop. Will be planned in its own session. Reserve the swipe target now. By name, mode is <code>auth: "public"</code> for v.Next; final access policy decided in dedicated session.</p>
+      <div class="mode-meta">
+        <strong>auth: "public"</strong> &middot; placeholder, may revise in own session<br>
+        Dock: TBD<br>
+        Widgets: TBD
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 3: User journey -->
+  <h2><span class="num">3.</span>User journey, lockscreen to handoff</h2>
+  <p class="section-sub">One lockscreen guards all three modes. After unlock the visitor lands on Landing. Horizontal swipe moves between modes. Tap any tile to open its app, back chevron returns. Widgets are passive surfaces that animate when the cowork-api backend changes.</p>
+
+<pre>
+visitor &#8594; phone.xo.builders/
+   &#9474;
+   &#9660;
+1. SSR landing &#8594; LockScreen (animated XO wallpaper, clock, swipe up)
+   &#9474;
+   &#9660;
+2. UNLOCK (swipe up | tap pill | Esc/Space/Enter)
+   &#9474;
+   &#9660;
+3. PAGER lands on Page 1 (Landing, pure marketing, no widgets)
+   &#9474;  Apps: Docs, Journal, Pricing, Demo, Get Started
+   &#9474;  Dock: Chat &middot; About &middot; Via &middot; Sign Up (signed-out) | Create Your Own (signed-in)
+   &#9474;  Chat dock button is the chat entry point (tap to expand)
+   &#9474;
+   &#9500;&#9472; swipe left &#8594; Page 2 (Agent, full suite + cowork apps + widgets)
+   &#9474;             &#9474;  fires mode crossfade: dock slides, wallpaper
+   &#9474;             &#9474;  morphs, status bar tints (~600ms)
+   &#9474;             &#9474;  Apps: v0 default suite + Sessions, Files,
+   &#9474;             &#9474;        Agents, Channels, Usage, ... (cowork API apps)
+   &#9474;             &#9474;  Grid paginates iOS-style across sub-pages
+   &#9474;             &#9474;  Dock: Chat &middot; (empty) &middot; (empty) &middot; Sign up (ext)
+   &#9474;             &#9474;       (constant across sub-pages of Agent)
+   &#9474;             &#9474;  Widgets: Agent Status, Mood, Thought for the day
+   &#9474;             &#9474;
+   &#9474;             &#9492;&#9472; swipe left &#8594; Page 3 (Public, deferred)
+   &#9474;
+   &#9500;&#9472; tap tile on any page &#8594; AppView with layoutId morph
+   &#9474;                           &#9474;
+   &#9474;                           &#9492;&#9472; back chevron returns to its mode's home
+   &#9474;
+   &#9500;&#9472; swipe down from top (anywhere) &#8594; consolidated Overlay panel
+   &#9474;     contains: notifications + control toggles + search
+   &#9474;     scroll vertically inside; scrim tap or pull-up closes
+   &#9474;
+   &#9492;&#9472; tap ChatWidget (above dock) OR dock Chat button
+       &#9474;     widget expand animation (~450ms):
+       &#9474;       icons fade out, widget grows to ~80% screen,
+       &#9474;       dock morphs into input bar, back chevron appears
+       &#9660;
+   4. EXPANDED CHAT (browser only ever calls Next routes)
+       browser &#8594; POST /api/chat (Next route)
+          Next route reads Clerk session, attaches XO_API_KEY,
+          forwards to cowork-api /api/chat/prompt with username
+          &#8594; { stream_id, session_id }
+       browser &#8594; EventSource /api/chat/stream/{stream_id} (Next SSE proxy)
+          Next pipes upstream cowork-api stream to browser
+          events: session-created, text-delta, heartbeat, done, agent-error,
+                  client-action (NEW: agent drives OS via {kind,...} events)
+       Via mascot: idle &#8594; thinking &#8594; speaking &#8594; idle | error
+       on client-action event: dispatchAction()
+          navigate &#8594; router.push + PhoneContext.openApp
+          go-home  &#8594; goHome
+          collapse-chat &#8594; chat collapses but conversation persists
+   tap back chevron &#8594; collapse animation, dock button returns to rest
+   &#9474;
+   &#9660;
+5. "Get your own" CTA (always reachable, dock + post-agent nudge)
+   tap &#8594; window.open(app.xo.builders/signup?utm_source=phone.xo.builders)
+</pre>
+
+  <!-- Section 4: What dies, what's new -->
+  <h2><span class="num">4.</span>What dies, what's new</h2>
+  <p class="section-sub">The pivot is mostly delete. About 1,400 LOC of TypeScript and two heavy npm deps go away. The new code is smaller than the old.</p>
+
+  <div class="col2">
+    <div class="col kill">
+      <h4>Killed (delete in Section A)</h4>
+      <ul>
+        <li><span class="glyph">&minus;</span><span class="body">lib/agent/* <span class="meta">(~1,000 LOC, 8 files, Claude Agent SDK code)</span></span></li>
+        <li><span class="glyph">&minus;</span><span class="body">app/api/agent/turn/route.ts <span class="meta">(~115 LOC)</span></span></li>
+        <li><span class="glyph">&minus;</span><span class="body">app/api/agent/ack/route.ts <span class="meta">(~45 LOC)</span></span></li>
+        <li><span class="glyph">&minus;</span><span class="body">app/api/agent/quip/route.ts <span class="meta">(maybe keep, decide in Section A)</span></span></li>
+        <li><span class="glyph">&minus;</span><span class="body">components/agent/action-bus.ts <span class="meta">(no more SSE-to-client bridge)</span></span></li>
+        <li><span class="glyph">&minus;</span><span class="body">components/ModeBanner, ModeMismatchBanner <span class="meta">(pager makes them redundant)</span></span></li>
+        <li><span class="glyph">&minus;</span><span class="body">components/gestures/SpotlightPanel.tsx <span class="meta">(merged into one overlay)</span></span></li>
+        <li><span class="glyph">&minus;</span><span class="body">components/gestures/ControlCenterPanel.tsx <span class="meta">(merged into one overlay)</span></span></li>
+        <li><span class="glyph">&minus;</span><span class="body">components/gestures/NotificationPanel.tsx <span class="meta">(rewritten as the consolidated overlay)</span></span></li>
+        <li><span class="glyph">&minus;</span><span class="body">app/ask/* <span class="meta">(/ask app: chat is now a widget on every page, not an app)</span></span></li>
+        <li><span class="glyph">&minus;</span><span class="body">top-left + top-right corner zones <span class="meta">(replaced by single top-edge swipe-down)</span></span></li>
+        <li><span class="glyph">&minus;</span><span class="body">@anthropic-ai/claude-agent-sdk <span class="meta">(dep)</span></span></li>
+        <li><span class="glyph">&minus;</span><span class="body">@modelcontextprotocol/sdk <span class="meta">(dep)</span></span></li>
+      </ul>
+    </div>
+    <div class="col new">
+      <h4>New + repurposed (build in Sections B through H)</h4>
+      <ul>
+        <li><span class="glyph">+</span><span class="body">app/api/chat/route.ts, /stream/[id]/route.ts, /abort/route.ts <span class="meta">(Next proxies)</span></span></li>
+        <li><span class="glyph">+</span><span class="body">app/api/widgets/* <span class="meta">(agent-status, quip)</span></span></li>
+        <li><span class="glyph">+</span><span class="body">app/api/cowork/* <span class="meta">(one Next proxy per cowork-derived app: sessions, files, agents, channels, connectors, usage)</span></span></li>
+        <li><span class="glyph">~</span><span class="body">lib/cowork-api/* <span class="meta">(KEEP, expand: add auth + chat + multi-tenant username)</span></span></li>
+        <li><span class="glyph">+</span><span class="body">lib/cowork/browser-client.ts <span class="meta">(~80 LOC, calls Next routes only)</span></span></li>
+        <li><span class="glyph">+</span><span class="body">lib/auth/clerk.ts <span class="meta">(read Clerk session in Next routes; fall back to operator if signed out)</span></span></li>
+        <li><span class="glyph">+</span><span class="body">middleware.ts <span class="meta">(Clerk middleware, protects nothing yet, just reads session)</span></span></li>
+        <li><span class="glyph">+</span><span class="body">components/Pager.tsx <span class="meta">(horizontal swipe, 3 modes + sub-pages within a mode)</span></span></li>
+        <li><span class="glyph">+</span><span class="body">components/chat/ChatExpanded.tsx <span class="meta">(full-screen chat surface; expanded state of the dock Chat button)</span></span></li>
+        <li><span class="glyph">+</span><span class="body">components/chat/chat-transition.ts <span class="meta">(expand from dock button / collapse choreography)</span></span></li>
+        <li><span class="glyph">+</span><span class="body">lib/agent/actions.ts <span class="meta">(client-action dispatcher: navigate / go-home / open-overlay / etc.)</span></span></li>
+        <li><span class="glyph">+</span><span class="body">components/overlays/Overlay.tsx <span class="meta">(consolidated panel: notifications + toggles + search in one scroll)</span></span></li>
+        <li><span class="glyph">+</span><span class="body">components/widgets/AgentStatus.tsx, Mood.tsx, ThoughtOfTheDay.tsx</span></li>
+        <li><span class="glyph">+</span><span class="body">app/sessions/, /files/, /agents/, /channels/, /usage/ <span class="meta">(one app/&lt;route&gt;/ per cowork-derived API app)</span></span></li>
+        <li><span class="glyph">+</span><span class="body">data/modes/agent.ts, public.ts <span class="meta">(new mode files)</span></span></li>
+        <li><span class="glyph">+</span><span class="body">env (server-only): <code>XO_API_KEY</code>, <code>COWORK_API_URL</code>, <code>CLERK_SECRET_KEY</code></span></li>
+        <li><span class="glyph">+</span><span class="body">env (client-OK, Clerk SDK needs it): <code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code></span></li>
+        <li><span class="glyph">+</span><span class="body">deps: <code>@clerk/nextjs</code></span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Section 5: Build plan -->
+  <h2><span class="num">5.</span>Build plan, in execution order</h2>
+  <p class="section-sub">Each section is a fresh-agent-handoff-friendly unit. v.Next ships <strong>UI only</strong>: no cowork-api integration. cowork wiring (chat backend, widgets data, kind:"api" apps, agent-driven actions, Clerk multi-tenancy) lands as a separate <strong>v.Next+ feature drop</strong>. Section letters preserved for traceability; deferred sections live below the active set.</p>
+
+  <h3 style="margin: 24px 0 12px; color: var(--text); font-size: 14px;">Execution roadmap, v.Next ship (5 steps)</h3>
+<pre class="stage-flow" style="font-size: 11.5px; line-height: 1.65;">
+  STEP   SECTION   WHAT                                                  DEP
+  ────   ───────   ────────────────────────────────────────────────      ───
+   1.    A         Rip out TS agent backend                               &#8212;
+   2.    C         Pager (modes + sub-pages, swipe choreography)          1
+   3.    I         Consolidated overlay (notif + controls + search)       1
+   4.    D         Chat dock button + expand UI (no backend, animation)   1
+   5.    E         Widgets: Mood (tap-to-pat) + Thought for the day       1
+                   (both local; Agent Status deferred with H)
+
+  Notes:
+    - All 5 steps are pure-UI; no Next route handlers needed for v.Next
+    - Steps 2&ndash;5 can run parallel after Step 1 lands
+    - Reduced-motion paths verified on iOS Safari + Chrome iOS as part of polish
+    - Lockscreen interactivity ships with Step 5 (Mood widget powers tap-to-pat)
+</pre>
+
+  <h3 style="margin: 32px 0 12px; color: var(--amber); font-size: 14px;">Deferred: v.Next+ cowork-api integration (own drop)</h3>
+<pre class="stage-flow" style="font-size: 11.5px; line-height: 1.65; border-color: rgba(255,181,71,0.4);">
+  STEP   SECTION   WHAT
+  ────   ───────   ────────────────────────────────────────────────
+   6.    B         Next route proxies + browser cowork client
+   7.    G         Clerk multi-tenancy + per-mode auth gate
+   8.    H         cowork endpoints as kind:"api" apps
+   9.    J         Agent-driven OS actions (client-action SSE events)
+  10.    F         Public mode (planned in dedicated session)
+</pre>
+  <p>The deferred set is fully specced (Sections B, G, H, J, F below). Picking it up after v.Next ships is a clean continuation: the UI shapes are already locked, the data sources just get wired.</p>
+
+  <!-- Section A: Rip TS agent backend -->
+  <div class="stage">
+    <div class="stage-header">
+      <span class="stage-num">A</span>
+      <span class="stage-title">Rip out TS agent backend</span>
+      <span class="stage-meta">est. 1 day &middot; unblocks everything else</span>
+    </div>
+    <p class="stage-goal">Delete the in-Next agent runtime. Remove the heavy deps. Land a buildable, typecheck-clean tree with no agent code.</p>
+
+    <div class="stage-cols">
+      <div class="col">
+        <h4>Files to delete</h4>
+        <ul class="feature-list">
+          <li><code>lib/agent/server.ts</code></li>
+          <li><code>lib/agent/auth.ts</code></li>
+          <li><code>lib/agent/session-store.ts</code></li>
+          <li><code>lib/agent/transport.ts</code></li>
+          <li><code>lib/agent/turn-context.ts</code></li>
+          <li><code>lib/agent/os-snapshot.ts</code></li>
+          <li><code>lib/agent/os-tools.ts</code></li>
+          <li><code>lib/agent/cowork-tools.ts</code></li>
+          <li><code>app/api/agent/turn/route.ts</code></li>
+          <li><code>app/api/agent/ack/route.ts</code></li>
+          <li><code>app/api/agent/quip/route.ts</code> (audit first; may keep as local quote)</li>
+          <li><code>components/agent/action-bus.ts</code></li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4>Files to keep / modify</h4>
+        <ul class="feature-list">
+          <li><strong>KEEP</strong> <code>lib/cowork-api/client.ts</code> + <code>types.ts</code> (server-side wrapper, expand in Section B)</li>
+          <li><code>package.json</code>: drop <code>@anthropic-ai/claude-agent-sdk</code>, <code>@modelcontextprotocol/sdk</code></li>
+          <li><code>components/agent/AgentSurface.tsx</code>: stub it out (full rewrite in Section D)</li>
+          <li><code>context/AgentContext.tsx</code>: simplify or delete (Section D decides)</li>
+          <li><code>pnpm-lock.yaml</code>: regenerate</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="stage-section">
+      <h4>Acceptance</h4>
+      <ul class="crit-list">
+        <li><code>pnpm typecheck</code> clean</li>
+        <li><code>pnpm build</code> succeeds</li>
+        <li>Phone OS boots; agent surface shows a "rewiring" placeholder (no crash)</li>
+        <li>Bundle size noticeably smaller (track in commit message)</li>
+      </ul>
+    </div>
+
+    <div class="stage-section">
+      <h4>Dependencies</h4>
+      <ul class="dep-list">
+        <li>None. This is the foundation. Start here.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Section B: server proxy + thin browser client -->
+  <div class="stage deferred">
+    <div class="stage-header">
+      <span class="stage-num">B</span>
+      <span class="stage-title">Server proxy + thin browser cowork client</span>
+      <span class="stage-meta">DEFERRED &middot; v.Next+ cowork-api integration drop</span>
+    </div>
+    <p class="stage-goal"><strong>Deferred to v.Next+.</strong> Two layers: Next.js Route Handlers do the actual cowork-api fetching with <code>XO_API_KEY</code> injected server-side; browser client only talks to those Next routes, never to cowork-api directly. Per CLAUDE.md: no client-side external API calls; keys stay on the server. Picked up after v.Next ships and we decide to wire real cowork.</p>
+
+    <div class="stage-cols">
+      <div class="col">
+        <h4>Server layer (Next Route Handlers)</h4>
+        <ul class="feature-list">
+          <li>EXPAND <code>lib/cowork-api/client.ts</code> + <code>types.ts</code> with: chat methods, <code>Authorization: Bearer ${process.env.XO_API_KEY}</code>, AND a <code>username</code> parameter forwarded as an <code>X-XO-Username</code> header on every call</li>
+          <li>NEW <code>lib/auth/clerk.ts</code> &#8594; helper <code>getUsername(request)</code>: reads Clerk session, returns username or <code>"__operator__"</code> if signed out</li>
+          <li>EVERY route handler pattern: <code>const username = await getUsername(req); return coworkApi.foo({ username, ...args })</code></li>
+          <li>NEW <code>app/api/chat/route.ts</code>, <code>chat/stream/[id]/route.ts</code>, <code>chat/abort/route.ts</code></li>
+          <li>NEW <code>app/api/widgets/*</code> &#8594; agent-status, quip</li>
+          <li>NEW <code>app/api/cowork/*</code> &#8594; sessions, files, agents, channels, connectors, usage (one per cowork app)</li>
+          <li>Each route ~30 LOC: read username from Clerk, fetch cowork with auth + username, return response body</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4>Browser layer (calls only Next routes)</h4>
+        <ul class="feature-list">
+          <li>NEW <code>lib/cowork/browser-client.ts</code> ~80 LOC</li>
+          <li><code>browserClient.chatPrompt(text, session_id?)</code> &#8594; POST <code>/api/chat</code></li>
+          <li><code>browserClient.streamChat(stream_id)</code> &#8594; <code>new EventSource("/api/chat/stream/" + id)</code></li>
+          <li><code>browserClient.abortChat(stream_id)</code> &#8594; POST <code>/api/chat/abort</code></li>
+          <li><code>browserClient.agentStatus()</code> &#8594; GET <code>/api/widgets/agent-status</code></li>
+          <li><code>browserClient.quip()</code> &#8594; GET <code>/api/widgets/quip</code></li>
+          <li>No env reads, no auth, no URL knowledge of cowork-api</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="stage-section">
+      <h4>Env (server-side only, no NEXT_PUBLIC_ prefix)</h4>
+      <ul class="feature-list">
+        <li><code>XO_API_KEY</code> &#8594; operator-level long-lived Clerk PAT for cowork-api</li>
+        <li><code>COWORK_API_URL</code> &#8594; e.g. <code>http://localhost:5002</code> in dev</li>
+      </ul>
+    </div>
+
+    <div class="stage-section">
+      <h4>Acceptance</h4>
+      <ul class="crit-list">
+        <li>From a stub page, <code>browserClient.chatPrompt("hi")</code> &#8594; opens stream &#8594; receives <code>text-delta</code> events</li>
+        <li><code>grep XO_API_KEY .next/</code> after build returns zero matches in client bundles</li>
+        <li>Browser Network tab shows requests only to <code>/api/*</code>, never to <code>:5002</code></li>
+        <li>cowork-api unreachable returns a friendly error to the browser (5xx with a JSON body)</li>
+        <li>Soft-fail on each route: cowork-api 5xx becomes a structured JSON the browser can render</li>
+      </ul>
+    </div>
+
+    <div class="stage-section">
+      <h4>Dependencies</h4>
+      <ul class="dep-list">
+        <li>Section A landed</li>
+        <li>xo-cowork-api running and reachable from the Next server (localhost in dev, network reach in prod)</li>
+        <li><code>XO_API_KEY</code> issued and present in server env</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Section C: Pager -->
+  <div class="stage">
+    <div class="stage-header">
+      <span class="stage-num">C</span>
+      <span class="stage-title">Pager, three modes as swipeable pages</span>
+      <span class="stage-meta">est. 2 days &middot; replaces mode toggle</span>
+    </div>
+    <p class="stage-goal">Replace the static "home screen + mode" model with a horizontal pager. Three pages (landing, agent, public). Each has its own dock. Mode list stays dynamic (driven by the registry); adding a 4th mode is still a one-file addition.</p>
+
+    <div class="stage-cols">
+      <div class="col">
+        <h4>Files to touch</h4>
+        <ul class="feature-list">
+          <li>NEW: <code>components/Pager.tsx</code> with horizontal swipe + page dots</li>
+          <li>NEW: <code>data/modes/agent.ts</code> (agent mode definition)</li>
+          <li>NEW: <code>data/modes/public.ts</code> (stub for deferred mode)</li>
+          <li>EDIT: <code>app/page.tsx</code> &#8594; renders <code>&lt;Pager&gt;</code> over registered modes</li>
+          <li>EDIT: <code>data/modes.ts</code> &#8594; register landing + agent + public</li>
+          <li>EDIT: <code>components/HomeScreen.tsx</code> &#8594; becomes the body of one page</li>
+          <li>EDIT: <code>context/ModeContext.tsx</code> &#8594; expose <code>setActivePage(id)</code> for swipe coordination</li>
+          <li>DELETE: <code>components/ModeBanner.tsx</code>, <code>components/ModeMismatchBanner.tsx</code></li>
+          <li>EDIT: <code>components/gestures/ControlCenterPanel.tsx</code> &#8594; remove mode picker</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4>Behavior</h4>
+        <ul class="feature-list">
+          <li><strong>Two-level pager</strong>: outer pages = modes (landing / agent / public); inner pages = iOS-style sub-pages within a mode for icon overflow</li>
+          <li>Outer swipe commit: <code>setMode(newId)</code> &#8594; fires ModeTransitionLayer choreography (~600ms): dock slides, wallpaper crossfades, status bar tints. Mode change is the substance, not just a slide</li>
+          <li><strong>Auth gate on outer swipe</strong>: before commit, check <code>mode.auth</code>. If destination is <code>"required"</code> and Clerk session is missing, show Sign-in surface (Screen 12) instead of completing the swipe. On successful sign-in, the swipe completes to the original destination. On cancel, snap back to current mode.</li>
+          <li>Inner swipe commit: cheap horizontal translate within the mode (~280ms spring). Dock STAYS THE SAME across inner sub-pages (departure from iOS would be dock-changing-mid-mode, which we explicitly don't do)</li>
+          <li>Page dots: two stacks of dots. Outer dots (3) above the dock for modes. Inner dots (variable) above the outer dots when the active mode has more than 1 sub-page</li>
+          <li>iOS feel: snap to nearest page on release; peek-on-drag (you can see the next page at ~30% drag); rubber-band at the leftmost/rightmost edge</li>
+          <li><strong>Dock convention</strong>: leftmost = Chat, rightmost = external Sign up (new tab, <code>noopener</code>), middle 2 = per-mode</li>
+          <li>Reduced-motion: instant snap on commit, mode crossfade shrinks to opacity fade, inner swipe becomes instant</li>
+          <li>URL stays in sync: <code>?mode=landing|agent|public&amp;p=0..n</code> for shareable links (deep-link into a specific sub-page). Deep link to an auth-required mode while signed out still routes through the gate.</li>
+          <li>Going into an app from sub-page N of mode M: back returns to sub-page N of mode M (per-mode, per-sub-page back stack)</li>
+          <li>GestureSurface arbitration: pager swipe only claims if drag horizontal &gt; vertical AND no panel is open</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="stage-section">
+      <h4>Acceptance</h4>
+      <ul class="crit-list">
+        <li>Three pages reachable by swipe; dock changes per page; page dots show position</li>
+        <li>No mode picker anywhere in UI (Control Center cleaned)</li>
+        <li>Adding a 4th mode is still <code>data/modes/foo.ts</code> + one register call</li>
+        <li>Swipe + vertical scroll inside an app body do not collide</li>
+        <li>Reduced-motion users can still navigate via page dot taps</li>
+      </ul>
+    </div>
+
+    <div class="stage-section">
+      <h4>Dependencies</h4>
+      <ul class="dep-list">
+        <li>Section A landed</li>
+        <li>Section B not strictly required (Pager is UI-only) but recommended so agent mode has real content</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Section D: Chat dock button + expand-to-fullscreen -->
+  <div class="stage">
+    <div class="stage-header">
+      <span class="stage-num">D</span>
+      <span class="stage-title">Chat dock button + expand-to-fullscreen UI</span>
+      <span class="stage-meta">est. 2 days &middot; Step 4 &middot; UI shell only, no chat backend</span>
+    </div>
+    <p class="stage-goal">Chat is the leftmost dock button on every mode. Tap it: the button expands from its position into a full-screen chat surface. App grid icons fade out, the remaining dock slots morph into the chat input bar. Back chevron collapses. <strong>v.Next ships UI shell only</strong>: the expand/collapse animation, empty state with Via at 96px + suggestion chips, composer input visible. The Send button is wired but does nothing in v.Next (chat backend lands in v.Next+ via Section B). Goal here is to nail the choreography and component shape.</p>
+
+    <div class="stage-cols">
+      <div class="col">
+        <h4>Resting state: the dock Chat button</h4>
+        <ul class="feature-list">
+          <li>The leftmost dock slot on every mode (Landing, Agent, Public). Lockscreen excluded.</li>
+          <li>Renders like a regular dock app icon: glyph + label "Chat", glass tile</li>
+          <li>No persistent widget surface anywhere above the dock</li>
+          <li>Tap is the only interaction at rest. The expand is its only behavior.</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4>Expanded state: ChatExpanded.tsx</h4>
+        <ul class="feature-list">
+          <li>NEW <code>components/chat/ChatExpanded.tsx</code></li>
+          <li>Full transcript area (scrollable), takes whole screen minus status bar + input</li>
+          <li>Via at 96px + 3 suggestion chips in empty state</li>
+          <li>Input bar at the bottom where the dock was</li>
+          <li>Back chevron top-left collapses back to the dock button</li>
+          <li>Stop button top-right cancels in-flight stream</li>
+          <li>Chat logic: <code>browserClient.chatPrompt()</code> &#8594; POST <code>/api/chat</code> &#8594; <code>{ stream_id, session_id }</code></li>
+          <li>Then <code>EventSource("/api/chat/stream/" + stream_id)</code> renders <code>text-delta</code> events</li>
+          <li>session_id persists to localStorage so refresh keeps context</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="stage-section">
+      <h4>Expand / collapse choreography (~450ms total)</h4>
+<pre class="stage-flow">
+Tap dock Chat button
+   &#9474;
+   &#9474; 0&ndash;150ms:  app grid icons fade out + scale down 0.96
+   &#9474; 0&ndash;250ms:  Chat button grows from its dock position to full screen
+   &#9474;             (shared layoutId from button to expanded surface)
+   &#9474; 100&ndash;300ms: dock background slides up to top edge of input bar
+   &#9474; 100&ndash;300ms: remaining dock slots (empty, Sign up) fade out
+   &#9474; 200&ndash;400ms: input bar fades in where dock was; composer becomes editable
+   &#9474; 300&ndash;450ms: back chevron appears top-left, stop button top-right
+   &#9474;
+   &#9474; Reverse on back tap: ~400ms total
+   &#9474; Reduced-motion: 150ms opacity crossfade, no scale
+   &#9474; Spring: stiffness 280, damping 28 (matches existing icon morph)
+</pre>
+    </div>
+
+    <div class="stage-section">
+      <h4>3 demo prompts (write + iterate)</h4>
+      <ul class="feature-list">
+        <li>"Show me what you can do."</li>
+        <li>"List my recent files." (agent reaches cowork-api files endpoint via its own tools)</li>
+        <li>"Summarize my last session." (agent reaches sessions + messages endpoints)</li>
+        <li>Each should produce a visibly impressive sequence in under 15s</li>
+      </ul>
+    </div>
+
+    <div class="stage-section">
+      <h4>Acceptance</h4>
+      <ul class="crit-list">
+        <li>Chat button visible as the leftmost dock slot on Landing, Agent, and Public</li>
+        <li>Tap Chat button &#8594; expand animation runs, finishes within 500ms</li>
+        <li>Expanded state: input bar where dock was, app icons gone, back chevron + stop button visible</li>
+        <li>Type "hi" &#8594; first <code>text-delta</code> within 800ms p50</li>
+        <li>Stop button cuts the stream within 200ms</li>
+        <li>Back chevron collapses to the dock button within 450ms (reverse layoutId morph)</li>
+        <li>Mode swipe attempted with chat expanded: chat collapses first, then mode change runs</li>
+        <li>Refresh keeps session context (<code>session_id</code> in localStorage)</li>
+        <li>Via expressions sync (idle / thinking / speaking / error) in the expanded surface</li>
+      </ul>
+    </div>
+
+    <div class="stage-section">
+      <h4>Dependencies</h4>
+      <ul class="dep-list">
+        <li>Section A landed (old AgentSurface gone)</li>
+        <li>Section B landed (browser client + Next chat proxy)</li>
+        <li>Section G in flight (Clerk username forwarding for multi-tenant chat)</li>
+        <li>Section C in flight (widget must survive mode swipes; pager arbitration aware of widget)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Section E: Widgets -->
+  <div class="stage">
+    <div class="stage-header">
+      <span class="stage-num">E</span>
+      <span class="stage-title">Widgets system, two local + one deferred</span>
+      <span class="stage-meta">est. 1.5 days &middot; Step 5 &middot; local-only, no backend</span>
+    </div>
+    <p class="stage-goal">Small surfaces that make the phone feel alive. Each widget declares which <strong>surfaces</strong> it appears on (lockscreen, agent, or both) and how it sources data (local-only, polling, derived state). <strong>v.Next ships TWO widgets, both local</strong>: <strong>Mood</strong> (lockscreen + agent, derived from AgentContext, tap-to-pat ephemeral happy override), <strong>Thought for the day</strong> (lockscreen + agent, source from local <code>data/quips.ts</code>). The third widget, <strong>Agent Status</strong>, needs live cowork-api data and is deferred to v.Next+ alongside Section B.</p>
+
+    <div class="stage-cols">
+      <div class="col">
+        <h4>System primitives</h4>
+        <ul class="feature-list">
+          <li>NEW: <code>components/widgets/Widget.tsx</code> shell (glass card, title, body slot)</li>
+          <li>NEW: <code>lib/widgets/useCoworkPoll.ts</code> hook (polls a coworkApi endpoint with backoff)</li>
+          <li>NEW: <code>data/widget-layout.ts</code> declares which widgets render per surface (lockscreen, agent, ...)</li>
+          <li>EDIT: <code>components/HomeScreen.tsx</code> &#8594; renders the configured widget set for the active page</li>
+          <li>EDIT: <code>components/LockScreen.tsx</code> &#8594; renders the lockscreen-configured widgets (Mood + Thought of the day)</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4>Behavior</h4>
+        <ul class="feature-list">
+          <li>Each widget polls its own endpoint at its own cadence (60s typical) OR reads derived state</li>
+          <li>Soft-fail: never block render; show a calm fallback state</li>
+          <li>Tappable: Mood &#8594; pat (lockscreen) / expand chat (agent); Thought &#8594; cycles; Agent Status &#8594; expand chat</li>
+          <li>Lockscreen widgets work without Clerk auth (Mood is derived, Thought source is operator/global)</li>
+          <li>Respect reduced-motion (no idle animations, instant transitions)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="stage-section">
+      <h4>Acceptance</h4>
+      <ul class="crit-list">
+        <li>Landing has zero widgets (pure marketing)</li>
+        <li>Lockscreen hosts Mood (Via, tappable) + Thought for the day (replaces date)</li>
+        <li>Agent page hosts all 3 widgets (Agent Status, Mood, Thought for the day)</li>
+        <li>Tap-to-pat on lockscreen Via: Via briefly switches to happy + bounce, reverts after ~3s</li>
+        <li>Each polled widget updates when cowork-api state changes</li>
+        <li>cowork-api offline: widgets show a calm "offline" pill, never error</li>
+        <li>Bundle delta per widget &lt; 5 KB gzipped</li>
+      </ul>
+    </div>
+
+    <div class="stage-section">
+      <h4>Dependencies</h4>
+      <ul class="dep-list">
+        <li>Section B landed (need <code>coworkApi.listAgents</code>, <code>usage</code>, etc.)</li>
+        <li>Section C in flight (so widgets can be placed per-page)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Section F: Public mode -->
+  <div class="stage deferred">
+    <div class="stage-header">
+      <span class="stage-num">F</span>
+      <span class="stage-title">Public mode (deferred, hold the seat)</span>
+      <span class="stage-meta">planning session TBD</span>
+    </div>
+    <p class="stage-goal">Reserve page 3 in the pager. Public mode = agent folders exposed for an agent-improvement loop. Will be planned in its own session per your direction.</p>
+
+    <div class="stage-section">
+      <h4>For v.Next we ship</h4>
+      <ul class="feature-list">
+        <li>The third pager page exists and swipes in</li>
+        <li>Placeholder content: "Public agent folders, coming soon" + a one-line description</li>
+        <li>No dock items, no widgets</li>
+        <li>Mode registry has <code>public</code> with empty <code>appPaths</code> and <code>dockPaths</code></li>
+      </ul>
+    </div>
+
+    <div class="stage-section">
+      <h4>To resolve in the dedicated planning session</h4>
+      <ul class="q-list" style="margin: 0;">
+        <li>Which folders are "public"? Whose? How are they marked public on cowork-api?</li>
+        <li>What does the visitor see: just files? An interactive agent over them?</li>
+        <li>The "improvement loop": feedback collection, label, ratings? Where do they store?</li>
+        <li>Access policy: anonymous read-only, signed-in to contribute?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Section G: Clerk multi-tenancy -->
+  <div class="stage deferred">
+    <div class="stage-header">
+      <span class="stage-num">G</span>
+      <span class="stage-title">Clerk multi-tenancy + username forwarding</span>
+      <span class="stage-meta">DEFERRED &middot; v.Next+ cowork-api integration drop</span>
+    </div>
+    <p class="stage-goal">Wire <code>@clerk/nextjs</code> into the phone OS. Every Next.js Route Handler reads the Clerk session, extracts the username, and forwards it to xo-cowork-api on every proxy call. <strong>Auth gating is per-mode</strong>: each mode declares <code>auth: "public" | "required"</code>. The Pager (Section C) checks this on every outer swipe commit; trying to cross into a required mode while signed out shows the sign-in surface (Screen 12). On success, the swipe completes. Signed-out users on public modes see operator workspace as demo data; signed-in users see their own data once they reach the required mode.</p>
+
+    <div class="stage-cols">
+      <div class="col">
+        <h4>Files to add</h4>
+        <ul class="feature-list">
+          <li>NEW <code>middleware.ts</code> &#8594; <code>clerkMiddleware()</code>. Reads sessions; protects nothing by default. Public route everywhere.</li>
+          <li>NEW <code>lib/auth/clerk.ts</code> &#8594; <code>getUsername(req)</code>: returns Clerk username, or <code>"__operator__"</code> if signed out</li>
+          <li>EDIT every Next proxy route (chat, widgets, cowork apps) to call <code>getUsername()</code> + forward as <code>X-XO-Username</code> header</li>
+          <li>EDIT <code>lib/cowork-api/client.ts</code> to take <code>username</code> on every method + add the header</li>
+          <li>EDIT <code>app/layout.tsx</code> &#8594; wrap in <code>&lt;ClerkProvider&gt;</code></li>
+          <li>NEW Sign-in entry: TBD between Clerk modal in phone vs redirect to app.xo.builders/signin</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4>Behavior</h4>
+        <ul class="feature-list">
+          <li><strong>Per-mode gating</strong>: each mode declares <code>auth: "public" | "required"</code>. Pager enforces it on outer swipe commit.</li>
+          <li>v.Next defaults: Landing = <code>public</code>, Agent = <code>required</code>, Public = <code>public</code></li>
+          <li>Signed-out + on public mode: uses operator workspace as demo data</li>
+          <li>Signed-out + attempting to enter required mode: sign-in surface shown; swipe queued, completes on success</li>
+          <li>Signed-in: cowork-api calls scoped by username; user sees their own workspace</li>
+          <li>Sign-out mid-session: if currently on a required mode, snap back to nearest public mode (Landing); refresh data accordingly</li>
+          <li>Gate UX: Clerk-rendered full-screen surface inside the phone (default), modal alternative, or redirect to app.xo.builders/signin (TBD)</li>
+          <li>Pages within a mode inherit the mode's auth. Per-page override is a future addition.</li>
+          <li>Clerk session cookie attaches automatically to Next route requests; no extra browser plumbing</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="stage-section">
+      <h4>Env (server-side only)</h4>
+      <ul class="feature-list">
+        <li><code>CLERK_SECRET_KEY</code></li>
+        <li><code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> (Clerk SDK requires this client-side; this is Clerk's expected pattern)</li>
+        <li>cowork-api side: ensure it accepts <code>X-XO-Username</code> and scopes data accordingly (cowork-api work, your dedicated session)</li>
+      </ul>
+    </div>
+
+    <div class="stage-section">
+      <h4>Acceptance</h4>
+      <ul class="crit-list">
+        <li>Signed-out visitor sees operator's workspace data in widgets / cowork apps</li>
+        <li>Sign in (path TBD) flips widget data to user's workspace within ~1s</li>
+        <li>Sign out reverts to operator</li>
+        <li>cowork-api logs show <code>X-XO-Username</code> header on every call</li>
+        <li>No PII / username appears in client bundle (grep)</li>
+      </ul>
+    </div>
+
+    <div class="stage-section">
+      <h4>Dependencies</h4>
+      <ul class="dep-list">
+        <li>Section B server proxy layer in place (Clerk auth threads through it)</li>
+        <li>cowork-api accepts <code>X-XO-Username</code> and multi-tenancy is wired upstream</li>
+        <li>Clerk app instance created; sign-in/sign-up flow decided</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Section H: cowork endpoints as API apps -->
+  <div class="stage deferred">
+    <div class="stage-header">
+      <span class="stage-num">H</span>
+      <span class="stage-title">cowork endpoints loaded as kind:"api" apps</span>
+      <span class="stage-meta">DEFERRED &middot; v.Next+ cowork-api integration drop</span>
+    </div>
+    <p class="stage-goal"><strong>Deferred to v.Next+.</strong> Each useful cowork-api endpoint becomes an app tile in Agent mode: Sessions, Files, Agents, Channels, Connectors, Usage. <code>defineXOApp({ kind: "api", endpoint: "/api/cowork/sessions" })</code> + Server Component page + Next proxy + renderer per app. Picked up when cowork integration lands (after Section B + G).</p>
+
+    <div class="stage-cols">
+      <div class="col">
+        <h4>Initial catalog (build all, or pick a subset for v.Next+)</h4>
+        <ul class="feature-list">
+          <li><strong>Files</strong> &#8594; cowork <code>/api/files/list-directory</code> &#8594; workspace file browser, with crumbs</li>
+          <li><strong>Agents</strong> &#8594; cowork <code>/api/agents/</code> &#8594; configured agents, backend, status</li>
+          <li><strong>Channels</strong> &#8594; cowork <code>/api/channels/</code> &#8594; channel list, recent activity</li>
+          <li><strong>Connectors</strong> &#8594; cowork <code>/api/connectors/*</code> &#8594; gdrive / github / vercel connection status</li>
+          <li><strong>Usage</strong> &#8594; cowork <code>/api/usage</code> &#8594; tokens, cost, model breakdown</li>
+          <li>(more as new cowork-api endpoints land)</li>
+          <li><em>Note: Sessions removed from catalog &mdash; single-session-per-user makes a list of one moot. The conversation is the dock chat.</em></li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4>Per-app pattern</h4>
+        <ul class="feature-list">
+          <li>Define the app manifest in <code>app/sessions/app.ts</code> (or wherever): <code>kind: "api", endpoint: "/api/cowork/sessions"</code></li>
+          <li>Server Component <code>app/sessions/page.tsx</code> fetches the Next proxy, renders inside <code>XOAppShell</code></li>
+          <li>Next proxy <code>app/api/cowork/sessions/route.ts</code> reads Clerk username, calls cowork-api, returns JSON</li>
+          <li>Per-app skeleton <code>app/sessions/loading.tsx</code> for the layoutId morph</li>
+          <li>Renderer is app-specific (list, table, grid). No generic JSON dump.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="stage-section">
+      <h4>Acceptance</h4>
+      <ul class="crit-list">
+        <li>At least 3 cowork-derived apps shipping in v.Next (Sessions, Files, Agents at minimum)</li>
+        <li>Each opens with the layoutId morph from the Agent grid</li>
+        <li>Each shows real data from cowork-api (operator workspace if signed out, user workspace if signed in)</li>
+        <li>Each fails soft if cowork-api is unreachable (renders "offline" state, not a 500)</li>
+        <li>Adding a new app post-launch is a documented one-PR pattern</li>
+      </ul>
+    </div>
+
+    <div class="stage-section">
+      <h4>Dependencies</h4>
+      <ul class="dep-list">
+        <li>Section B (server proxy) for the Next route pattern</li>
+        <li>Section G (Clerk) so per-user data scoping works</li>
+        <li>Section C (Pager) so Agent mode sub-pages render the overflow grid</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Section I: consolidated overlay panel -->
+  <div class="stage">
+    <div class="stage-header">
+      <span class="stage-num">I</span>
+      <span class="stage-title">Consolidated overlay panel, three-in-one</span>
+      <span class="stage-meta">est. 1.5 days &middot; replaces 3 panels with 1</span>
+    </div>
+    <p class="stage-goal">Replace SpotlightPanel, ControlCenterPanel, and NotificationPanel with <strong>one</strong> panel triggered by a single top swipe-down (full width, no more corner zones). The panel scrolls vertically through sections: notifications feed, control toggles, search. Keeps the name "Notification panel" but inherits all three jobs.</p>
+
+    <div class="stage-cols">
+      <div class="col">
+        <h4>Files</h4>
+        <ul class="feature-list">
+          <li>NEW <code>components/overlays/Overlay.tsx</code> (the consolidated panel shell)</li>
+          <li>NEW <code>components/overlays/sections/NotificationsSection.tsx</code> (v.Next: empty state)</li>
+          <li>NEW <code>components/overlays/sections/ControlsSection.tsx</code> (reduced motion, theme, hide Via, decorative tiles)</li>
+          <li>NEW <code>components/overlays/sections/SearchSection.tsx</code> (filter apps across all modes)</li>
+          <li>EDIT <code>components/gestures/GestureSurface.tsx</code>: remove top-left + top-right corner zones; add full-width top-edge swipe-down zone</li>
+          <li>EDIT <code>lib/gestures/zones.ts</code>: replace corner zones with a single top zone</li>
+          <li>DELETE old panel files (covered in Section A kill list)</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4>Behavior</h4>
+        <ul class="feature-list">
+          <li>Trigger: swipe down from the top 24px, full width (no left/right discrimination)</li>
+          <li>Panel slides down from top, glass backdrop dims OS below</li>
+          <li>Single vertical scroll inside the panel: Notifications &#8594; Controls &#8594; Search</li>
+          <li>Section order configurable in <code>data/overlay-sections.ts</code> (so you can reorder later)</li>
+          <li>Scrim tap or pull-up dismisses; panel snaps back</li>
+          <li>Open-panel-wins arbitration: all touches go to the panel until it closes</li>
+          <li>Reduced-motion: instant open, no slide</li>
+          <li>Search section: same matching logic as v0 Spotlight (filter by label, scoped to all modes)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="stage-section">
+      <h4>Acceptance</h4>
+      <ul class="crit-list">
+        <li>One swipe-down from anywhere along the top opens the panel</li>
+        <li>Top-left and top-right corner swipes do nothing (zones removed)</li>
+        <li>Panel contains the three sections in one scrollable list</li>
+        <li>Search filters apps across all modes; tapping a result switches mode if needed</li>
+        <li>Real toggles work: reduced motion, theme placeholder, hide Via</li>
+        <li>Scrim tap closes; pull-up closes</li>
+      </ul>
+    </div>
+
+    <div class="stage-section">
+      <h4>Dependencies</h4>
+      <ul class="dep-list">
+        <li>Section A landed (old panels gone)</li>
+        <li>Section C in flight (Pager exists so search can target a specific mode)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Section J: agent-driven OS actions via client-action SSE events -->
+  <div class="stage deferred">
+    <div class="stage-header">
+      <span class="stage-num">J</span>
+      <span class="stage-title">Agent-driven OS actions via <code>client-action</code> SSE events</span>
+      <span class="stage-meta">DEFERRED &middot; v.Next+ cowork-api integration drop</span>
+    </div>
+    <p class="stage-goal"><strong>Deferred to v.Next+.</strong> Extends cowork-api's chat stream with a new <code>client-action</code> SSE event. The phone OS subscribes (same EventSource as text-delta) and runs an action dispatcher: navigate, go-home, open overlay, collapse chat. User asks "show me my files" &#8594; agent emits navigate &#8594; OS routes. This is what makes the agent feel like it's operating the phone. Needs cowork-api work + Section B (proxy that forwards SSE) + Section D (chat surface that holds the EventSource).</p>
+
+    <div class="stage-cols">
+      <div class="col">
+        <h4>cowork-api side (backend work, separate session)</h4>
+        <ul class="feature-list">
+          <li>Extend SSE taxonomy on <code>/api/chat/stream/{id}</code>: add <code>event: client-action</code></li>
+          <li>Data shape: <code>{kind, ...args}</code> JSON, one per event</li>
+          <li>Agent infrastructure (Claude / OpenClaw / Codex side) needs a way to emit these (tool call, special token, structured output)</li>
+          <li>Documented kinds list: <code>navigate</code>, <code>go-home</code>, <code>pop-back</code>, <code>open-overlay</code>, <code>close-overlay</code>, <code>collapse-chat</code>, <code>expand-chat</code></li>
+          <li>Unknown kinds: emitted as-is, ignored by clients that don't recognize them (forward compatible)</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4>Phone OS side (this section)</h4>
+        <ul class="feature-list">
+          <li>NEW <code>lib/agent/actions.ts</code> &#8594; <code>ClientAction</code> type union + <code>dispatchAction(action, ctx)</code></li>
+          <li>NEW handler per kind: <code>navigate</code> &#8594; <code>router.push(route)</code> + <code>PhoneContext.openApp</code>; <code>go-home</code> &#8594; <code>goHome()</code>; etc.</li>
+          <li>EDIT <code>components/chat/ChatExpanded.tsx</code> &#8594; subscribe to <code>client-action</code> events on the EventSource, call <code>dispatchAction</code></li>
+          <li>EDIT <code>lib/cowork/browser-client.ts</code> &#8594; the existing EventSource wrapper recognizes the new event type and surfaces it as a typed callback</li>
+          <li>Optional toast: small "Opening Files..." pill near top while the action fires</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="stage-section">
+      <h4>Per-kind reference</h4>
+      <ul class="feature-list">
+        <li><code>{kind:"navigate", route:"/files"}</code> &#8594; <code>PhoneContext.openApp("/files")</code> + <code>router.push</code></li>
+        <li><code>{kind:"go-home"}</code> &#8594; <code>PhoneContext.goHome()</code> + <code>router.push("/")</code></li>
+        <li><code>{kind:"pop-back"}</code> &#8594; <code>PhoneContext.pop()</code></li>
+        <li><code>{kind:"open-overlay", section?:"notifications"|"controls"|"search"}</code> &#8594; opens consolidated Overlay, optionally scrolls to a section</li>
+        <li><code>{kind:"close-overlay"}</code> &#8594; closes Overlay</li>
+        <li><code>{kind:"collapse-chat"}</code> &#8594; collapses ChatExpanded back to dock button</li>
+        <li><code>{kind:"expand-chat"}</code> &#8594; expands chat from current position (e.g. agent proactively opens chat from a notification)</li>
+      </ul>
+    </div>
+
+    <div class="stage-section">
+      <h4>Acceptance</h4>
+      <ul class="crit-list">
+        <li>"Open files" produces a navigate action; phone routes to /files while chat stays open</li>
+        <li>"Go home" produces a go-home action; OS returns to home</li>
+        <li>Unknown kinds are ignored (logged in dev console)</li>
+        <li>Action dispatch is debounced; multiple rapid actions queue and run in order</li>
+        <li>Reduced-motion: action animations are instant; the action itself still runs</li>
+      </ul>
+    </div>
+
+    <div class="stage-section">
+      <h4>Dependencies</h4>
+      <ul class="dep-list">
+        <li>Section B (browser client + Next stream proxy passes through the new event)</li>
+        <li>Section D (chat expanded; this section's dispatcher hangs off its EventSource)</li>
+        <li>cowork-api emits <code>client-action</code> events (backend session)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Section 6: Widgets spec -->
+  <h2><span class="num">6.</span>Widgets, three for v.Next</h2>
+  <p class="section-sub">Each widget declares which <strong>surfaces</strong> it appears on: lockscreen, agent mode, or both. Widgets can be data-polling, derived-state, or interactive. Chat is NOT a widget; it lives in the dock as the leftmost button (Section D).</p>
+
+  <div class="widget-grid">
+    <div class="widget-card">
+      <h4>Mood &amp; expression</h4>
+      <div class="endpoint">Derived from AgentContext, no network &middot; <strong>tap to pat</strong></div>
+      <p>Shows Via with current expression (idle, thinking, speaking, happy, error). On lockscreen Via is the focal element; on Agent home it sits in the widget row. <strong>Tap to pat</strong>: Via briefly switches to <code>happy</code> with a small bounce animation (~1s), then returns to actual current state after ~3s. Pure client-side feel-good; no network call.</p>
+      <div class="props">
+        Surfaces on: <strong>lockscreen + Agent</strong><br>
+        Tap behavior: pat &#8594; happy + bounce (1s) &#8594; revert to current state after 3s<br>
+        Reuses: components/via/Via.tsx + new pat animation
+      </div>
+    </div>
+    <div class="widget-card">
+      <h4>Thought for the day</h4>
+      <div class="endpoint">browser &#8594; GET /api/widgets/quip &#8594; source TBD (local OR cowork)</div>
+      <p>A one-line quip from Via. Rotates daily. On lockscreen it replaces the date line beneath the big clock. On Agent home it sits in the widget row. Source TBD: local <code>data/quips.ts</code>, repointed <code>/api/agent/quip</code>, or a new cowork-api endpoint. The Next route layer hides the source from the browser either way.</p>
+      <div class="props">
+        Surfaces on: <strong>lockscreen + Agent</strong><br>
+        Tap: cycles to the next quip<br>
+        Open question: where does the source live?
+      </div>
+    </div>
+    <div class="widget-card">
+      <h4>Agent Status</h4>
+      <div class="endpoint">browser &#8594; GET /api/widgets/agent-status &#8594; Next proxy &#8594; cowork /api/agents/ &middot; poll 30s</div>
+      <p>Tiny tile showing the configured agent's name + current state (idle, running, errored). Dot indicator turns lime when active, amber when idle, red on error. Agent-mode-only because it surfaces user-specific workspace data (only meaningful when signed in).</p>
+      <div class="props">
+        Surfaces on: <strong>Agent only</strong> (requires auth)<br>
+        Tap: opens Chat<br>
+        Fallback: "Workspace offline" pill
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 7: Open questions -->
+  <h2><span class="num">7.</span>Open questions</h2>
+  <p class="section-sub">Things that block specific sections. Resolve in flight or in the dedicated planning session named in each.</p>
+
+  <ul class="q-list">
+    <li><strong>RESOLVED: Landing dock middles + apps.</strong> Dock: Chat &middot; About &middot; Via &middot; Sign Up (signed-out) | Create Your Own (signed-in). Apps: Docs, Journal, Pricing, Demo, Get Started.</li>
+    <li><strong>Create Your Own (signed-in).</strong> Where does the rightmost dock button point when the user is signed in? Workspace creation flow on app.xo.builders? A new in-OS surface? A cowork-api endpoint? Resolve before Section H + Section G implementation.</li>
+    <li><strong>Journal app.</strong> New app concept (not in v0). What's its content? Kind (native, api, mdx)? Defer to a dedicated session for journal spec.</li>
+    <li><strong>About app + Via dock button.</strong> About is likely the existing v0 About app. The "Via" dock button is new: it's an "about Via" surface that explains the mascot. Confirm: is this an existing app (route exists) or a new one to build?</li>
+    <li><strong>Agent dock middles.</strong> Still TBD. Resolve next when speccing Agent (Scene 04).</li>
+    <li><strong>RESOLVED: chat position.</strong> Chat lives in the dock as the leftmost button, no separate widget surface. Expand originates from the dock button.</li>
+    <li><strong>RESOLVED: overlay trigger.</strong> Single top swipe-down, full width, anywhere along the top edge.</li>
+    <li><strong>RESOLVED: gate trigger.</strong> Per-mode auth flag. Pager fires Clerk surface when a swipe targets a mode with <code>auth: "required"</code> while signed out. Deterministic.</li>
+    <li><strong>Gate UX.</strong> Clerk full-screen surface inside the phone (default), modal alternative, or redirect to app.xo.builders/signin? Resolve in Section G.</li>
+    <li><strong>Sign-out mid-session.</strong> If user signs out while on a required mode, snap back to nearest public mode automatically? Default: yes, snap to Landing.</li>
+    <li><strong>Per-page override.</strong> Future feature: a single page within a mode can override its mode's auth. Out of scope for v.Next.</li>
+    <li><strong>cowork-api multi-tenancy contract.</strong> Confirmed cowork-api will read <code>X-XO-Username</code> header? Or does it expect <code>?username=</code> query? Or Clerk-issued JWT in Authorization in place of XO_API_KEY? Resolve with cowork-api work.</li>
+    <li><strong>cowork apps catalog priority.</strong> Which 3-5 cowork-derived apps to ship in v.Next first (Sessions, Files, Agents are the obvious set). Decide in Section H planning.</li>
+    <li><strong>Sub-page overflow rule.</strong> When does Agent mode break to a second sub-page? Fixed count (e.g. 12 icons per page)? Or layout-driven (rows that fit)?</li>
+    <li><strong>"Get started" tile.</strong> v0's Get started entered setup mode. Setup is hidden in v.Next. Repoint to: Agent mode, sign-up handoff, or just delete?</li>
+    <li><strong>Setup mode disposition.</strong> v0 has setup mode + 4 setup-* apps. v.Next has only landing / agent / public. Setup mode probably hides (kept in tree behind <code>?mode=setup</code>) or deletes.</li>
+    <li><strong>Lockscreen interactivity.</strong> You flagged "make it more interactive." Scope deferred to its own planning session.</li>
+    <li><strong>Cowork-api backend work.</strong> You flagged "other things on the backend." Scope deferred to its own planning session.</li>
+    <li><strong>XO_API_KEY scope.</strong> Operator-level Clerk PAT. Who issues it for the deploy? Does it rotate? Where does it live (Vercel env, server-side only)?</li>
+    <li><strong>cowork-api network reach.</strong> The Next server (not the browser) needs to reach cowork-api. Localhost in dev, internal network or tunneled connection in prod.</li>
+    <li><strong>Thought for the day source.</strong> Local content, kept <code>/api/agent/quip</code>, or new cowork-api endpoint?</li>
+    <li><strong>Demo prompts content.</strong> The 3 demo prompts for the agent surface need to be written and tested with real cowork data.</li>
+    <li><strong>Public mode.</strong> Full design deferred to its own planning session.</li>
+    <li><strong>Pager URL sync.</strong> <code>?mode=agent&amp;p=1</code> in the URL, or client-only state? Affects shareable links.</li>
+    <li><strong>Lockscreen + deep links.</strong> Deep link <code>?mode=agent</code> auto-unlocks like deep-link-to-app does, or stays locked first?</li>
+    <li><strong>Chat + mode swipe.</strong> When chat is expanded and user swipes for a mode change: chat collapses first, then mode change runs (current default), or chat stays open as a layer? Default: collapse-first.</li>
+    <li><strong>Overlay panel section order.</strong> Notifications &#8594; Controls &#8594; Search. Or Search first (most-used)? Default: data-configurable per <code>data/overlay-sections.ts</code>.</li>
+    <li><strong>Agent action kinds for v.Next.</strong> Section J lists 7 kinds. Which are required for first ship? Start with <code>navigate</code> + <code>go-home</code> + <code>collapse-chat</code>? Add the others later as cowork-api supports them.</li>
+    <li><strong>Agent-action UX timing.</strong> When agent emits <code>navigate</code>: does the OS route immediately, or wait for the assistant's text turn to finish? Default: immediate (so the user sees the agent "doing" while it explains).</li>
+    <li><strong>Background chat session.</strong> If user collapses chat mid-turn, does the stream stay open in the background (action events still dispatch)? Or close on collapse? Default for v.Next: close on collapse, keep <code>session_id</code> for resume.</li>
+  </ul>
+
+  <footer>
+    <span>XO Phone, v0 to v.Next plan + PRD. Pivot to thin client over cowork-api. Single file, no dependencies.</span>
+    <span>Last updated: 2026-05-20</span>
+  </footer>
+
+</div>
+</body>
+</html>

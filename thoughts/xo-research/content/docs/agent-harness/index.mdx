@@ -1,0 +1,37 @@
+---
+title: Agent harness
+description: Research on the harnesses that surround LLMs to make them effective over long horizons.
+---
+
+import { Cards, Card } from "@/components/card";
+
+The harness, not the model, determines how long an agent can usefully run. This area collects the primary-source research that shapes how XO designs `xo-cowork-api`, `xo-coworker`, and OpenClaw.
+
+## What's here
+
+<Cards>
+	<Card
+		title="Effective harnesses for long-running agents"
+		description="Synthesis of Anthropic's harness post, context-engineering post, multi-agent research, Cognition's counter-take, and METR's time-horizon data. With XO-specific implications."
+		href="/agent-harness/long-running-agents"
+	/>
+</Cards>
+
+## Why this area exists
+
+XO's product is the harness. Two paired layers:
+
+- `xo-coworker` plus `xo-cowork-api` is the workspace: the substrate that bridges context windows, holds files, brokers runtimes.
+- `xo-swarm` plus `xo-swarm-api` is the platform: launches workspaces, manages identity, billing, integrations.
+
+Every choice in those layers is a harness-design choice. The research collected here is the evidence base for those choices.
+
+## What to add
+
+Future briefs that belong in this area:
+
+- Context engineering deep-dive (compaction, structured notes, just-in-time retrieval)
+- Multi-agent vs single-threaded architectures, by workload type
+- Tool design and agent-computer interfaces
+- Production reliability patterns (resumability, rainbow deploys, observability)
+- Benchmarks that measure agent horizons (METR, SWE-Bench, OSWorld, others)
