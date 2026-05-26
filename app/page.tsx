@@ -1,8 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Universe, type Entry, type HoverInfo } from "@/components/Universe";
+import {
+  Universe,
+  type Entry,
+  type HoverInfo,
+  type ClickInfo,
+  type FolderOpenInfo,
+} from "@/components/Universe";
 import { Timeline, type Commit } from "@/components/Timeline";
+import { Preview, type PreviewTarget } from "@/components/Preview";
 
 type ScanResult = {
   root: string;
@@ -23,11 +30,13 @@ const DEFAULT_PATH = "~";
 export default function Page() {
   const [pathInput, setPathInput] = useState<string>(DEFAULT_PATH);
   const [activePath, setActivePath] = useState<string | null>(null);
+  const [history, setHistory] = useState<string[]>([]);
   const [showHidden, setShowHidden] = useState<boolean>(false);
 
   const [data, setData] = useState<ScanResult | null>(null);
   const [snapshots, setSnapshots] = useState<SnapshotsResult | null>(null);
-  const [selectedSha, setSelectedSha] = useState<string | null>(null); // null = live
+  const [selectedSha, setSelectedSha] = useState<string | null>(null);
+  const [preview, setPreview] = useState<PreviewTarget>(null);
 
   const [scanLoading, setScanLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,24 +107,24 @@ export default function Page() {
     }
   }, []);
 
-  function submitPath(p: string) {
+  function startPath(p: string) {
     const t = p.trim();
     if (!t) return;
+    setHistory([]);
     setActivePath(t);
     setSelectedSha(null);
     setData(null);
     setSnapshots(null);
+    setPreview(null);
     scan(t, null);
     loadSnapshots(t);
   }
 
-  // Re-scan when selectedSha changes (and we have an active path)
   useEffect(() => {
     if (!activePath) return;
     scan(activePath, selectedSha);
   }, [selectedSha, activePath, scan]);
 
-  // Re-scan when showHidden toggles
   useEffect(() => {
     if (!activePath) return;
     scan(activePath, selectedSha);
@@ -124,9 +133,40 @@ export default function Page() {
 
   const entries = data?.entries ?? [];
 
+  const onSelectFile = useCallback((info: ClickInfo) => {
+    setPreview({ name: info.name, path: info.path, kind: info.kind });
+  }, []);
+
+  const onFolderOpen = useCallback(
+    (info: FolderOpenInfo) => {
+      setHistory((prev) => (activePath ? [...prev, activePath] : prev));
+      setActivePath(info.path);
+      setSelectedSha(null);
+      setSnapshots(null);
+      setPreview(null);
+      scan(info.path, null);
+      loadSnapshots(info.path);
+    },
+    [activePath, scan, loadSnapshots],
+  );
+
+  function goBack() {
+    setHistory((prev) => {
+      if (prev.length === 0) return prev;
+      const next = [...prev];
+      const target = next.pop()!;
+      setActivePath(target);
+      setSelectedSha(null);
+      setSnapshots(null);
+      setPreview(null);
+      scan(target, null);
+      loadSnapshots(target);
+      return next;
+    });
+  }
+
   return (
     <main className="fixed inset-0 overflow-hidden">
-      {/* Universe stage */}
       <div ref={stageRef} className="absolute inset-0">
         {stage.w > 0 && stage.h > 0 && (
           <Universe
@@ -134,17 +174,46 @@ export default function Page() {
             width={stage.w}
             height={stage.h}
             onHover={setHover}
+            onSelect={onSelectFile}
+            onFolderOpen={onFolderOpen}
           />
         )}
       </div>
 
-      {/* Top floating controls */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 w-[min(720px,92vw)]">
+      {/* XO logo */}
+      <div className="absolute top-4 left-4 z-20 flex items-center gap-2 select-none">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/xo-logo.svg"
+          alt="XO"
+          width={28}
+          height={28}
+          className="opacity-90"
+        />
+        <span className="text-sm font-semibold tracking-wider text-white/80">
+          XO
+        </span>
+      </div>
+
+      {/* Back chip */}
+      {history.length > 0 && (
+        <button
+          type="button"
+          onClick={goBack}
+          className="absolute top-4 right-4 z-20 px-3 py-1.5 text-xs font-mono text-white/70 rounded-full bg-black/40 border border-white/15 hover:bg-white/10 backdrop-blur-md"
+          title="Go up one level"
+        >
+          ← back
+        </button>
+      )}
+
+      {/* Path bar */}
+      <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 w-[min(720px,92vw)]">
         <form
           className="flex items-center gap-2 px-3 py-2 rounded-full bg-black/40 border border-white/10 backdrop-blur-md shadow-[0_10px_40px_-10px_rgba(0,0,0,0.6)]"
           onSubmit={(e) => {
             e.preventDefault();
-            submitPath(pathInput);
+            startPath(pathInput);
           }}
         >
           <input
@@ -193,7 +262,6 @@ export default function Page() {
         )}
       </div>
 
-      {/* Bottom timeline */}
       {activePath && (
         <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 w-[min(900px,94vw)] px-4 py-3 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md">
           <Timeline
@@ -205,7 +273,6 @@ export default function Page() {
         </div>
       )}
 
-      {/* Hover tooltip */}
       {hover && (
         <div
           className="pointer-events-none fixed z-20 px-3 py-2 rounded-md bg-black/85 border border-white/10 text-xs font-mono backdrop-blur"
@@ -216,21 +283,29 @@ export default function Page() {
           }}
         >
           <div className="text-white/90 truncate">
-            {hover.type === "directory" ? `${hover.name}/` : hover.name}
+            {hover.kind === "folder" ? `${hover.name}/` : hover.name}
           </div>
-          <div className="text-white/50">
-            {formatBytes(hover.size)}
+          <div className="text-white/50 flex items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider text-white/35">
+              {hover.kind}
+            </span>
+            <span className="text-white/20">·</span>
+            <span>{formatBytes(hover.size)}</span>
             {hover.itemCount !== undefined && (
               <>
-                <span className="mx-1.5">·</span>
-                {hover.itemCount} items
+                <span className="text-white/20">·</span>
+                <span>{hover.itemCount} items</span>
               </>
             )}
           </div>
+          {hover.clickable && (
+            <div className="text-[10px] mt-1 text-white/40">
+              {hover.kind === "folder" ? "click to enter" : "click to preview"}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Empty-state hint */}
       {!activePath && !scanLoading && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="text-white/25 text-xs font-mono tracking-widest">
@@ -238,6 +313,13 @@ export default function Page() {
           </div>
         </div>
       )}
+
+      <Preview
+        target={preview}
+        root={data?.root ?? activePath}
+        gitRef={selectedSha}
+        onClose={() => setPreview(null)}
+      />
     </main>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { hierarchy, pack as d3pack } from "d3-hierarchy";
 
 export type Entry = {
@@ -11,19 +11,35 @@ export type Entry = {
   itemCount?: number;
 };
 
+export type ParticleKind = "folder" | "html" | "md" | "other";
+
 export type HoverInfo = {
   name: string;
-  type: Entry["type"];
+  path: string;
+  kind: ParticleKind;
   size: number;
   itemCount?: number;
   x: number;
   y: number;
+  clickable: boolean;
 } | null;
+
+export type ClickInfo = {
+  name: string;
+  path: string;
+  kind: "html" | "md";
+};
+
+export type FolderOpenInfo = {
+  name: string;
+  path: string;
+};
 
 type Particle = {
   key: string;
   name: string;
-  type: Entry["type"];
+  path: string;
+  kind: ParticleKind;
   size: number;
   itemCount?: number;
   x: number;
@@ -38,6 +54,7 @@ type Particle = {
   freq: number;
   amp: number;
   color: string;
+  clickable: boolean;
 };
 
 type Star = {
@@ -48,50 +65,31 @@ type Star = {
   twinkle: number;
 };
 
-const DIR_PALETTE = [
-  "#fb923c",
-  "#a78bfa",
-  "#34d399",
-  "#60a5fa",
-  "#f87171",
-  "#fbbf24",
-  "#22d3ee",
-  "#e879f9",
-];
+const COLORS: Record<ParticleKind, string> = {
+  folder: "#a78bfa",
+  html: "#fb923c",
+  md: "#38bdf8",
+  other: "#cbd5e1",
+};
 
-function colorFor(name: string, type: Entry["type"]): string {
-  if (type === "directory") {
-    let h = 0;
-    for (let i = 0; i < name.length; i++) {
-      h = (h * 31 + name.charCodeAt(i)) >>> 0;
-    }
-    return DIR_PALETTE[h % DIR_PALETTE.length];
+// Folders are always bigger than files. Files get a small floor so even
+// empty/tiny files are visible. Inside each category there is some variation
+// (folders by item count, files by log size) so structure is still readable.
+function packValue(e: Entry): number {
+  if (e.type === "directory") {
+    const items = e.itemCount ?? 1;
+    return 420 + Math.min(items, 500) * 2;
   }
-  if (type === "symlink") return "#64748b";
+  const sizeKb = Math.max(1, e.size / 1024);
+  return 28 + Math.log2(sizeKb + 1) * 7;
+}
+
+function classify(name: string, type: Entry["type"]): ParticleKind {
+  if (type === "directory") return "folder";
   const ext = (name.split(".").pop() ?? "").toLowerCase();
-  if (
-    [
-      "ts","tsx","js","jsx","mjs","cjs","py","rs","go","rb","java","c","cpp","cc",
-      "h","hpp","swift","kt","sh","bash","zsh","lua","php","scala","clj","ex","exs",
-    ].includes(ext)
-  )
-    return "#7dd3fc";
-  if (["md", "mdx", "txt", "rst", "adoc"].includes(ext)) return "#e2e8f0";
-  if (["css", "scss", "sass", "less", "html", "vue", "svelte"].includes(ext))
-    return "#c4b5fd";
-  if (
-    [
-      "json","yaml","yml","toml","ini","env","lock","conf","cfg","xml",
-    ].includes(ext)
-  )
-    return "#fbbf24";
-  if (
-    [
-      "png","jpg","jpeg","gif","svg","webp","ico","bmp","mp4","mov","webm","mp3","wav","flac","pdf",
-    ].includes(ext)
-  )
-    return "#f472b6";
-  return "#94a3b8";
+  if (ext === "html" || ext === "htm") return "html";
+  if (ext === "md" || ext === "mdx" || ext === "markdown") return "md";
+  return "other";
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -103,24 +101,70 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   };
 }
 
+const STYLE: Record<
+  ParticleKind,
+  { haloMul: number; coreMul: number; alphaMul: number }
+> = {
+  folder: { haloMul: 3.6, coreMul: 0.2, alphaMul: 0.9 },
+  html: { haloMul: 3.2, coreMul: 0.5, alphaMul: 1.0 },
+  md: { haloMul: 3.2, coreMul: 0.5, alphaMul: 1.0 },
+  other: { haloMul: 3.0, coreMul: 0.45, alphaMul: 0.9 },
+};
+
+const ZOOM_SCALE = 8;
+const ZOOM_TRIGGER_SCALE = 5.5; // fire onFolderOpen when scale crosses this
+
 export function Universe({
   entries,
   width,
   height,
   onHover,
+  onSelect,
+  onFolderOpen,
 }: {
   entries: Entry[];
   width: number;
   height: number;
   onHover: (info: HoverInfo) => void;
+  onSelect: (info: ClickInfo) => void;
+  onFolderOpen: (info: FolderOpenInfo) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Map<string, Particle>>(new Map());
   const starsRef = useRef<Star[]>([]);
   const dimsRef = useRef({ width, height });
   dimsRef.current = { width, height };
+  const [hoverIsClickable, setHoverIsClickable] = useState(false);
 
-  // (Re)generate background stars on resize
+  // Camera: world coords. Default = center of stage at scale 1.
+  const cameraRef = useRef({
+    x: width / 2,
+    y: height / 2,
+    scale: 1,
+    tx: width / 2,
+    ty: height / 2,
+    tscale: 1,
+  });
+
+  // Zooming-into-folder state
+  const zoomingRef = useRef<{
+    name: string;
+    path: string;
+    fired: boolean;
+  } | null>(null);
+
+  // Latest callback refs so the animation tick doesn't capture stale closures
+  const onFolderOpenRef = useRef(onFolderOpen);
+  onFolderOpenRef.current = onFolderOpen;
+
+  // Snap camera target back to center when entries change (new folder loaded)
+  const layoutKey = useMemo(
+    () =>
+      entries.map((e) => `${e.name}:${e.type}:${e.size}`).join("|") +
+      `@${width}x${height}`,
+    [entries, width, height],
+  );
+
   useEffect(() => {
     const count = Math.max(40, Math.floor((width * height) / 5500));
     const stars: Star[] = [];
@@ -136,16 +180,9 @@ export function Universe({
     starsRef.current = stars;
   }, [width, height]);
 
-  // Recompute particle targets when entries (or canvas size) change
-  const layoutKey = useMemo(
-    () =>
-      entries.map((e) => `${e.name}:${e.type}:${e.size}`).join("|") +
-      `@${width}x${height}`,
-    [entries, width, height],
-  );
-
   useEffect(() => {
     const particles = particlesRef.current;
+    const cam = cameraRef.current;
 
     if (entries.length === 0) {
       for (const p of particles.values()) p.talpha = 0;
@@ -161,7 +198,7 @@ export function Universe({
       name: "root",
       children: entries.map((e) => ({
         name: e.name,
-        value: Math.max(e.size, 1),
+        value: packValue(e),
         _e: e,
       })),
     }).sum((d: any) => d.value ?? 0);
@@ -173,26 +210,42 @@ export function Universe({
     const cy = height / 2;
     const off = layoutSize / 2;
 
+    // When new entries arrive, spawn new particles at the current camera
+    // position (so they appear "inside" the folder we zoomed into) and
+    // animate the camera back out to center.
+    const spawnX = cam.x;
+    const spawnY = cam.y;
+
+    cam.tx = cx;
+    cam.ty = cy;
+    cam.tscale = 1;
+    zoomingRef.current = null;
+
     const seen = new Set<string>();
     for (const leaf of root.leaves()) {
       const e = (leaf.data as any)._e as Entry;
       const key = e.name;
       seen.add(key);
+      const kind = classify(e.name, e.type);
+      const color = COLORS[kind];
+      const clickable =
+        kind === "html" || kind === "md" || kind === "folder";
+
       const tx = (leaf as any).x - off + cx;
       const ty = (leaf as any).y - off + cy;
       const tr = Math.max(2.5, (leaf as any).r);
-      const color = colorFor(e.name, e.type);
 
       let p = particles.get(key);
       if (!p) {
         p = {
           key,
           name: e.name,
-          type: e.type,
+          path: e.path,
+          kind,
           size: e.size,
           itemCount: e.itemCount,
-          x: cx + (Math.random() - 0.5) * 80,
-          y: cy + (Math.random() - 0.5) * 80,
+          x: spawnX + (Math.random() - 0.5) * 30,
+          y: spawnY + (Math.random() - 0.5) * 30,
           r: 1,
           alpha: 0,
           tx,
@@ -203,6 +256,7 @@ export function Universe({
           freq: 0.25 + Math.random() * 0.45,
           amp: 1.6 + Math.random() * 3.4,
           color,
+          clickable,
         };
         particles.set(key, p);
       } else {
@@ -213,7 +267,10 @@ export function Universe({
         p.size = e.size;
         p.itemCount = e.itemCount;
         p.color = color;
-        p.type = e.type;
+        p.kind = kind;
+        p.clickable = clickable;
+        p.path = e.path;
+        p.name = e.name;
       }
     }
     for (const [k, p] of particles) {
@@ -221,7 +278,16 @@ export function Universe({
     }
   }, [layoutKey, entries, width, height]);
 
-  // Animation loop
+  // Reset camera anchor if canvas size changes and nothing else is going on
+  useEffect(() => {
+    const cam = cameraRef.current;
+    if (!zoomingRef.current) {
+      cam.tx = width / 2;
+      cam.ty = height / 2;
+      cam.tscale = 1;
+    }
+  }, [width, height]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -242,6 +308,25 @@ export function Universe({
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       const { width: w, height: h } = dimsRef.current;
+      const cam = cameraRef.current;
+
+      // Lerp camera toward target
+      const camLerp = 1 - Math.pow(0.002, dt);
+      cam.x += (cam.tx - cam.x) * camLerp;
+      cam.y += (cam.ty - cam.y) * camLerp;
+      cam.scale += (cam.tscale - cam.scale) * camLerp;
+
+      // Check zoom-in completion
+      const zooming = zoomingRef.current;
+      if (zooming && !zooming.fired && cam.scale > ZOOM_TRIGGER_SCALE) {
+        zooming.fired = true;
+        const info: FolderOpenInfo = {
+          name: zooming.name,
+          path: zooming.path,
+        };
+        // Defer to avoid setState-in-render warnings on parent
+        queueMicrotask(() => onFolderOpenRef.current(info));
+      }
 
       // Backdrop
       const bg = ctx.createRadialGradient(
@@ -257,7 +342,7 @@ export function Universe({
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
 
-      // Stars
+      // Stars (not zoomed; they're "in the sky")
       for (const s of starsRef.current) {
         const a =
           s.alpha * (0.55 + 0.45 * Math.sin(now * 0.0012 + s.twinkle));
@@ -269,7 +354,7 @@ export function Universe({
       }
       ctx.globalAlpha = 1;
 
-      // Particles
+      // Particles (zoomed via camera)
       const t = now * 0.001;
       const toDelete: string[] = [];
       ctx.globalCompositeOperation = "lighter";
@@ -287,11 +372,17 @@ export function Universe({
 
         const dx = Math.sin(t * p.freq + p.phase) * p.amp;
         const dy = Math.cos(t * p.freq * 0.7 + p.phase * 1.3) * p.amp;
-        const drawX = p.x + dx;
-        const drawY = p.y + dy;
+        const worldX = p.x + dx;
+        const worldY = p.y + dy;
 
+        const drawX = (worldX - cam.x) * cam.scale + w / 2;
+        const drawY = (worldY - cam.y) * cam.scale + h / 2;
+        const drawR = p.r * cam.scale;
+
+        const style = STYLE[p.kind];
         const rgb = hexToRgb(p.color);
-        const haloR = p.r * 3.4;
+        const haloR = drawR * style.haloMul;
+        const a = p.alpha * style.alphaMul;
 
         const halo = ctx.createRadialGradient(
           drawX,
@@ -301,70 +392,127 @@ export function Universe({
           drawY,
           haloR,
         );
-        halo.addColorStop(
-          0,
-          `rgba(${rgb.r},${rgb.g},${rgb.b},${0.95 * p.alpha})`,
-        );
-        halo.addColorStop(
-          0.35,
-          `rgba(${rgb.r},${rgb.g},${rgb.b},${0.35 * p.alpha})`,
-        );
+        halo.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},${0.9 * a})`);
+        halo.addColorStop(0.35, `rgba(${rgb.r},${rgb.g},${rgb.b},${0.3 * a})`);
         halo.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0)`);
         ctx.fillStyle = halo;
         ctx.beginPath();
         ctx.arc(drawX, drawY, haloR, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.globalAlpha = p.alpha;
+        const coreR = Math.max(0.6, drawR * style.coreMul);
+        ctx.globalAlpha = a;
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
-        ctx.arc(drawX, drawY, Math.max(0.7, p.r * 0.4), 0, Math.PI * 2);
+        ctx.arc(drawX, drawY, coreR, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
       }
       ctx.globalCompositeOperation = "source-over";
 
       for (const k of toDelete) particlesRef.current.delete(k);
-
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [width, height]);
 
-  function handleMove(e: React.MouseEvent<HTMLDivElement>) {
-    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+  // Convert screen mouse coords to world coords through the current camera
+  function toWorld(mx: number, my: number): { x: number; y: number } {
+    const cam = cameraRef.current;
+    const { width: w, height: h } = dimsRef.current;
+    return {
+      x: (mx - w / 2) / cam.scale + cam.x,
+      y: (my - h / 2) / cam.scale + cam.y,
+    };
+  }
+
+  function pickAt(
+    mx: number,
+    my: number,
+    clickableOnly: boolean,
+  ): Particle | null {
+    const world = toWorld(mx, my);
     let best: Particle | null = null;
     let bestD = Infinity;
     for (const p of particlesRef.current.values()) {
+      if (clickableOnly && !p.clickable) continue;
       const rr = Math.max(p.r + 3, 6);
-      const d = (p.x - mx) ** 2 + (p.y - my) ** 2;
+      const d = (p.x - world.x) ** 2 + (p.y - world.y) ** 2;
       if (d < rr * rr && d < bestD) {
         best = p;
         bestD = d;
       }
     }
-    if (best) {
+    return best;
+  }
+
+  function handleMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (zoomingRef.current) return; // freeze hover while zooming
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const hit = pickAt(mx, my, false);
+    setHoverIsClickable(!!hit && hit.clickable);
+    if (hit) {
       onHover({
-        name: best.name,
-        type: best.type,
-        size: best.size,
-        itemCount: best.itemCount,
+        name: hit.name,
+        path: hit.path,
+        kind: hit.kind,
+        size: hit.size,
+        itemCount: hit.itemCount,
         x: e.clientX,
         y: e.clientY,
+        clickable: hit.clickable,
       });
     } else {
       onHover(null);
     }
   }
 
+  function handleClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (zoomingRef.current) return;
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const hit = pickAt(mx, my, true);
+    if (!hit) return;
+
+    if (hit.kind === "folder") {
+      // Begin zoom: set camera target to particle world position at high scale
+      const cam = cameraRef.current;
+      cam.tx = hit.tx;
+      cam.ty = hit.ty;
+      cam.tscale = ZOOM_SCALE;
+      zoomingRef.current = {
+        name: hit.name,
+        path: hit.path,
+        fired: false,
+      };
+      setHoverIsClickable(false);
+      onHover(null);
+      return;
+    }
+
+    if (hit.kind === "html" || hit.kind === "md") {
+      onSelect({ name: hit.name, path: hit.path, kind: hit.kind });
+    }
+  }
+
   return (
     <div
       onMouseMove={handleMove}
-      onMouseLeave={() => onHover(null)}
-      style={{ position: "relative", width, height }}
+      onMouseLeave={() => {
+        setHoverIsClickable(false);
+        onHover(null);
+      }}
+      onClick={handleClick}
+      style={{
+        position: "relative",
+        width,
+        height,
+        cursor: hoverIsClickable ? "pointer" : "default",
+      }}
     >
       <canvas ref={canvasRef} />
     </div>
