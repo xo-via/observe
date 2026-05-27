@@ -20,8 +20,10 @@ import {
 import {
   Evolution,
   type EvolutionCommit,
+  type EvolutionFile,
   type EvolutionHover,
 } from "@/components/Evolution";
+import { Visualize, type ReadmePayload } from "@/components/Visualize";
 
 type ScanResult = {
   root: string;
@@ -82,16 +84,34 @@ export default function Page() {
 
   // View: "galaxies" = the whole universe as a graph of folders (galaxies)
   // linked by cross-references; "folder" = the classic single-folder explorer;
-  // "evolution" = the universe stacked through time, lane = top-level folder.
-  const [view, setView] = useState<"galaxies" | "folder" | "evolution">("galaxies");
+  // "evolution" = the universe through time, fed by xo.json;
+  // "visualize" = the universe's README rendered as its self-description.
+  const [view, setView] = useState<
+    "galaxies" | "folder" | "evolution" | "visualize"
+  >("galaxies");
   const [galaxyData, setGalaxyData] = useState<{ galaxies: GalaxyNode[]; edges: GalaxyEdge[] } | null>(null);
   const [galaxyHover, setGalaxyHover] = useState<GalaxyHover>(null);
-  const [evolutionData, setEvolutionData] = useState<{ commits: EvolutionCommit[]; lanes: string[] } | null>(null);
+  const [evolutionData, setEvolutionData] = useState<{
+    commits: EvolutionCommit[];
+    lanes: string[];
+    files: EvolutionFile[];
+    xoExists: boolean;
+    xoCreated: boolean;
+  } | null>(null);
   const [evolutionHover, setEvolutionHover] = useState<EvolutionHover>(null);
-  // A trace through time: an ordered list of commit SHAs the user has visited
-  // in this view. The last entry is the "current" moment. Persists in the URL
-  // as ?timetraveltrace=sha1,sha2,... so a trace can be shared or replayed.
+  // Two evolution states the user toggles between:
+  //   live        → cursor pinned to the tip of xo.json; polls for new ticks
+  //   time-travel → cursor is free to scrub the past; playback + bookmarks
+  // The frontend never walks git for visualization data — everything here
+  // comes from xo.json (auto-created empty if missing, see /api/xo).
+  const [evoMode, setEvoMode] = useState<"live" | "time-travel">("live");
   const [traceSHAs, setTraceSHAs] = useState<string[]>([]);
+  const [currentSha, setCurrentSha] = useState<string | null>(null);
+  const [playing, setPlaying] = useState<boolean>(false);
+  const [playSpeedMs, setPlaySpeedMs] = useState<number>(400);
+  const [rebuilding, setRebuilding] = useState<boolean>(false);
+  const [readme, setReadme] = useState<ReadmePayload | null>(null);
+  const [readmeLoading, setReadmeLoading] = useState<boolean>(false);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const [stage, setStage] = useState<{ w: number; h: number }>({
@@ -344,29 +364,107 @@ export default function Page() {
     [navigate],
   );
 
-  // Load the universe-through-time stream once the evolution tab is opened.
+  // Load (and, in live mode, keep refreshing) the universe's evolution from
+  // xo.json. In time-travel mode we read once and let the user scrub; in live
+  // mode we poll every few seconds so newly-recorded ticks appear without a
+  // page reload.
   useEffect(() => {
-    if (view !== "evolution" || evolutionData) return;
+    if (view !== "evolution") return;
     let alive = true;
-    fetch("/api/evolution")
-      .then((r) => r.json())
-      .then((j) => {
-        if (alive && Array.isArray(j.commits) && Array.isArray(j.lanes)) {
-          setEvolutionData({ commits: j.commits, lanes: j.lanes });
+    const load = async () => {
+      try {
+        const res = await fetch("/api/evolution");
+        const j = await res.json();
+        if (
+          alive &&
+          Array.isArray(j.commits) &&
+          Array.isArray(j.lanes) &&
+          Array.isArray(j.files)
+        ) {
+          setEvolutionData({
+            commits: j.commits,
+            lanes: j.lanes,
+            files: j.files,
+            xoExists: !!j.xoExists,
+            xoCreated: !!j.xoCreated,
+          });
         }
-      })
-      .catch(() => {});
+      } catch {
+        /* keep previous data if a poll briefly fails */
+      }
+    };
+    load();
+    if (evoMode !== "live") return;
+    const id = setInterval(load, 5000);
     return () => {
       alive = false;
+      clearInterval(id);
     };
-  }, [view, evolutionData]);
+  }, [view, evoMode]);
 
-  // Clicking a tick in either the streamgraph or the timeline below it appends
-  // the commit to the trace. Repeating the same sha collapses (no-op) so the
-  // visualization doesn't accumulate redundant overlapping dots; a true revisit
-  // requires clicking a different commit first.
+  // In live mode the cursor is always the tip of xo.json. Whenever the data
+  // refreshes (a poll picked up a new tick) we re-snap the cursor forward.
+  useEffect(() => {
+    if (evoMode !== "live" || !evolutionData) return;
+    const commits = evolutionData.commits;
+    if (commits.length === 0) return;
+    setPlaying(false);
+    setCurrentSha(commits[commits.length - 1].sha);
+  }, [evoMode, evolutionData]);
+
+  // The Visualize tab reads /api/readme on demand. We keep a single payload in
+  // state; pressing "↻ try again" inside the component re-runs this loader.
+  const loadReadme = useCallback(async () => {
+    setReadmeLoading(true);
+    try {
+      const res = await fetch("/api/readme");
+      const j = (await res.json()) as ReadmePayload;
+      setReadme(j);
+    } catch (e: unknown) {
+      const msg = (e as { message?: string })?.message ?? String(e);
+      setReadme({ exists: false, error: msg });
+    } finally {
+      setReadmeLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (view !== "visualize") return;
+    if (readme || readmeLoading) return;
+    loadReadme();
+  }, [view, readme, readmeLoading, loadReadme]);
+
+  const rebuildXo = useCallback(async () => {
+    setRebuilding(true);
+    try {
+      const res = await fetch("/api/xo", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "rebuild" }),
+      });
+      const j = await res.json();
+      if (j.ok && j.xo) {
+        setEvolutionData({
+          commits: Array.isArray(j.xo.evolution) ? j.xo.evolution : [],
+          lanes: Array.isArray(j.xo.lanes) ? j.xo.lanes : [],
+          files: Array.isArray(j.xo.files) ? j.xo.files : [],
+          xoExists: true,
+          xoCreated: false,
+        });
+      }
+    } catch {
+      /* swallow; the live poll will catch up */
+    } finally {
+      setRebuilding(false);
+    }
+  }, []);
+
+  // Clicking a tick (timeline or canvas) appends the commit to the trace *and*
+  // moves the cursor there. Repeating the same sha collapses to avoid stacking
+  // redundant trace markers.
   const pushTrace = useCallback((sha: string | null) => {
     if (!sha) return;
+    setCurrentSha(sha);
     setTraceSHAs((prev) => {
       if (prev[prev.length - 1] === sha) return prev;
       return [...prev, sha];
@@ -379,8 +477,34 @@ export default function Page() {
     [],
   );
 
-  // The "you are here" commit on the evolution view = the tail of the trace.
-  const evolutionSelectedSha = traceSHAs.length > 0 ? traceSHAs[traceSHAs.length - 1] : null;
+  // If the user clears the trace, snap the cursor back to "present" (no commit
+  // selected) — that's the live HEAD of the universe.
+  useEffect(() => {
+    if (traceSHAs.length === 0) return;
+    const tail = traceSHAs[traceSHAs.length - 1];
+    if (currentSha === null) setCurrentSha(tail);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [traceSHAs]);
+
+  // Playback: every N ms advance the cursor to the next commit. Auto-stops at
+  // the tip. We never write into the trace from here — playback is ephemeral.
+  useEffect(() => {
+    if (!playing || view !== "evolution" || !evolutionData) return;
+    const commits = evolutionData.commits;
+    if (commits.length === 0) return;
+    const id = setInterval(() => {
+      setCurrentSha((cur) => {
+        const idx = cur ? commits.findIndex((c) => c.sha === cur) : -1;
+        const next = idx < 0 ? 0 : idx + 1;
+        if (next >= commits.length) {
+          setPlaying(false);
+          return commits[commits.length - 1].sha;
+        }
+        return commits[next].sha;
+      });
+    }, Math.max(60, playSpeedMs));
+    return () => clearInterval(id);
+  }, [playing, playSpeedMs, view, evolutionData]);
 
   const entries = data?.entries ?? [];
 
@@ -403,8 +527,67 @@ export default function Page() {
   }
 
   return (
-    <main className="fixed inset-0 overflow-hidden">
-      <div ref={stageRef} className="absolute inset-0">
+    <main className="fixed inset-0 flex flex-col overflow-hidden">
+      {/* ── Top toolbar: identity · view tabs · universe lifecycle verbs ── */}
+      <header className="relative z-30 flex items-center gap-3 px-3 h-12 shrink-0 border-b border-white/10 bg-black/50 backdrop-blur-md">
+        <div className="flex items-center gap-2 select-none pr-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/xo-logo.svg" alt="XO" width={22} height={22} className="opacity-90" />
+          <span className="text-sm font-semibold tracking-wider text-white/80">XO</span>
+        </div>
+        <div className="flex items-center gap-1 text-[11px] font-mono">
+          {(["galaxies", "folder", "evolution", "visualize"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={
+                "px-2.5 py-1 rounded-full border transition " +
+                (view === v
+                  ? "bg-white/15 border-white/25 text-white"
+                  : "bg-black/30 border-white/10 text-white/45 hover:text-white/80")
+              }
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1" />
+        <div className="flex items-center gap-1.5">
+          {(["start", "fetch", "update", "clone"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => runVerb(v)}
+              disabled={busyVerb !== null}
+              className="px-3 py-1.5 text-xs font-mono rounded-full bg-black/40 border border-white/15 text-white/75 hover:bg-white/10 hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+              title={`observe.py ${v}`}
+            >
+              {busyVerb === v ? `${v}…` : v}
+            </button>
+          ))}
+          <span className="w-px h-5 bg-white/10 mx-0.5" />
+          <button
+            type="button"
+            onClick={() => setModal("about")}
+            className="px-3 py-1.5 text-xs font-mono rounded-full bg-black/40 border border-white/15 text-white/75 hover:bg-white/10 hover:text-white transition"
+            title="about this universe (observatory)"
+          >
+            about
+          </button>
+          <button
+            type="button"
+            onClick={() => setModal("changelog")}
+            className="px-3 py-1.5 text-xs font-mono rounded-full bg-black/40 border border-white/15 text-white/75 hover:bg-white/10 hover:text-white transition"
+            title="what changed, tick by tick (CHANGELOG.md)"
+          >
+            changelog
+          </button>
+        </div>
+      </header>
+
+      {/* ── Canvas stage: fills the space between the toolbar and the bottom bar ── */}
+      <div ref={stageRef} className="relative flex-1 min-h-0">
         {stage.w > 0 && stage.h > 0 && view === "folder" && (
           <Universe
             entries={entries}
@@ -430,81 +613,24 @@ export default function Page() {
           <Evolution
             commits={evolutionData.commits}
             lanes={evolutionData.lanes}
+            files={evolutionData.files}
             width={stage.w}
             height={stage.h}
-            selectedSha={evolutionSelectedSha}
+            currentSha={currentSha}
             traceSHAs={traceSHAs}
             onHover={setEvolutionHover}
             onPickCommit={(c) => pushTrace(c.sha)}
           />
         )}
+        {view === "visualize" && (
+          <Visualize
+            payload={readme}
+            loading={readmeLoading}
+            onReload={loadReadme}
+          />
+        )}
       </div>
 
-      {/* XO logo */}
-      <div className="absolute top-4 left-4 z-20 flex items-center gap-2 select-none">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/xo-logo.svg"
-          alt="XO"
-          width={28}
-          height={28}
-          className="opacity-90"
-        />
-        <span className="text-sm font-semibold tracking-wider text-white/80">
-          XO
-        </span>
-      </div>
-
-      {/* View toggle: the whole universe as galaxies, or one folder explored */}
-      <div className="absolute top-14 left-4 z-20 flex items-center gap-1 text-[11px] font-mono">
-        {(["galaxies", "folder", "evolution"] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => setView(v)}
-            className={
-              "px-2.5 py-1 rounded-full border backdrop-blur-md transition " +
-              (view === v
-                ? "bg-white/15 border-white/25 text-white"
-                : "bg-black/30 border-white/10 text-white/45 hover:text-white/80")
-            }
-          >
-            {v}
-          </button>
-        ))}
-      </div>
-
-      {/* Universe lifecycle verbs */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
-        {(["start", "fetch", "update", "clone"] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => runVerb(v)}
-            disabled={busyVerb !== null}
-            className="px-3 py-1.5 text-xs font-mono rounded-full bg-black/40 border border-white/15 text-white/75 hover:bg-white/10 hover:text-white backdrop-blur-md transition disabled:opacity-40 disabled:cursor-not-allowed"
-            title={`observe.py ${v}`}
-          >
-            {busyVerb === v ? `${v}…` : v}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => setModal("about")}
-          className="px-3 py-1.5 text-xs font-mono rounded-full bg-black/40 border border-white/15 text-white/75 hover:bg-white/10 hover:text-white backdrop-blur-md transition"
-          title="about this universe (observatory)"
-        >
-          about
-        </button>
-        <button
-          type="button"
-          onClick={() => setModal("changelog")}
-          className="px-3 py-1.5 text-xs font-mono rounded-full bg-black/40 border border-white/15 text-white/75 hover:bg-white/10 hover:text-white backdrop-blur-md transition"
-          title="what changed, tick by tick (CHANGELOG.md)"
-        >
-          changelog
-        </button>
-      </div>
 
       {/* Verb result toast */}
       {verbMsg && (
@@ -719,33 +845,173 @@ export default function Page() {
         </div>
       )}
 
-      {/* Evolution view: a scrubbable timeline + trace controls. The Timeline
-          component is reused from folder view; we feed it the evolution commits
-          and let the trace tail drive its selection so the dot on the timeline
-          always matches the bright column on the streamgraph above. */}
+      {/* Evolution view: a live/time-travel toggle plus the matching controls.
+          Both states read from xo.json — live mode pins the cursor to the tip
+          and polls for new ticks; time-travel mode unlocks scrubbing, playback,
+          and bookmarks (synced to ?timetraveltrace). If xo.json is empty we
+          surface a "rebuild from git" affordance front and center. */}
       {view === "evolution" && (
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 w-[min(900px,94vw)] px-4 py-3 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md">
-          {evolutionData ? (
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 w-[min(960px,94vw)] px-4 py-3 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md">
+          {/* Mode toggle + always-present rebuild action */}
+          <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+            <div className="flex items-center gap-1 text-[11px] font-mono">
+              {(["live", "time-travel"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    setEvoMode(m);
+                    if (m === "live") setPlaying(false);
+                  }}
+                  className={
+                    "px-3 py-1 rounded-full border transition " +
+                    (evoMode === m
+                      ? "bg-white/15 border-white/25 text-white"
+                      : "bg-black/30 border-white/10 text-white/45 hover:text-white/80")
+                  }
+                  title={
+                    m === "live"
+                      ? "pin the cursor to the tip; poll xo.json for new ticks"
+                      : "scrub through history, play it back, bookmark moments"
+                  }
+                >
+                  {m === "live" ? "● live" : "↺ time-travel"}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-white/30 font-mono truncate max-w-[280px]">
+                {evolutionData
+                  ? `xo.json · ${evolutionData.commits.length} ticks · ${evolutionData.files.length} lifelines`
+                  : "loading xo.json…"}
+              </span>
+              <button
+                type="button"
+                onClick={rebuildXo}
+                disabled={rebuilding}
+                className="px-3 py-1.5 text-xs font-mono rounded-full bg-black/40 hover:bg-white/10 text-white/70 border border-white/15 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                title="rebuild xo.json from git history (preserves unknown keys)"
+              >
+                {rebuilding ? "rebuilding…" : "↻ rebuild xo.json"}
+              </button>
+            </div>
+          </div>
+
+          {!evolutionData ? (
+            <div className="text-center text-[11px] font-mono text-white/40 py-2">
+              reading xo.json…
+            </div>
+          ) : evolutionData.commits.length === 0 ? (
+            <div className="text-center text-[11px] font-mono text-white/50 py-3 border-t border-white/10">
+              {evolutionData.xoCreated
+                ? "xo.json was just created (empty). press ↻ rebuild to populate it from git."
+                : "xo.json has no evolution data yet — observe.py hasn't recorded any ticks. press ↻ rebuild to bootstrap from git."}
+            </div>
+          ) : evoMode === "live" ? (
+            <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-3">
+              <span className="text-[11px] font-mono text-white/65 truncate">
+                ● <span className="text-emerald-300/80">live</span> · pinned to{" "}
+                {(() => {
+                  const tip = evolutionData.commits[evolutionData.commits.length - 1];
+                  if (!tip) return "—";
+                  const t = tip.message.match(/^t=(\d+)/);
+                  return t ? `t=${t[1]}` : tip.shortSha;
+                })()}
+                <span className="mx-1.5 text-white/25">·</span>
+                polls xo.json every 5s
+              </span>
+              <span className="text-[10px] font-mono text-white/30">
+                switch to ↺ time-travel to scrub
+              </span>
+            </div>
+          ) : (
             <>
               <Timeline
                 commits={evolutionData.commits}
                 isGit={true}
-                selected={evolutionSelectedSha}
-                onSelect={(sha) => pushTrace(sha)}
+                selected={currentSha}
+                onSelect={(sha) => {
+                  setPlaying(false);
+                  setCurrentSha(sha);
+                }}
               />
-              <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between gap-3">
-                <span className="text-[10px] text-white/40 font-mono truncate">
-                  {traceSHAs.length === 0
-                    ? `${evolutionData.commits.length} ticks · click a moment to start tracing`
-                    : `trace: ${traceSHAs.length} step${traceSHAs.length === 1 ? "" : "s"} · synced to ?timetraveltrace`}
-                </span>
+              <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const commits = evolutionData.commits;
+                      if (commits.length === 0) return;
+                      const tipSha = commits[commits.length - 1].sha;
+                      if (!playing && currentSha === tipSha) {
+                        setCurrentSha(commits[0].sha);
+                      }
+                      setPlaying((p) => !p);
+                    }}
+                    className="px-3 py-1.5 text-xs font-mono rounded-full bg-white/10 hover:bg-white/20 text-white/90 border border-white/15 transition"
+                    title="play the universe forward through history"
+                  >
+                    {playing ? "⏸ pause" : "▶ play"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlaying(false);
+                      if (evolutionData.commits[0])
+                        setCurrentSha(evolutionData.commits[0].sha);
+                    }}
+                    className="px-3 py-1.5 text-xs font-mono rounded-full bg-black/40 hover:bg-white/10 text-white/70 border border-white/15 transition"
+                    title="rewind to the big bang"
+                  >
+                    ⏮ big bang
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlaying(false);
+                      const c =
+                        evolutionData.commits[evolutionData.commits.length - 1];
+                      if (c) setCurrentSha(c.sha);
+                    }}
+                    className="px-3 py-1.5 text-xs font-mono rounded-full bg-black/40 hover:bg-white/10 text-white/70 border border-white/15 transition"
+                    title="jump to the present"
+                  >
+                    ⏭ present
+                  </button>
+                  <label className="ml-2 flex items-center gap-1.5 text-[10px] font-mono text-white/40">
+                    speed
+                    <input
+                      type="range"
+                      min={80}
+                      max={1200}
+                      step={20}
+                      value={1280 - playSpeedMs}
+                      onChange={(e) =>
+                        setPlaySpeedMs(1280 - Number(e.target.value))
+                      }
+                      className="accent-white/70"
+                    />
+                  </label>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!currentSha) return;
+                      pushTrace(currentSha);
+                    }}
+                    disabled={!currentSha}
+                    className="px-3 py-1.5 text-xs font-mono rounded-full bg-white/10 hover:bg-white/20 text-white/90 border border-white/15 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="bookmark the moment you're looking at into the trace"
+                  >
+                    ★ bookmark
+                  </button>
                   <button
                     type="button"
                     onClick={undoTrace}
                     disabled={traceSHAs.length === 0}
                     className="px-3 py-1.5 text-xs font-mono rounded-full bg-black/40 hover:bg-white/10 text-white/70 border border-white/15 transition disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="drop the most recent step from the trace"
+                    title="drop the most recent bookmark"
                   >
                     ↶ undo
                   </button>
@@ -760,24 +1026,31 @@ export default function Page() {
                   </button>
                 </div>
               </div>
+              <div className="mt-1.5 text-[10px] text-white/30 font-mono text-center truncate">
+                {traceSHAs.length === 0
+                  ? `${evolutionData.commits.length} ticks · scrub the timeline or press play · bookmark to record`
+                  : `trace: ${traceSHAs.length} step${traceSHAs.length === 1 ? "" : "s"} · synced to ?timetraveltrace`}
+              </div>
             </>
-          ) : (
-            <div className="text-center text-[11px] font-mono text-white/40 py-2">
-              rewinding the universe…
-            </div>
           )}
         </div>
       )}
       {view === "evolution" && evolutionHover && (
         <div
           className="pointer-events-none fixed z-20 px-3 py-2 rounded-md bg-black/85 border border-white/10 text-xs font-mono backdrop-blur"
-          style={{ left: evolutionHover.x + 14, top: evolutionHover.y + 14, maxWidth: 360 }}
+          style={{ left: evolutionHover.x + 14, top: evolutionHover.y + 14, maxWidth: 380 }}
         >
           <div className="text-white/90 truncate">
-            {evolutionHover.lane === "(root)" ? "root files" : `${evolutionHover.lane}/`}
-            <span className="text-white/40"> · {evolutionHover.count}</span>
+            {evolutionHover.path
+              ? evolutionHover.path
+              : evolutionHover.lane === "(root)"
+                ? "root"
+                : `${evolutionHover.lane}/`}
           </div>
-          <div className="text-white/55 truncate">
+          <div className="text-white/45 text-[10px] truncate">
+            {evolutionHover.path ? `lane · ${evolutionHover.lane}` : "no file at this row/commit"}
+          </div>
+          <div className="text-white/55 truncate mt-1 pt-1 border-t border-white/10">
             {evolutionHover.commit.message || "(no message)"}
           </div>
           <div className="text-white/35 text-[10px] mt-0.5">
@@ -791,7 +1064,7 @@ export default function Page() {
             <span className="mx-1.5">·</span>
             {new Date(evolutionHover.commit.date).toLocaleString()}
             <span className="mx-1.5">·</span>
-            {evolutionHover.commit.total} files total
+            {evolutionHover.commit.total} alive
           </div>
         </div>
       )}

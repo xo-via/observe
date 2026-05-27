@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 export type EvolutionCommit = {
   sha: string;
@@ -12,15 +12,22 @@ export type EvolutionCommit = {
   counts: Record<string, number>;
 };
 
+export type EvolutionFile = {
+  path: string;
+  lane: string;
+  bornIdx: number;
+  diedIdx: number;
+};
+
 export type EvolutionHover = {
   x: number;
   y: number;
   lane: string;
-  count: number;
+  path: string | null;
   commit: EvolutionCommit;
 } | null;
 
-// Deterministic hash → [0,1). Same trick as Galaxies.tsx so colors are stable.
+// Deterministic hash → [0,1). Matches Galaxies.tsx so colors are consistent.
 function hash01(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -30,119 +37,285 @@ function hash01(s: string): number {
   return ((h >>> 0) % 100000) / 100000;
 }
 
-function laneColor(name: string, alpha = 0.85): string {
-  if (name === "(root)") return `hsla(0, 0%, 70%, ${alpha})`;
+function laneColor(name: string, alpha = 0.9): string {
+  if (name === "(root)") return `hsla(0, 0%, 78%, ${alpha})`;
   const hue = Math.floor(hash01(name) * 360);
   return `hsla(${hue}, 70%, 62%, ${alpha})`;
 }
 
-// Centripetal Catmull–Rom → cubic Bezier path. Produces the river-smooth curves
-// you expect from a streamgraph without dragging in d3-shape.
-function smoothPath(points: [number, number][]): string {
-  if (points.length === 0) return "";
-  if (points.length === 1) return `M ${points[0][0]} ${points[0][1]}`;
-  const out: string[] = [`M ${points[0][0]} ${points[0][1]}`];
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[i - 1] ?? points[i];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = points[i + 2] ?? p2;
-    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
-    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
-    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
-    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
-    out.push(`C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2[0]} ${p2[1]}`);
-  }
-  return out.join(" ");
-}
+// Each galaxy keeps a smoothly-tweened radius so scrubbing through time looks
+// like the universe breathing rather than snapping between snapshots.
+type GalaxyState = {
+  lane: string;
+  x: number;
+  y: number;
+  r: number;
+  rTarget: number;
+};
 
+type Mote = {
+  lane: string;
+  path: string;
+  bornIdx: number;
+  diedIdx: number;
+  angle: number;
+  orbit: number;
+  speed: number;
+  size: number;
+};
+
+// The universe at one tick: galaxies (top-level folders) as glowing bubbles
+// whose radii track file count, with each file represented by a tiny orbiting
+// mote. Scrubbing or playing back through commits animates births and deaths.
 export function Evolution({
   commits,
   lanes,
+  files,
   width,
   height,
-  selectedSha,
+  currentSha,
   traceSHAs,
   onHover,
   onPickCommit,
 }: {
   commits: EvolutionCommit[];
   lanes: string[];
+  files: EvolutionFile[];
   width: number;
   height: number;
-  selectedSha: string | null;
+  currentSha: string | null;
   traceSHAs: string[];
   onHover: (info: EvolutionHover) => void;
   onPickCommit?: (commit: EvolutionCommit) => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Layout. The stream lives inside a padded box so the time axis sits beneath
-  // it without overlapping. Vertical center is the silhouette baseline.
-  const padding = { top: 56, right: 36, bottom: 88, left: 36 };
-  const w = Math.max(320, width);
-  const h = Math.max(320, height);
-  const innerW = Math.max(40, w - padding.left - padding.right);
-  const innerH = Math.max(40, h - padding.top - padding.bottom);
-  const midY = padding.top + innerH / 2;
+  const currentIdx = useMemo(() => {
+    if (commits.length === 0) return -1;
+    if (!currentSha) return commits.length - 1;
+    const i = commits.findIndex((c) => c.sha === currentSha);
+    return i >= 0 ? i : commits.length - 1;
+  }, [currentSha, commits]);
 
-  const { paths, peakTotal, xOf } = useMemo(() => {
-    const n = commits.length;
-    if (n === 0) {
-      return { paths: [] as { lane: string; d: string; fill: string }[], peakTotal: 0, xOf: () => 0 };
+  // Lane positions are a polar ring around center; bigger lanes (more lifetime
+  // touches) sit closer to the top so the "main story" is easy to spot.
+  const galaxyHome = useMemo(() => {
+    const cx = width / 2;
+    const cy = height / 2;
+    const ring = Math.min(width, height) * 0.32;
+    const N = lanes.length;
+    const map = new Map<string, { x: number; y: number }>();
+    if (N === 0) return map;
+    for (let i = 0; i < N; i++) {
+      const angle = (i / N) * Math.PI * 2 - Math.PI / 2;
+      map.set(lanes[i], {
+        x: cx + Math.cos(angle) * ring,
+        y: cy + Math.sin(angle) * ring,
+      });
     }
-    const xStep = n === 1 ? 0 : innerW / (n - 1);
-    const xOf = (i: number) => padding.left + i * xStep;
+    return map;
+  }, [lanes, width, height]);
 
-    let peak = 0;
-    for (const c of commits) if (c.total > peak) peak = c.total;
-    const scale = peak === 0 ? 0 : (innerH * 0.92) / peak;
-
-    // Stacking: for each commit compute each lane's [yLow, yHigh] around midY,
-    // with the cumulative half-height growing as we add lanes. Lane order is
-    // fixed by `lanes` so streams keep their identity across commits.
-    const yLow: Record<string, number[]> = {};
-    const yHigh: Record<string, number[]> = {};
-    for (const lane of lanes) {
-      yLow[lane] = new Array(n);
-      yHigh[lane] = new Array(n);
-    }
-    for (let i = 0; i < n; i++) {
-      const c = commits[i];
-      const halfTotal = (c.total * scale) / 2;
-      let cursor = -halfTotal;
+  // The peak count of any single lane across all of history determines the
+  // radius scale. Locking it once means a small galaxy at the early universe
+  // really does look small next to its eventual size.
+  const radiusScale = useMemo(() => {
+    let peak = 1;
+    for (const c of commits) {
       for (const lane of lanes) {
         const v = c.counts[lane] ?? 0;
-        const lo = cursor;
-        const hi = cursor + v * scale;
-        yLow[lane][i] = midY + lo;
-        yHigh[lane][i] = midY + hi;
-        cursor = hi;
+        if (v > peak) peak = v;
       }
     }
+    const maxR = Math.min(width, height) * 0.12;
+    return maxR / Math.sqrt(peak);
+  }, [commits, lanes, width, height]);
 
-    const paths = lanes.map((lane) => {
-      const top: [number, number][] = [];
-      const bot: [number, number][] = [];
-      for (let i = 0; i < n; i++) {
-        const x = xOf(i);
-        top.push([x, yLow[lane][i]]);
-        bot.push([x, yHigh[lane][i]]);
-      }
-      // Walk forward along the top edge, then back along the bottom for closure.
-      const fwd = smoothPath(top);
-      const back = smoothPath([...bot].reverse());
-      const startBack = bot[bot.length - 1];
-      const d = `${fwd} L ${startBack[0]} ${startBack[1]} ${back.replace(/^M /, "L ")} Z`;
-      return { lane, d, fill: laneColor(lane) };
+  // Each file gets a stable orbit slot derived from its path. The slot is the
+  // same forever, so a file that disappears and is reborn snaps back into the
+  // exact same place — making lifelines visually recognizable.
+  const motes = useMemo<Mote[]>(() => {
+    return files.map((f) => {
+      const a = hash01(f.path);
+      const b = hash01(f.path + "#orbit");
+      const c = hash01(f.path + "#speed");
+      const d = hash01(f.path + "#size");
+      return {
+        lane: f.lane,
+        path: f.path,
+        bornIdx: f.bornIdx,
+        diedIdx: f.diedIdx,
+        angle: a * Math.PI * 2,
+        orbit: 22 + b * 36,
+        speed: (0.00035 + c * 0.0009) * (d > 0.5 ? 1 : -1),
+        size: 1.6 + a * 1.4,
+      };
     });
+  }, [files]);
 
-    return { paths, peakTotal: peak, xOf };
-  }, [commits, lanes, innerW, innerH, padding.left, midY]);
+  // Live state held in a ref so requestAnimationFrame can mutate it without
+  // triggering React renders. The galaxy radii tween toward their target each
+  // frame, giving the "growing" feel as you walk through commits.
+  const statesRef = useRef<Map<string, GalaxyState>>(new Map());
+  const targetIdxRef = useRef<number>(currentIdx);
 
-  // Pointer → commit index. The streamgraph is uniformly spaced, so this is a
-  // simple inverse of xOf. Lane lookup uses the y position of the segment.
-  const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
+  useEffect(() => {
+    const m = new Map<string, GalaxyState>();
+    for (const lane of lanes) {
+      const home = galaxyHome.get(lane) ?? { x: width / 2, y: height / 2 };
+      const prev = statesRef.current.get(lane);
+      m.set(lane, {
+        lane,
+        x: home.x,
+        y: home.y,
+        r: prev?.r ?? 0,
+        rTarget: prev?.rTarget ?? 0,
+      });
+    }
+    statesRef.current = m;
+  }, [lanes, galaxyHome, width, height]);
+
+  useEffect(() => {
+    targetIdxRef.current = currentIdx;
+    const c = commits[currentIdx];
+    if (!c) return;
+    for (const lane of lanes) {
+      const st = statesRef.current.get(lane);
+      if (!st) continue;
+      const count = c.counts[lane] ?? 0;
+      st.rTarget = radiusScale * Math.sqrt(count);
+    }
+  }, [currentIdx, commits, lanes, radiusScale]);
+
+  // The animation loop. One pass: lerp radii, then draw galaxies, then draw
+  // motes for files alive at the current tick. The mote draw uses time-driven
+  // rotation so even paused universes feel alive.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    let raf = 0;
+    let last = performance.now();
+    const draw = (t: number) => {
+      const dt = Math.min(0.05, (t - last) / 1000);
+      last = t;
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Background: a faint radial fade so the centered universe reads as a
+      // contained world rather than scattered particles.
+      const cx = width / 2;
+      const cy = height / 2;
+      const bgR = Math.max(width, height) * 0.6;
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, bgR);
+      grad.addColorStop(0, "rgba(60,80,160,0.05)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+
+      // Tween radii. The closer they are to their target, the slower they
+      // converge — gives bigger jumps when scrubbing across long gaps.
+      const lerp = 1 - Math.pow(0.0001, dt);
+      for (const st of statesRef.current.values()) {
+        st.r += (st.rTarget - st.r) * lerp;
+      }
+
+      const idx = targetIdxRef.current;
+      const tipIdx = commits.length - 1;
+
+      // Galaxy bodies first: bloomed halo, then crisp core, then name label.
+      for (const [lane, st] of statesRef.current) {
+        if (st.r < 0.5) continue;
+        const color = laneColor(lane, 0.95);
+        const halo = ctx.createRadialGradient(st.x, st.y, 0, st.x, st.y, st.r * 2.6);
+        halo.addColorStop(0, laneColor(lane, 0.55));
+        halo.addColorStop(0.5, laneColor(lane, 0.12));
+        halo.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = halo;
+        ctx.beginPath();
+        ctx.arc(st.x, st.y, st.r * 2.6, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        ctx.font =
+          "11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+        ctx.textAlign = "center";
+        const label = lane === "(root)" ? "root" : lane;
+        ctx.fillText(label, st.x, st.y + st.r + 16);
+
+        const count = commits[idx]?.counts[lane] ?? 0;
+        ctx.fillStyle = "rgba(255,255,255,0.35)";
+        ctx.font =
+          "10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+        ctx.fillText(`${count}`, st.x, st.y + st.r + 30);
+      }
+
+      // Motes: only draw files alive at the current commit. Each rotates at
+      // its own speed around its lane's center.
+      ctx.globalCompositeOperation = "lighter";
+      for (const m of motes) {
+        if (idx < m.bornIdx || idx > m.diedIdx) continue;
+        const st = statesRef.current.get(m.lane);
+        if (!st) continue;
+        const ang = m.angle + t * m.speed;
+        const rOrbit = st.r + m.orbit;
+        const px = st.x + Math.cos(ang) * rOrbit;
+        const py = st.y + Math.sin(ang) * rOrbit;
+        ctx.fillStyle = laneColor(m.lane, 0.85);
+        ctx.beginPath();
+        ctx.arc(px, py, m.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalCompositeOperation = "source-over";
+
+      // Center hud: current tick + commit message. Kept inside canvas so it
+      // travels through devicePixelRatio scaling cleanly.
+      const c = commits[idx];
+      if (c) {
+        ctx.textAlign = "center";
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        ctx.font =
+          "11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+        const tick = c.message.match(/^t=(\d+)/);
+        const tickLabel = tick ? `t=${tick[1]}` : c.shortSha;
+        ctx.fillText(`${tickLabel}  ·  ${c.total} files`, cx, height - 90);
+        ctx.fillStyle = "rgba(255,255,255,0.45)";
+        ctx.font =
+          "10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+        const msg = (c.message || "").replace(/^t=\d+[:\s]*/, "");
+        ctx.fillText(truncate(msg, 80), cx, height - 74);
+        ctx.fillStyle = "rgba(255,255,255,0.25)";
+        ctx.fillText(
+          `${idx + 1} / ${commits.length}  ·  ${formatDate(c.date)}${idx === tipIdx ? "  ·  present" : ""}`,
+          cx,
+          height - 58,
+        );
+      }
+
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [width, height, commits, motes]);
+
+  // Hover detection runs in DOM space (no canvas readback) by computing the
+  // nearest galaxy in current state. Motes are too small to hover reliably,
+  // so we surface them only when the cursor lands inside a galaxy halo.
+  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const el = wrapRef.current;
     if (!el || commits.length === 0) {
       onHover(null);
@@ -151,281 +324,87 @@ export function Evolution({
     const rect = el.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    const n = commits.length;
-    const xStep = n === 1 ? 0 : innerW / (n - 1);
-    const raw = (x - padding.left) / Math.max(xStep, 0.0001);
-    const i = Math.max(0, Math.min(n - 1, Math.round(raw)));
-    const c = commits[i];
+    const idx = targetIdxRef.current;
+    const c = commits[idx];
     if (!c) return;
-    // Find which lane the cursor sits on by re-stacking just this column.
-    const scale = peakTotal === 0 ? 0 : (innerH * 0.92) / peakTotal;
-    const halfTotal = (c.total * scale) / 2;
-    let cursor = -halfTotal;
-    let hitLane: string | null = null;
-    let hitCount = 0;
-    for (const lane of lanes) {
-      const v = c.counts[lane] ?? 0;
-      const lo = midY + cursor;
-      const hi = midY + cursor + v * scale;
-      if (y >= lo && y <= hi) {
-        hitLane = lane;
-        hitCount = v;
-        break;
-      }
-      cursor += v * scale;
-    }
-    if (!hitLane) {
-      // Cursor is in the empty space above/below the stream: surface the commit
-      // anyway, attached to the biggest lane so the tooltip still makes sense.
-      const sorted = Object.entries(c.counts).sort((a, b) => b[1] - a[1]);
-      if (sorted.length > 0) {
-        hitLane = sorted[0][0];
-        hitCount = sorted[0][1];
+    let best: { lane: string; d: number; r: number } | null = null;
+    for (const [lane, st] of statesRef.current) {
+      const dx = x - st.x;
+      const dy = y - st.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      const hit = st.r + 48;
+      if (d <= hit && (!best || d < best.d)) {
+        best = { lane, d, r: st.r };
       }
     }
-    if (hitLane) {
-      onHover({
-        x: e.clientX,
-        y: e.clientY,
-        lane: hitLane,
-        count: hitCount,
-        commit: c,
-      });
-    }
+    onHover({
+      x: e.clientX,
+      y: e.clientY,
+      lane: best?.lane ?? "(root)",
+      path: null,
+      commit: c,
+    });
   };
 
   const onLeave = () => onHover(null);
 
-  const onClick = (e: React.MouseEvent<SVGSVGElement>) => {
+  // Clicking the canvas marks "this moment" — pushes the current commit onto
+  // the trace. The Timeline below is the primary scrub control; canvas-click
+  // is the fast way to bookmark the moment you're staring at.
+  const onClick = () => {
     if (commits.length === 0) return;
-    const el = wrapRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const xStep = commits.length === 1 ? 0 : innerW / (commits.length - 1);
-    const raw = (x - padding.left) / Math.max(xStep, 0.0001);
-    const i = Math.max(0, Math.min(commits.length - 1, Math.round(raw)));
-    const c = commits[i];
-    if (!c) return;
-    onPickCommit?.(c);
+    const c = commits[targetIdxRef.current];
+    if (c) onPickCommit?.(c);
   };
 
-  // Tick marks along the bottom. We don't draw every commit; we draw roughly 8
-  // human-readable date labels so the eye has anchors without crowding.
-  const dateTicks = useMemo(() => {
-    if (commits.length === 0) return [];
-    const target = 8;
-    const step = Math.max(1, Math.floor(commits.length / target));
-    const out: { i: number; label: string }[] = [];
-    for (let i = 0; i < commits.length; i += step) {
-      out.push({ i, label: formatDate(commits[i].date) });
-    }
-    const last = commits.length - 1;
-    if (out[out.length - 1]?.i !== last) {
-      out.push({ i: last, label: formatDate(commits[last].date) });
-    }
-    return out;
-  }, [commits]);
-
-  // Indices into `commits` for the highlighted "now" and the trace polyline.
-  // The trace can revisit; we keep duplicates and let the line cross itself.
-  const selectedIdx = useMemo(() => {
-    if (!selectedSha) return -1;
-    return commits.findIndex((c) => c.sha === selectedSha);
-  }, [selectedSha, commits]);
-
-  const traceIdx = useMemo(() => {
-    if (traceSHAs.length === 0) return [] as number[];
-    const out: number[] = [];
+  // Trace overlay along the bottom: small ghost dots, one per visited commit,
+  // so the trace stays visible even while we're showing a galaxy view above.
+  const traceMarkers = useMemo(() => {
+    if (commits.length === 0) return [] as { i: number; isLast: boolean }[];
+    const order: number[] = [];
     for (const sha of traceSHAs) {
       const i = commits.findIndex((c) => c.sha === sha);
-      if (i >= 0) out.push(i);
+      if (i >= 0) order.push(i);
     }
-    return out;
+    return order.map((i, k) => ({ i, isLast: k === order.length - 1 }));
   }, [traceSHAs, commits]);
 
-  const tracePath = useMemo(() => {
-    if (traceIdx.length === 0) return "";
-    return traceIdx
-      .map((i, k) => `${k === 0 ? "M" : "L"} ${xOf(i)} ${midY}`)
-      .join(" ");
-  }, [traceIdx, xOf, midY]);
-
-  // Legend caps the number of named lanes; the tail collapses into "+N more"
-  // so a thousand-folder universe doesn't drown the screen in chips.
-  const LEGEND_CAP = 12;
-  const legendLanes = lanes.slice(0, LEGEND_CAP);
-  const legendRest = Math.max(0, lanes.length - LEGEND_CAP);
-
   return (
-    <div ref={wrapRef} className="relative w-full h-full">
-      <svg
-        width={w}
-        height={h}
-        className="block"
-        onMouseMove={onMove}
-        onMouseLeave={onLeave}
-        onClick={onClick}
-        style={{ cursor: commits.length > 0 ? "crosshair" : "default" }}
-      >
-        <defs>
-          <filter id="evo-soft" x="-2%" y="-10%" width="104%" height="120%">
-            <feGaussianBlur stdDeviation="0.6" />
-          </filter>
-        </defs>
+    <div
+      ref={wrapRef}
+      className="relative w-full h-full"
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+      onClick={onClick}
+      style={{ cursor: commits.length > 0 ? "crosshair" : "default" }}
+    >
+      <canvas ref={canvasRef} className="block absolute inset-0" />
 
-        <line
-          x1={padding.left}
-          x2={w - padding.right}
-          y1={midY}
-          y2={midY}
-          stroke="rgba(255,255,255,0.05)"
-          strokeDasharray="2 6"
-        />
-
-        {paths.map((p) => (
-          <path
-            key={p.lane}
-            d={p.d}
-            fill={p.fill}
-            stroke={laneColor(p.lane, 0.95)}
-            strokeWidth={0.6}
-            filter="url(#evo-soft)"
-            opacity={0.85}
-          />
-        ))}
-
-        {/* Faded vertical lines for every step of the trace */}
-        {traceIdx.map((i, k) => (
-          <line
-            key={`trace-${k}-${i}`}
-            x1={xOf(i)}
-            x2={xOf(i)}
-            y1={padding.top - 4}
-            y2={h - padding.bottom + 4}
-            stroke="rgba(255,200,120,0.25)"
-            strokeWidth={1}
-            strokeDasharray="2 4"
-          />
-        ))}
-
-        {/* The trace itself: a glowing polyline through the midline at each visit */}
-        {tracePath && (
-          <>
-            <path
-              d={tracePath}
-              fill="none"
-              stroke="rgba(255,200,120,0.35)"
-              strokeWidth={5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d={tracePath}
-              fill="none"
-              stroke="rgba(255,220,160,0.95)"
-              strokeWidth={1.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            {traceIdx.map((i, k) => (
+      {/* Trace ribbon: ghost dots representing the visited commits along the
+          time axis. Sits above the timeline panel so the two read as one. */}
+      {traceMarkers.length > 0 && commits.length > 1 && (
+        <svg
+          width={width}
+          height={20}
+          className="absolute left-0 right-0 pointer-events-none"
+          style={{ bottom: 0 }}
+        >
+          {traceMarkers.map((m, k) => {
+            const x = (m.i / (commits.length - 1)) * width;
+            return (
               <circle
-                key={`tdot-${k}-${i}`}
-                cx={xOf(i)}
-                cy={midY}
-                r={k === traceIdx.length - 1 ? 5 : 3}
+                key={`${k}-${m.i}`}
+                cx={x}
+                cy={10}
+                r={m.isLast ? 4 : 2.5}
                 fill="rgba(255,220,160,0.95)"
-                stroke="rgba(0,0,0,0.6)"
-                strokeWidth={1}
+                stroke="rgba(0,0,0,0.5)"
+                strokeWidth={0.5}
               />
-            ))}
-          </>
-        )}
-
-        {/* Selected ("you are here") column: a brighter full-height line */}
-        {selectedIdx >= 0 && (
-          <line
-            x1={xOf(selectedIdx)}
-            x2={xOf(selectedIdx)}
-            y1={padding.top - 8}
-            y2={h - padding.bottom + 8}
-            stroke="rgba(255,255,255,0.75)"
-            strokeWidth={1.25}
-          />
-        )}
-
-        {dateTicks.map((t) => (
-          <g key={t.i}>
-            <line
-              x1={xOf(t.i)}
-              x2={xOf(t.i)}
-              y1={h - padding.bottom + 4}
-              y2={h - padding.bottom + 10}
-              stroke="rgba(255,255,255,0.25)"
-            />
-            <text
-              x={xOf(t.i)}
-              y={h - padding.bottom + 24}
-              textAnchor="middle"
-              fontSize={10}
-              fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
-              fill="rgba(255,255,255,0.4)"
-            >
-              {t.label}
-            </text>
-          </g>
-        ))}
-
-        {commits.length > 0 && (
-          <>
-            <text
-              x={padding.left}
-              y={padding.top - 18}
-              fontSize={11}
-              fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
-              fill="rgba(255,255,255,0.55)"
-            >
-              {commits.length} commits · {peakTotal} files at peak ·{" "}
-              {lanes.length} galaxies tracked
-            </text>
-            <text
-              x={w - padding.right}
-              y={padding.top - 18}
-              textAnchor="end"
-              fontSize={10}
-              fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
-              fill="rgba(255,255,255,0.3)"
-            >
-              click a tick to mark a moment · hover to inspect
-            </text>
-          </>
-        )}
-      </svg>
-
-      {/* Legend pinned to the right side, scrollable if it overflows. Lanes are
-          listed in stacking order so the visual top of the stack matches the
-          top of the list. */}
-      <div className="pointer-events-none absolute right-3 top-14 max-h-[70%] overflow-hidden">
-        <div className="flex flex-col gap-1 text-[10px] font-mono">
-          {legendLanes.map((lane) => (
-            <div
-              key={lane}
-              className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-md bg-black/30 backdrop-blur border border-white/5"
-            >
-              <span
-                className="inline-block w-2.5 h-2.5 rounded-sm"
-                style={{ background: laneColor(lane, 1) }}
-              />
-              <span className="text-white/70 truncate max-w-[140px]">
-                {lane}
-              </span>
-            </div>
-          ))}
-          {legendRest > 0 && (
-            <div className="px-1.5 py-0.5 text-white/35">+{legendRest} more</div>
-          )}
-        </div>
-      </div>
+            );
+          })}
+        </svg>
+      )}
 
       {commits.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -438,13 +417,20 @@ export function Evolution({
   );
 }
 
+function truncate(s: string, n: number): string {
+  if (s.length <= n) return s;
+  return s.slice(0, n - 1) + "…";
+}
+
 function formatDate(iso: string): string {
   if (!iso) return "";
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString(undefined, {
+    return d.toLocaleString(undefined, {
       month: "short",
       day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
     return iso;

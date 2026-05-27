@@ -18,19 +18,16 @@ const ACTIONS = new Set(["start", "fetch", "update", "clone", "travel"]);
 // Words that mean "the present" — returning home rather than visiting the past.
 const PRESENT = new Set(["present", "now", "head", "tip", "today"]);
 
-// The engine lives at the root of the universe (BIG_BANG). It is xo.py now, but
-// fall back to the old observe.py name for universes checked out before the rename.
+// The engine lives at the root of the universe (BIG_BANG). The canonical name
+// is observe.py — start, fetch, update, clone, and travel all bottom out in it.
 async function findObserve(): Promise<string | null> {
-  for (const name of ["xo.py", "observe.py"]) {
-    const file = path.join(bigBang(), name);
-    try {
-      await fs.access(file);
-      return file;
-    } catch {
-      /* try the next name */
-    }
+  const file = path.join(bigBang(), "observe.py");
+  try {
+    await fs.access(file);
+    return file;
+  } catch {
+    return null;
   }
-  return null;
 }
 
 async function homeBranch(root: string): Promise<string> {
