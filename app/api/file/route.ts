@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
   const rawPath: string = body.path ?? "";
   const ref: string | null =
     typeof body.ref === "string" && body.ref.trim() ? body.ref.trim() : null;
+  const rawMode: boolean = body.raw === true;
 
   if (!rawRoot || !rawPath) {
     return NextResponse.json(
@@ -114,7 +115,7 @@ export async function POST(req: NextRequest) {
   const name = path.basename(target);
   const kind = classifyByName(name);
 
-  if (kind === "other") {
+  if (!rawMode && kind === "other") {
     return NextResponse.json(
       { error: `no preview for ${name}` },
       { status: 400 },
@@ -153,6 +154,15 @@ export async function POST(req: NextRequest) {
       } finally {
         await fh.close();
       }
+    }
+
+    if (rawMode) {
+      return NextResponse.json({
+        name,
+        kind: "raw",
+        content: raw,
+        truncated,
+      });
     }
 
     if (kind === "md") {

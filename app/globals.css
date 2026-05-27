@@ -16,3 +16,87 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Rendered markdown body inside SparkView */
+.spark-prose {
+  font: 15px/1.7 ui-sans-serif, system-ui, sans-serif;
+}
+.spark-prose h1,
+.spark-prose h2,
+.spark-prose h3,
+.spark-prose h4 {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 1.6em 0 0.6em;
+}
+.spark-prose h1 {
+  font-size: 1.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 0.3em;
+}
+.spark-prose h2 {
+  font-size: 1.3rem;
+}
+.spark-prose h3 {
+  font-size: 1.1rem;
+}
+.spark-prose p {
+  margin: 0.9em 0;
+}
+.spark-prose a {
+  color: #7dd3fc;
+  text-decoration: underline;
+  text-decoration-color: rgba(125, 211, 252, 0.35);
+}
+.spark-prose code {
+  background: rgba(255, 255, 255, 0.07);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+.spark-prose pre {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 14px 16px;
+  border-radius: 10px;
+  overflow: auto;
+  margin: 1em 0;
+}
+.spark-prose pre code {
+  background: transparent;
+  padding: 0;
+}
+.spark-prose blockquote {
+  border-left: 3px solid rgba(255, 255, 255, 0.18);
+  padding: 4px 14px;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0.9em 0;
+}
+.spark-prose ul,
+.spark-prose ol {
+  padding-left: 1.5em;
+  margin: 0.6em 0;
+}
+.spark-prose li {
+  margin: 0.25em 0;
+}
+.spark-prose hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 2em 0;
+}
+.spark-prose img {
+  max-width: 100%;
+  border-radius: 6px;
+}
+.spark-prose table {
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+.spark-prose td,
+.spark-prose th {
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
