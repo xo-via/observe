@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import path from "node:path";
-import os from "node:os";
+import { resolveFromRoot } from "@/lib/root";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,22 +17,19 @@ export type Commit = {
   message: string;
 };
 
-function expandHome(p: string): string {
-  if (!p) return p;
-  if (p === "~") return os.homedir();
-  if (p.startsWith("~/")) return path.join(os.homedir(), p.slice(2));
-  return p;
-}
-
 const MAX_COMMITS = 200;
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
-  const rawPath: string = body.path ?? "";
-  if (!rawPath || typeof rawPath !== "string") {
-    return NextResponse.json({ error: "path is required" }, { status: 400 });
+  const relPath: string = typeof body.path === "string" ? body.path : "";
+  // path is relative to the root (BIG_BANG); "" is the root itself.
+  const target = resolveFromRoot(relPath);
+  if (!target) {
+    return NextResponse.json(
+      { error: "path is outside the universe root" },
+      { status: 400 },
+    );
   }
-  const target = path.resolve(expandHome(rawPath));
 
   try {
     const stat = await fs.stat(target);

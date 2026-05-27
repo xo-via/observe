@@ -31,12 +31,10 @@ function wrapRawHtml(raw: string): string {
 
 export function Preview({
   target,
-  root,
   gitRef,
   onClose,
 }: {
   target: PreviewTarget;
-  root: string | null;
   gitRef: string | null;
   onClose: () => void;
 }) {
@@ -45,7 +43,7 @@ export function Preview({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!target || !root) {
+    if (!target) {
       setData(null);
       setError(null);
       return;
@@ -57,7 +55,8 @@ export function Preview({
     fetch("/api/file", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ root, path: target.path, ref: gitRef }),
+      // path is relative to the root (BIG_BANG); the server resolves it.
+      body: JSON.stringify({ path: target.path, ref: gitRef }),
     })
       .then(async (res) => {
         const json = await res.json();
@@ -78,7 +77,7 @@ export function Preview({
     return () => {
       cancelled = true;
     };
-  }, [target, root, gitRef]);
+  }, [target, gitRef]);
 
   useEffect(() => {
     if (!target) return;

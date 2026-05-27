@@ -3,8 +3,8 @@ import { promises as fs } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
-import os from "node:os";
 import { marked } from "marked";
+import { bigBang, resolveFromRoot } from "@/lib/root";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,23 +15,11 @@ const MAX_BYTES = 1_000_000; // 1 MB cap on previewable file size
 
 type Kind = "html" | "md" | "other";
 
-function expandHome(p: string): string {
-  if (!p) return p;
-  if (p === "~") return os.homedir();
-  if (p.startsWith("~/")) return path.join(os.homedir(), p.slice(2));
-  return p;
-}
-
 function classifyByName(name: string): Kind {
   const ext = (name.split(".").pop() ?? "").toLowerCase();
   if (ext === "html" || ext === "htm") return "html";
   if (ext === "md" || ext === "mdx" || ext === "markdown") return "md";
   return "other";
-}
-
-function isInside(child: string, parent: string): boolean {
-  const rel = path.relative(parent, child);
-  return !rel.startsWith("..") && !path.isAbsolute(rel);
 }
 
 async function readFromGit(
@@ -89,24 +77,19 @@ function escapeAttr(s: string): string {
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
-  const rawRoot: string = body.root ?? "";
-  const rawPath: string = body.path ?? "";
+  const rawPath: string = typeof body.path === "string" ? body.path : "";
   const ref: string | null =
     typeof body.ref === "string" && body.ref.trim() ? body.ref.trim() : null;
 
-  if (!rawRoot || !rawPath) {
-    return NextResponse.json(
-      { error: "root and path are required" },
-      { status: 400 },
-    );
+  if (!rawPath) {
+    return NextResponse.json({ error: "path is required" }, { status: 400 });
   }
 
-  const root = path.resolve(expandHome(rawRoot));
-  const target = path.resolve(expandHome(rawPath));
-
-  if (!(target === root || isInside(target, root))) {
+  // path is relative to the root (BIG_BANG); resolveFromRoot refuses escapes.
+  const target = resolveFromRoot(rawPath);
+  if (!target) {
     return NextResponse.json(
-      { error: "path is outside the observed root" },
+      { error: "path is outside the universe root" },
       { status: 400 },
     );
   }
@@ -126,7 +109,7 @@ export async function POST(req: NextRequest) {
     let truncated = false;
 
     if (ref) {
-      const repoTop = await gitRepoTop(root);
+      const repoTop = await gitRepoTop(bigBang());
       if (!repoTop) {
         return NextResponse.json(
           { error: "ref provided but folder is not in a git repo" },

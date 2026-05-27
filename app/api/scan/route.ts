@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
-import os from "node:os";
+import { resolveFromRoot, toRel } from "@/lib/root";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,13 +62,6 @@ async function shallowItemCount(dir: string): Promise<number> {
   } catch {
     return 0;
   }
-}
-
-function expandHome(p: string): string {
-  if (!p) return p;
-  if (p === "~") return os.homedir();
-  if (p.startsWith("~/")) return path.join(os.homedir(), p.slice(2));
-  return p;
 }
 
 async function isInsideGitRepo(dir: string): Promise<boolean> {
@@ -152,7 +145,7 @@ async function scanFromGitRef(
     }
     const entry: Entry = {
       name,
-      path: path.join(target, name),
+      path: toRel(path.join(target, name)),
       type:
         type === "tree"
           ? "directory"
@@ -166,7 +159,7 @@ async function scanFromGitRef(
   }
   entries.sort((a, b) => b.size - a.size);
   return {
-    root: target,
+    root: toRel(target),
     ref,
     totalSize: entries.reduce((s, e) => s + e.size, 0),
     entries,
@@ -190,7 +183,7 @@ async function scanFromFs(
     const full = path.join(target, d.name);
     const entry: Entry = {
       name: d.name,
-      path: full,
+      path: toRel(full),
       type: "other",
       size: 0,
     };
@@ -214,7 +207,7 @@ async function scanFromFs(
   }
   entries.sort((a, b) => b.size - a.size);
   return {
-    root: target,
+    root: toRel(target),
     ref: null,
     totalSize: entries.reduce((s, e) => s + e.size, 0),
     entries,
@@ -224,16 +217,19 @@ async function scanFromFs(
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
-  const rawPath: string = body.path ?? "";
+  const relPath: string = typeof body.path === "string" ? body.path : "";
   const showHidden: boolean = !!body.showHidden;
   const ref: string | null =
     typeof body.ref === "string" && body.ref.trim() ? body.ref.trim() : null;
 
-  if (!rawPath || typeof rawPath !== "string") {
-    return NextResponse.json({ error: "path is required" }, { status: 400 });
+  // path is relative to the root (BIG_BANG); "" is the root itself.
+  const target = resolveFromRoot(relPath);
+  if (!target) {
+    return NextResponse.json(
+      { error: "path is outside the universe root" },
+      { status: 400 },
+    );
   }
-
-  const target = path.resolve(expandHome(rawPath));
 
   let stat;
   try {

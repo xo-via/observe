@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { hierarchy, pack as d3pack } from "d3-hierarchy";
+import { packSiblings, packEnclose } from "d3-hierarchy";
 
 export type Entry = {
   name: string;
@@ -34,6 +34,35 @@ export type FolderOpenInfo = {
   name: string;
   path: string;
 };
+
+// An active Claude Code session living in the universe (see /api/sessions).
+export type SessionInfo = {
+  id: string;
+  age: number;
+  headless: boolean;
+  state: string;
+};
+
+// A session as it orbits the folder. Persisted across polls by id so its motion
+// is continuous; appears/disappears with the session.
+type Orbit = {
+  id: string;
+  angle: number; // current angular position
+  speed: number; // radians/sec (signed → direction)
+  ring: number; // extra radius beyond the cluster, to separate concurrent orbits
+  headless: boolean;
+  alpha: number;
+  talpha: number;
+  bx: number; // last drawn screen position (for click/hover hit-testing)
+  by: number;
+};
+
+function humanAge(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+  return `${Math.floor(seconds / 86400)}d ${Math.floor((seconds % 86400) / 3600)}h`;
+}
 
 type Particle = {
   key: string;
@@ -72,16 +101,22 @@ const COLORS: Record<ParticleKind, string> = {
   other: "#cbd5e1",
 };
 
-// Folders are always bigger than files. Files get a small floor so even
-// empty/tiny files are visible. Inside each category there is some variation
-// (folders by item count, files by log size) so structure is still readable.
-function packValue(e: Entry): number {
-  if (e.type === "directory") {
-    const items = e.itemCount ?? 1;
-    return 420 + Math.min(items, 500) * 2;
-  }
-  const sizeKb = Math.max(1, e.size / 1024);
-  return 28 + Math.log2(sizeKb + 1) * 7;
+// Sessions are minds, not matter — a warm light against the cool particles. A
+// headless `claude -p` task glows a cooler cyan; an interactive session, gold.
+const SESSION_COLOR = { interactive: "#ffd479", headless: "#7ef9ff" };
+
+// Particle size is ABSOLUTE and proportional to size on disk: a particle's
+// AREA is its byte size times AREA_PER_KB (square pixels of area per kilobyte),
+// so a 100 KB entry draws with 100× the area of a 1 KB entry. We scale area —
+// not radius — because area is what the eye reads as "how big". Tune the scale
+// by changing AREA_PER_KB; this is the "x" in "1 KB = x".
+const AREA_PER_KB = 64;
+const MIN_RADIUS = 2.5; // floor so empty/tiny entries stay visible and clickable
+
+function radiusForSize(bytes: number): number {
+  const kb = Math.max(0, bytes) / 1024;
+  const area = kb * AREA_PER_KB;
+  return Math.max(MIN_RADIUS, Math.sqrt(area / Math.PI));
 }
 
 function classify(name: string, type: Entry["type"]): ParticleKind {
@@ -90,6 +125,19 @@ function classify(name: string, type: Entry["type"]): ParticleKind {
   if (ext === "html" || ext === "htm") return "html";
   if (ext === "md" || ext === "mdx" || ext === "markdown") return "md";
   return "other";
+}
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, r: number,
+): void {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -116,6 +164,7 @@ const ZOOM_TRIGGER_SCALE = 5.5; // fire onFolderOpen when scale crosses this
 
 export function Universe({
   entries,
+  sessions = [],
   width,
   height,
   onHover,
@@ -123,6 +172,7 @@ export function Universe({
   onFolderOpen,
 }: {
   entries: Entry[];
+  sessions?: SessionInfo[];
   width: number;
   height: number;
   onHover: (info: HoverInfo) => void;
@@ -135,6 +185,14 @@ export function Universe({
   const dimsRef = useRef({ width, height });
   dimsRef.current = { width, height };
   const [hoverIsClickable, setHoverIsClickable] = useState(false);
+
+  // The folder cluster (world center + radius), updated each layout, so orbits
+  // know what to revolve around. Orbits, keyed by session id for continuity.
+  const clusterRef = useRef({ cx: width / 2, cy: height / 2, radius: Math.min(width, height) * 0.18 });
+  const orbitsRef = useRef<Map<string, Orbit>>(new Map());
+  // Latest status per session (for the click-to-show label), and which is selected.
+  const sessionInfoRef = useRef<Map<string, SessionInfo>>(new Map());
+  const selectedSessionRef = useRef<string | null>(null);
 
   // Camera: world coords. Default = center of stage at scale 1.
   const cameraRef = useRef({
@@ -186,29 +244,39 @@ export function Universe({
 
     if (entries.length === 0) {
       for (const p of particles.values()) p.talpha = 0;
+      clusterRef.current = {
+        cx: width / 2,
+        cy: height / 2,
+        radius: Math.min(width, height) * 0.18,
+      };
       return;
     }
 
-    const root = hierarchy<{
-      name: string;
-      value?: number;
-      _e?: Entry;
-      children?: any[];
-    }>({
-      name: "root",
-      children: entries.map((e) => ({
-        name: e.name,
-        value: packValue(e),
-        _e: e,
-      })),
-    }).sum((d: any) => d.value ?? 0);
-
-    const layoutSize = Math.min(width, height) * 0.86;
-    d3pack<any>().size([layoutSize, layoutSize]).padding(6)(root);
+    // Give every entry an absolute radius from its byte size, then let
+    // packSiblings position the circles WITHOUT rescaling them (unlike d3.pack,
+    // which normalizes radii to fit a box and so destroys the absolute scale).
+    const circles = entries.map((e) => ({
+      _e: e,
+      r: radiusForSize(e.size),
+      x: 0,
+      y: 0,
+    }));
+    packSiblings(circles);
+    const enc = circles.length
+      ? packEnclose(circles)
+      : { x: 0, y: 0, r: 1 };
 
     const cx = width / 2;
     const cy = height / 2;
-    const off = layoutSize / 2;
+
+    // The scale stays absolute (fit = 1) until the whole cluster would spill out
+    // of the viewport; only then do we shrink uniformly, which preserves every
+    // size ratio (100 KB is still 100× the area of 1 KB).
+    const layoutSize = Math.min(width, height) * 0.92;
+    const fit = enc.r * 2 > layoutSize ? layoutSize / (enc.r * 2) : 1;
+
+    // Record what the sessions orbit around: the cluster's center and radius.
+    clusterRef.current = { cx, cy, radius: Math.max(40, enc.r * fit) };
 
     // When new entries arrive, spawn new particles at the current camera
     // position (so they appear "inside" the folder we zoomed into) and
@@ -222,8 +290,8 @@ export function Universe({
     zoomingRef.current = null;
 
     const seen = new Set<string>();
-    for (const leaf of root.leaves()) {
-      const e = (leaf.data as any)._e as Entry;
+    for (const c of circles) {
+      const e = c._e;
       const key = e.name;
       seen.add(key);
       const kind = classify(e.name, e.type);
@@ -231,9 +299,9 @@ export function Universe({
       const clickable =
         kind === "html" || kind === "md" || kind === "folder";
 
-      const tx = (leaf as any).x - off + cx;
-      const ty = (leaf as any).y - off + cy;
-      const tr = Math.max(2.5, (leaf as any).r);
+      const tx = (c.x - enc.x) * fit + cx;
+      const ty = (c.y - enc.y) * fit + cy;
+      const tr = Math.max(MIN_RADIUS, c.r * fit);
 
       let p = particles.get(key);
       if (!p) {
@@ -277,6 +345,41 @@ export function Universe({
       if (!seen.has(k)) p.talpha = 0;
     }
   }, [layoutKey, entries, width, height]);
+
+  // Reconcile orbits with the set of active sessions: add new ones (fading in
+  // from a spread-out angle), keep existing ones moving, fade out the departed.
+  useEffect(() => {
+    const orbits = orbitsRef.current;
+    const info = sessionInfoRef.current;
+    info.clear();
+    const live = new Set(sessions.map((s) => s.id));
+    sessions.forEach((s, i) => {
+      info.set(s.id, s);
+      const existing = orbits.get(s.id);
+      if (existing) {
+        existing.talpha = 1;
+        existing.headless = s.headless;
+      } else {
+        orbits.set(s.id, {
+          id: s.id,
+          angle: (i / Math.max(1, sessions.length)) * Math.PI * 2 + Math.random() * 0.6,
+          // direction & pace vary a little per session so they don't lockstep
+          speed: (0.18 + Math.random() * 0.12) * (i % 2 === 0 ? 1 : -1),
+          ring: 16 + (i % 3) * 22,
+          headless: s.headless,
+          alpha: 0,
+          talpha: 1,
+          bx: 0,
+          by: 0,
+        });
+      }
+    });
+    for (const [id, o] of orbits) if (!live.has(id)) o.talpha = 0;
+    // If the selected session has ended, drop the label.
+    if (selectedSessionRef.current && !live.has(selectedSessionRef.current)) {
+      selectedSessionRef.current = null;
+    }
+  }, [sessions]);
 
   // Reset camera anchor if canvas size changes and nothing else is going on
   useEffect(() => {
@@ -408,7 +511,138 @@ export function Universe({
         ctx.fill();
         ctx.globalAlpha = 1;
       }
+      // Sessions: minds revolving around the folder.
+      const cluster = clusterRef.current;
+      const ccx = (cluster.cx - cam.x) * cam.scale + w / 2;
+      const ccy = (cluster.cy - cam.y) * cam.scale + h / 2;
+      const orbitDelete: string[] = [];
+      for (const [id, o] of orbitsRef.current) {
+        const oLerp = 1 - Math.pow(0.02, dt);
+        o.alpha += (o.talpha - o.alpha) * oLerp;
+        o.angle += o.speed * dt;
+        if (o.alpha < 0.004 && o.talpha < 0.004) {
+          orbitDelete.push(id);
+          continue;
+        }
+
+        const rgb = hexToRgb(
+          o.headless ? SESSION_COLOR.headless : SESSION_COLOR.interactive,
+        );
+        const orad = (cluster.radius * 1.35 + o.ring) * cam.scale;
+        const dir = o.speed >= 0 ? 1 : -1;
+
+        // faint orbit ring — the path it revolves on
+        ctx.globalAlpha = 0.05 * o.alpha;
+        ctx.strokeStyle = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(ccx, ccy, orad, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // comet tail trailing behind the direction of travel
+        for (let k = 6; k >= 1; k--) {
+          const ang = o.angle - dir * k * 0.09;
+          ctx.globalAlpha = Math.max(0, o.alpha * (1 - k / 7) * 0.45);
+          ctx.fillStyle = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+          ctx.beginPath();
+          ctx.arc(
+            ccx + Math.cos(ang) * orad,
+            ccy + Math.sin(ang) * orad,
+            Math.max(0.5, 3.4 - k * 0.4),
+            0,
+            Math.PI * 2,
+          );
+          ctx.fill();
+        }
+
+        // the body: glow + bright core
+        const bx = ccx + Math.cos(o.angle) * orad;
+        const by = ccy + Math.sin(o.angle) * orad;
+        o.bx = bx;
+        o.by = by;
+        if (selectedSessionRef.current === id) {
+          ctx.globalAlpha = 0.9 * o.alpha;
+          ctx.strokeStyle = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(bx, by, 9, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        const glow = ctx.createRadialGradient(bx, by, 0, bx, by, 16);
+        glow.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},${0.9 * o.alpha})`);
+        glow.addColorStop(0.4, `rgba(${rgb.r},${rgb.g},${rgb.b},${0.3 * o.alpha})`);
+        glow.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0)`);
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(bx, by, 16, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = o.alpha;
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(bx, by, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (o.alpha > 0.5) {
+          ctx.globalAlpha = 0.55 * o.alpha;
+          ctx.fillStyle = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+          ctx.font = "10px ui-monospace, monospace";
+          ctx.fillText(id.slice(-4), bx + 9, by - 7);
+        }
+        ctx.globalAlpha = 1;
+      }
+      for (const id of orbitDelete) orbitsRef.current.delete(id);
+
       ctx.globalCompositeOperation = "source-over";
+
+      // Status label for the clicked session — follows its orbiting body.
+      const selId = selectedSessionRef.current;
+      if (selId) {
+        const o = orbitsRef.current.get(selId);
+        const info = sessionInfoRef.current.get(selId);
+        if (o && info && o.alpha > 0.2) {
+          const rgb = hexToRgb(
+            info.headless ? SESSION_COLOR.headless : SESSION_COLOR.interactive,
+          );
+          const lines = [
+            `claude ${info.headless ? "task" : "session"}`,
+            `pid ${selId}`,
+            `${info.state} · up ${humanAge(info.age)}`,
+          ];
+          ctx.font = "11px ui-monospace, monospace";
+          const tw = Math.max(...lines.map((l) => ctx.measureText(l).width));
+          const padX = 10, lh = 15;
+          const boxW = tw + padX * 2;
+          const boxH = lines.length * lh + 11;
+          let lx = o.bx + 16;
+          let ly = o.by + 16;
+          if (lx + boxW > w) lx = o.bx - boxW - 16;
+          if (ly + boxH > h) ly = o.by - boxH - 16;
+
+          // connector
+          ctx.strokeStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.5)`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(o.bx, o.by);
+          ctx.lineTo(lx, ly + 10);
+          ctx.stroke();
+          // panel
+          roundRect(ctx, lx, ly, boxW, boxH, 7);
+          ctx.fillStyle = "rgba(8,9,16,0.92)";
+          ctx.fill();
+          ctx.strokeStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.55)`;
+          ctx.stroke();
+          // text
+          lines.forEach((l, i) => {
+            ctx.fillStyle =
+              i === 0
+                ? `rgb(${rgb.r},${rgb.g},${rgb.b})`
+                : i === 1
+                  ? "rgba(255,255,255,0.78)"
+                  : "rgba(255,255,255,0.55)";
+            ctx.fillText(l, lx + padX, ly + 15 + lh * i);
+          });
+        }
+      }
 
       for (const k of toDelete) particlesRef.current.delete(k);
       raf = requestAnimationFrame(tick);
@@ -447,14 +681,30 @@ export function Universe({
     return best;
   }
 
+  // Orbiting sessions are hit-tested in screen space (their last drawn position).
+  function pickSession(mx: number, my: number): Orbit | null {
+    let best: Orbit | null = null;
+    let bestD = Infinity;
+    for (const o of orbitsRef.current.values()) {
+      if (o.alpha < 0.3) continue;
+      const d = (o.bx - mx) ** 2 + (o.by - my) ** 2;
+      if (d < 16 * 16 && d < bestD) {
+        best = o;
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
   function handleMove(e: React.MouseEvent<HTMLDivElement>) {
     if (zoomingRef.current) return; // freeze hover while zooming
     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
+    const sess = pickSession(mx, my);
     const hit = pickAt(mx, my, false);
-    setHoverIsClickable(!!hit && hit.clickable);
-    if (hit) {
+    setHoverIsClickable(!!sess || (!!hit && hit.clickable));
+    if (hit && !sess) {
       onHover({
         name: hit.name,
         path: hit.path,
@@ -475,6 +725,17 @@ export function Universe({
     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
+
+    // A session takes priority: clicking one toggles its status label.
+    const sess = pickSession(mx, my);
+    if (sess) {
+      selectedSessionRef.current =
+        selectedSessionRef.current === sess.id ? null : sess.id;
+      return;
+    }
+    // Clicking anywhere else dismisses the label.
+    selectedSessionRef.current = null;
+
     const hit = pickAt(mx, my, true);
     if (!hit) return;
 
