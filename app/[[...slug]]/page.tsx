@@ -719,12 +719,53 @@ export default function Page() {
         </div>
       )}
 
-      {/* Evolution view: footer summary + hover tooltip */}
+      {/* Evolution view: a scrubbable timeline + trace controls. The Timeline
+          component is reused from folder view; we feed it the evolution commits
+          and let the trace tail drive its selection so the dot on the timeline
+          always matches the bright column on the streamgraph above. */}
       {view === "evolution" && (
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 px-4 py-2 rounded-full bg-black/40 border border-white/10 backdrop-blur-md text-[11px] font-mono text-white/40">
-          {evolutionData
-            ? `${evolutionData.commits.length} ticks · ${evolutionData.lanes.length} lanes · the universe through time`
-            : "rewinding the universe…"}
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 w-[min(900px,94vw)] px-4 py-3 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md">
+          {evolutionData ? (
+            <>
+              <Timeline
+                commits={evolutionData.commits}
+                isGit={true}
+                selected={evolutionSelectedSha}
+                onSelect={(sha) => pushTrace(sha)}
+              />
+              <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between gap-3">
+                <span className="text-[10px] text-white/40 font-mono truncate">
+                  {traceSHAs.length === 0
+                    ? `${evolutionData.commits.length} ticks · click a moment to start tracing`
+                    : `trace: ${traceSHAs.length} step${traceSHAs.length === 1 ? "" : "s"} · synced to ?timetraveltrace`}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={undoTrace}
+                    disabled={traceSHAs.length === 0}
+                    className="px-3 py-1.5 text-xs font-mono rounded-full bg-black/40 hover:bg-white/10 text-white/70 border border-white/15 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="drop the most recent step from the trace"
+                  >
+                    ↶ undo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearTrace}
+                    disabled={traceSHAs.length === 0}
+                    className="px-3 py-1.5 text-xs font-mono rounded-full bg-black/40 hover:bg-white/10 text-white/70 border border-white/15 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="erase the whole trace and clear the query param"
+                  >
+                    ✕ clear
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center text-[11px] font-mono text-white/40 py-2">
+              rewinding the universe…
+            </div>
+          )}
         </div>
       )}
       {view === "evolution" && evolutionHover && (
