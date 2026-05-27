@@ -46,6 +46,19 @@ function relFromUrl(): string {
     .replace(/\/+$/, "");
 }
 
+// Read ?timetraveltrace=sha1,sha2,... into an ordered list. SHAs are lowercased
+// and de-junked (only [0-9a-f]); empty entries are dropped, but we keep the
+// order and any duplicates the user chose (revisits are valid moves).
+function readTraceFromUrl(): string[] {
+  if (typeof window === "undefined") return [];
+  const raw = new URLSearchParams(window.location.search).get("timetraveltrace");
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => s.length > 0 && /^[0-9a-f]+$/.test(s));
+}
+
 export default function Page() {
   // activePath: relative-from-root path. null only before the first URL read.
   const [pathInput, setPathInput] = useState<string>("");
@@ -75,6 +88,10 @@ export default function Page() {
   const [galaxyHover, setGalaxyHover] = useState<GalaxyHover>(null);
   const [evolutionData, setEvolutionData] = useState<{ commits: EvolutionCommit[]; lanes: string[] } | null>(null);
   const [evolutionHover, setEvolutionHover] = useState<EvolutionHover>(null);
+  // A trace through time: an ordered list of commit SHAs the user has visited
+  // in this view. The last entry is the "current" moment. Persists in the URL
+  // as ?timetraveltrace=sha1,sha2,... so a trace can be shared or replayed.
+  const [traceSHAs, setTraceSHAs] = useState<string[]>([]);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const [stage, setStage] = useState<{ w: number; h: number }>({
@@ -162,11 +179,35 @@ export default function Page() {
   // Start from whatever the URL says, and follow browser back/forward.
   useEffect(() => {
     navigate(relFromUrl(), false);
-    const onPop = () => navigate(relFromUrl(), false);
+    const onPop = () => {
+      navigate(relFromUrl(), false);
+      setTraceSHAs(readTraceFromUrl());
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Hydrate the time-travel trace from the URL on first mount, then mirror any
+  // future changes back into the URL via replaceState (so the trace doesn't
+  // pollute browser history with a new entry per click).
+  useEffect(() => {
+    setTraceSHAs(readTraceFromUrl());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (traceSHAs.length === 0) {
+      url.searchParams.delete("timetraveltrace");
+    } else {
+      url.searchParams.set("timetraveltrace", traceSHAs.join(","));
+    }
+    const next = url.pathname + (url.search ? url.search : "") + url.hash;
+    const cur = window.location.pathname + window.location.search + window.location.hash;
+    if (next !== cur) window.history.replaceState({}, "", next);
+  }, [traceSHAs]);
 
   // Scan whenever the folder, the scrubbed commit, or hidden-toggle changes.
   useEffect(() => {
@@ -320,6 +361,27 @@ export default function Page() {
     };
   }, [view, evolutionData]);
 
+  // Clicking a tick in either the streamgraph or the timeline below it appends
+  // the commit to the trace. Repeating the same sha collapses (no-op) so the
+  // visualization doesn't accumulate redundant overlapping dots; a true revisit
+  // requires clicking a different commit first.
+  const pushTrace = useCallback((sha: string | null) => {
+    if (!sha) return;
+    setTraceSHAs((prev) => {
+      if (prev[prev.length - 1] === sha) return prev;
+      return [...prev, sha];
+    });
+  }, []);
+
+  const clearTrace = useCallback(() => setTraceSHAs([]), []);
+  const undoTrace = useCallback(
+    () => setTraceSHAs((prev) => (prev.length === 0 ? prev : prev.slice(0, -1))),
+    [],
+  );
+
+  // The "you are here" commit on the evolution view = the tail of the trace.
+  const evolutionSelectedSha = traceSHAs.length > 0 ? traceSHAs[traceSHAs.length - 1] : null;
+
   const entries = data?.entries ?? [];
 
   const onSelectFile = useCallback((info: ClickInfo) => {
@@ -370,7 +432,10 @@ export default function Page() {
             lanes={evolutionData.lanes}
             width={stage.w}
             height={stage.h}
+            selectedSha={evolutionSelectedSha}
+            traceSHAs={traceSHAs}
             onHover={setEvolutionHover}
+            onPickCommit={(c) => pushTrace(c.sha)}
           />
         )}
       </div>
